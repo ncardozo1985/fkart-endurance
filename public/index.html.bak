@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FKART Endurance Monitor v3.0</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--acc:#F7C600;--acc2:#CC2200;--bg:#0c0d0f;--card:#13151a;--txt:#e8eaf0;--mut:#7a8099;--border:#1e2130;--green:#66bb6a;--blue:#4fc3f7;--red:#ef5350}
+body{background:var(--bg);color:var(--txt);font-family:'Segoe UI',Arial,sans-serif;font-size:13px;min-height:100vh;display:flex;flex-direction:column}
+.topbar{background:linear-gradient(135deg,#0a0b0e,#111318);border-bottom:2px solid var(--acc2);padding:8px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.logo-text{font-style:italic;font-weight:900;font-size:24px;letter-spacing:1px;line-height:1;cursor:pointer}
+.logo-f{color:#999}.logo-kart{background:linear-gradient(90deg,#CC2200,#FF6600);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.logo-sub{font-size:9px;color:#666;letter-spacing:3px;text-transform:uppercase;margin-top:2px}
+.infobar{display:flex;gap:10px;align-items:center;flex:1;flex-wrap:wrap}
+.info-badge{background:rgba(247,198,0,0.1);border:1px solid rgba(247,198,0,0.3);border-radius:6px;padding:4px 10px;font-size:11px;white-space:nowrap}
+.info-badge span{color:var(--acc);font-weight:700}
+.info-badge.red-badge{border-color:rgba(239,83,80,0.5);background:rgba(239,83,80,0.1)}
+.info-badge.red-badge span{color:var(--red)}
+.info-badge.orange-badge{border-color:rgba(255,167,38,0.4);background:rgba(255,167,38,0.08)}
+.info-badge.orange-badge span{color:#ffa726}
+.wx-bar{font-size:11px;color:var(--mut);margin-left:auto;white-space:nowrap}
+.tabs{display:flex;background:#0a0b0e;border-bottom:1px solid var(--border);overflow-x:auto;flex-shrink:0}
+.tabs::-webkit-scrollbar{height:3px}.tabs::-webkit-scrollbar-thumb{background:var(--acc2)}
+.tab{padding:10px 14px;cursor:pointer;border-bottom:2px solid transparent;color:var(--mut);font-size:12px;white-space:nowrap;transition:all .2s;user-select:none}
+.tab:hover{color:var(--txt);background:rgba(255,255,255,0.04)}
+.tab.on{color:var(--acc);border-bottom-color:var(--acc);background:rgba(247,198,0,0.06)}
+.content{flex:1;overflow:auto;padding:12px}
+.pane{display:none}.pane.on{display:block}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px}
+h3{color:var(--acc);font-size:13px;margin-bottom:10px;text-transform:uppercase;letter-spacing:1px}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;color:var(--mut);font-size:10px;text-transform:uppercase;padding:6px 8px;border-bottom:1px solid var(--border)}
+td{padding:7px 8px;border-bottom:1px solid rgba(30,33,48,0.5);font-size:12px;vertical-align:middle}
+tr.my-kart td{background:rgba(247,198,0,0.07);color:var(--acc)}
+tr.my-kart td:first-child{border-left:3px solid var(--acc)}
+tr:hover td{background:rgba(255,255,255,0.02)}
+.pos-badge{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:4px;font-weight:700;font-size:11px;background:rgba(255,255,255,0.05)}
+.pos-badge.p1{background:linear-gradient(135deg,#FFD700,#FFA000);color:#000}
+.pos-badge.p2{background:linear-gradient(135deg,#C0C0C0,#888);color:#000}
+.pos-badge.p3{background:linear-gradient(135deg,#CD7F32,#8B4513);color:#fff}
+.kart-num{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;font-weight:900;font-size:13px;border:2px solid var(--border);color:var(--txt)}
+.kart-num.my{background:var(--acc);color:#000;border-color:var(--acc);box-shadow:0 0 12px rgba(247,198,0,0.4)}
+.gap-badge{font-size:10px;color:var(--mut)}
+.comp-bar-wrap{background:#1a1d26;border-radius:4px;height:20px;overflow:hidden;margin:2px 0}
+.comp-bar{height:100%;display:flex;align-items:center;padding:0 6px;font-size:10px;font-weight:700;transition:width .6s ease}
+.tr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px}
+.tr-card{background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden;cursor:pointer;transition:all .2s}
+.tr-card:hover{border-color:var(--acc);transform:translateY(-2px);box-shadow:0 4px 16px rgba(247,198,0,0.15)}
+.tr-thumb{width:100%;height:95px;object-fit:cover;background:#1a1d26}
+.tr-info{padding:8px}
+.tr-num{font-weight:900;font-size:16px;color:var(--acc)}
+.tr-dist{color:var(--mut);font-size:11px}
+.tr-dif{display:inline-block;font-size:10px;padding:2px 6px;border-radius:3px;margin-top:4px;font-weight:700}
+.dif-iniciante,.dif-facil{background:rgba(102,187,106,0.15);color:#66bb6a}
+.dif-medio{background:rgba(79,195,247,0.15);color:#4fc3f7}
+.dif-dificil{background:rgba(255,167,38,0.15);color:#ffa726}
+.dif-expert{background:rgba(239,83,80,0.15);color:#ef5350}
+.tr-filters{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.tr-filters button{padding:5px 12px;border:1px solid var(--border);background:var(--card);color:var(--mut);border-radius:4px;cursor:pointer;font-size:11px;transition:all .15s}
+.tr-filters button.on{border-color:var(--acc);color:var(--acc);background:rgba(247,198,0,0.08)}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:200;align-items:center;justify-content:center}
+.overlay.show{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;max-width:640px;width:92%;max-height:92vh;overflow-y:auto;position:relative}
+.modal img{width:100%;border-radius:8px;margin-bottom:12px}
+.modal-close{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer}
+.mapa-stats{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.stat-box{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:8px 14px;text-align:center;flex:1;min-width:80px}
+.stat-box .val{font-size:18px;font-weight:700;color:var(--acc);line-height:1}
+.stat-box .lbl{font-size:10px;color:var(--mut);text-transform:uppercase;margin-top:3px}
+.cfg-panel{background:rgba(247,198,0,0.04);border:1px solid rgba(247,198,0,0.2);border-radius:10px;padding:16px;margin-bottom:12px}
+.cfg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:14px}
+.cfg-field{display:flex;flex-direction:column;gap:4px}
+.cfg-field label{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:1px}
+.cfg-field input,.cfg-field select{background:#0c0d0f;border:1px solid var(--border);color:var(--txt);padding:7px 10px;border-radius:5px;font-size:13px;outline:none}
+.cfg-field input:focus,.cfg-field select:focus{border-color:var(--acc)}
+.cfg-field input::placeholder{color:var(--mut)}
+.kart-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;min-height:32px}
+.kart-tag{background:var(--acc);color:#000;border-radius:4px;padding:3px 8px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:4px}
+.kart-tag button{background:none;border:none;color:#333;cursor:pointer;font-size:15px;line-height:1;padding:0}
+.kart-input-row{display:flex;gap:6px;margin-top:6px}
+.kart-input-row input{flex:1;background:#0c0d0f;border:1px solid var(--border);color:var(--txt);padding:7px 10px;border-radius:5px;font-size:13px;outline:none}
+.kart-input-row input:focus{border-color:var(--acc)}
+.kart-input-row button{background:var(--acc);color:#000;border:none;border-radius:5px;padding:7px 14px;font-weight:700;cursor:pointer;font-size:12px}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.btn-primary{background:var(--acc);color:#000;border:none;border-radius:6px;padding:9px 20px;font-weight:700;cursor:pointer;font-size:13px}
+.btn-secondary{background:transparent;color:var(--mut);border:1px solid var(--border);border-radius:6px;padding:9px 20px;cursor:pointer;font-size:13px}
+.btn-secondary:hover{border-color:var(--acc);color:var(--acc)}
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:middle}
+.status-live{background:#ef5350;animation:blink 1.2s infinite}
+.status-demo{background:#ffa726}
+.status-off{background:var(--mut)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.25}}
+.ph{display:flex;align-items:center;justify-content:center;height:150px;color:var(--mut);font-size:14px;border:1px dashed var(--border);border-radius:8px;flex-direction:column;gap:6px}
+.ph small{font-size:11px;color:#2a2d38}
+canvas{border-radius:8px;max-width:100%;display:block}
+footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px solid #111;letter-spacing:2px}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+<div class="topbar">
+<div onclick="FK.tab('config')" title="Configurar corrida">
+<div class="logo-text"><span class="logo-f">F</span><span class="logo-kart">KART</span></div>
+<div class="logo-sub">Force Kart Racing</div>
+</div>
+<div class="infobar">
+<div class="info-badge red-badge"><span class="status-dot status-live" id="src-dot"></span><span id="src-label">DEMO</span></div>
+<div class="info-badge">Corrida: <span id="race-name">KGV Endurance</span></div>
+<div class="info-badge">Decorrido: <span id="elapsed">00:00:00</span></div>
+<div class="info-badge">Restante: <span id="remaining">--:--:--</span></div>
+<div class="info-badge">Flag: <span id="flag-status">-</span></div>
+<div class="info-badge">Lider: <span id="leader-info">-</span></div>
+<div class="wx-bar" id="wxbar">KGV - Granja Viana</div>
+</div>
+</div>
+<div class="tabs" id="tabs">
+<div class="tab on" data-tab="ranking">&#127937; Ranking</div>
+<div class="tab" data-tab="comp">&#128200; Comparativo</div>
+<div class="tab" data-tab="crono">&#9201; Crono</div>
+<div class="tab" data-tab="mapa">&#128506; Mapa</div>
+<div class="tab" data-tab="tracados">&#128194; Tracados</div>
+<div class="tab" data-tab="pilotos">&#128100; Pilotos</div>
+<div class="tab" data-tab="config">&#9881; Config</div>
+</div>
+<div class="content">
+<div class="pane on" id="pane-ranking">
+<div class="card"><h3>&#127937; Classificacao Geral</h3>
+<table><thead><tr><th>Pos</th><th>Kart</th><th>Piloto</th><th>Cat</th><th>Voltas</th><th>Melhor</th><th>Ultima</th><th>Gap</th><th>Diff</th></tr></thead>
+<tbody id="placar-body"></tbody></table></div></div>
+<div class="pane" id="pane-comp">
+<div class="card"><h3>&#128200; Comparativo de Performance</h3><div id="comp-body"></div></div></div>
+<div class="pane" id="pane-crono">
+<div class="card"><h3>&#9201; Cronometro - Meus Karts</h3><div id="crono-body"><div class="ph">&#9201;<br><small>Aguardando dados ao vivo...</small></div></div></div></div>
+<div class="pane" id="pane-mapa">
+<div class="card"><h3>&#128506; Mapa Virtual - Tracado 101</h3>
+<canvas id="mapa-canvas" width="800" height="500"></canvas>
+<div class="mapa-stats">
+<div class="stat-box"><div class="val">1015m</div><div class="lbl">Distancia</div></div>
+<div class="stat-box"><div class="val">~43s</div><div class="lbl">Por volta</div></div>
+<div class="stat-box"><div class="val">~83</div><div class="lbl">Voltas/h</div></div>
+<div class="stat-box"><div class="val">INICIANTE</div><div class="lbl">Dificuldade</div></div>
+</div></div></div>
+<div class="pane" id="pane-tracados">
+<div class="card"><h3>&#128194; Tracados KGV - Granja Viana</h3>
+<div class="tr-filters">
+<button class="on" onclick="FK.filterTr(this,'all')">Todos (31)</button>
+<button onclick="FK.filterTr(this,'INICIANTE')">Iniciante</button>
+<button onclick="FK.filterTr(this,'FACIL')">Facil</button>
+<button onclick="FK.filterTr(this,'MEDIO')">Medio</button>
+<button onclick="FK.filterTr(this,'DIFICIL')">Dificil</button>
+<button onclick="FK.filterTr(this,'EXPERT')">Expert</button>
+<button onclick="FK.filterTr(this,'suspenso')">Suspenso</button>
+</div>
+<div class="tr-grid" id="tr-grid"></div></div></div>
+<div class="pane" id="pane-pilotos">
+<div class="card"><h3>&#128100; Pilotos FKART</h3><div id="pilotos-body"></div></div></div>
+<div class="pane" id="pane-config">
+<div class="cfg-panel">
+<h3>&#9881; Configuracao da Corrida</h3>
+<div class="cfg-grid">
+<div class="cfg-field">
+<label>Nome da Corrida</label>
+<input type="text" id="cfg-race-name" placeholder="Ex: KGV 3h Endurance" value="KGV Endurance">
+</div>
+<div class="cfg-field">
+<label>Race Monitor ID</label>
+<input type="number" id="cfg-race-id" placeholder="Ex: 26021" value="26021">
+</div>
+<div class="cfg-field">
+<label>Duracao Total da Corrida</label>
+<select id="cfg-duration">
+<option value="3600">1 hora</option>
+<option value="5400">1h 30min</option>
+<option value="7200">2 horas</option>
+<option value="9000">2h 30min</option>
+<option value="10800" selected>3 horas</option>
+<option value="14400">4 horas</option>
+<option value="18000">5 horas</option>
+<option value="21600">6 horas</option>
+<option value="28800">8 horas</option>
+<option value="36000">10 horas</option>
+<option value="43200">12 horas</option>
+<option value="57600">16 horas</option>
+<option value="72000">20 horas</option>
+<option value="86400">24 horas</option>
+</select>
+</div>
+<div class="cfg-field">
+<label>API Token Race Monitor</label>
+<input type="password" id="cfg-api-token" placeholder="Cole o token aqui (quando tiver)">
+</div>
+</div>
+<div class="cfg-field">
+<label>Meus Karts nesta Corrida</label>
+<div class="kart-tags" id="kart-tags"></div>
+<div class="kart-input-row">
+<input type="text" id="kart-input" placeholder="Numero do kart (ex: 064)" maxlength="4" oninput="this.value=this.value.toUpperCase()">
+<button onclick="FK.addKart()">+ Adicionar</button>
+</div>
+<small style="color:var(--mut);font-size:11px;margin-top:6px;display:block">Os karts adicionados serao destacados em dourado no ranking. Limpe e reconfigure a cada corrida.</small>
+</div>
+<div class="btn-row">
+<button class="btn-primary" onclick="FK.saveConfig()">&#10003; Salvar e Aplicar</button>
+<button class="btn-secondary" onclick="FK.resetDemo()">&#8635; Carregar Demo</button>
+<button class="btn-secondary" id="btn-live" onclick="FK.startLive()" style="border-color:rgba(102,187,106,0.4);color:#66bb6a">&#9654; Iniciar Ao Vivo</button>
+</div>
+</div>
+<div class="card" id="config-status" style="display:none">
+<h3>Status da Conexao</h3>
+<div id="config-status-body"></div>
+</div>
+</div>
+</div>
+<div id="tr-overlay" class="overlay" onclick="if(event.target===this)FK.closeTr()">
+<div class="modal">
+<button class="modal-close" onclick="FK.closeTr()">&#10005;</button>
+<img id="tr-modal-img" src="" alt="">
+<h3 id="tr-modal-num" style="margin-bottom:8px"></h3>
+<div id="tr-modal-info" style="color:var(--mut);font-size:13px;line-height:1.9"></div>
+</div></div>
+<footer>FORCE KART RACING &middot; SINCE 2004 &middot; TEAM RACE</footer>
+<script>
+var FK={
+/* === CONFIGURACAO DA CORRIDA === */
+cfg:{
+raceName:'KGV Endurance',
+raceId:26021,
+raceTotal:10800,
+apiToken:'',
+myKarts:[],
+source:'demo'
+},
+/* === ESTADO DA CORRIDA === */
+state:{
+elapsed:0,
+isLive:false,
+liveData:null,
+liveInterval:null,
+clockInterval:null,
+mapAnim:null,
+kartT:0,
+mapW:800,mapH:500
+},
+/* === TRAADOS === */
+tr:[
+{n:'101',d:1015,dif:'INICIANTE',st:'ativo',id:'1-F3_03fnAFBHmhaV3JKA2Y41R_a78SNI'},
+{n:'102',d:990,dif:'DIFICIL',st:'ativo',id:'19Lc7SLZjsBSJ0fJ2teYhTf-oJB0JDoHs'},
+{n:'103',d:883,dif:'MEDIO',st:'ativo',id:'1etBHmTjF8R9m3XoNOgvE4CoCEqWFDVFO'},
+{n:'104',d:838,dif:'MEDIO',st:'ativo',id:'1CQQ_tW1RLjaUyjKFPKH67iowDkRrQEYM'},
+{n:'105',d:730,dif:'FACIL',st:'ativo',id:'1T13YhSkt4PqljsSDCm8JUC_i5nlInCx4'},
+{n:'106',d:705,dif:'FACIL',st:'ativo',id:'1jdO7TsqIM_MeV2zD05BU3lr2RSsO54GZ'},
+{n:'107',d:678,dif:'MEDIO',st:'ativo',id:'1EZQ65yA2rMQSUMiF5sc9Z3QbK4aDMGJS'},
+{n:'108',d:770,dif:'MEDIO',st:'ativo',id:'17BQ6ZEu9XVIUMHyh1Xr8hPOf7Mw3A7sX'},
+{n:'111',d:945,dif:'MEDIO',st:'ativo',id:'1vvR9l1DQoBQ-Q2mrqXbc3xJK8cj5opOt'},
+{n:'112',d:920,dif:'DIFICIL',st:'ativo',id:'1vAa2rUhjSnfj-bEjg3rZ7x188vVvVK4k'},
+{n:'113',d:865,dif:'MEDIO',st:'ativo',id:'1lWKl9W5lr_faefpYb_0PVB6qTEx5E2zW'},
+{n:'114',d:975,dif:'DIFICIL',st:'ativo',id:'18TCk_XAzaJd0e9oNvT-91NYvjwnsSZYG'},
+{n:'115',d:1000,dif:'DIFICIL',st:'ativo',id:'1kk8KUNoSl67hTLcXP-CMrez1rPi-AIaQ'},
+{n:'116',d:840,dif:'MEDIO',st:'ativo',id:'18M-T3vUwTURglFb2jJmikK5QHe8_10oq'},
+{n:'119',d:820,dif:'MEDIO',st:'ativo',id:'1IYSJzkU0tWJWFDJ9YNH9LJXgvk2pdmeE'},
+{n:'120',d:795,dif:'MEDIO',st:'ativo',id:'1J2Clo0CXofNTlvJKPGtxuliQx5Vospki'},
+{n:'121',d:800,dif:'FACIL',st:'ativo',id:'1ErXEWT45s-jboAZYHTtmq6vuJYh-LHy6'},
+{n:'122',d:750,dif:'DIFICIL',st:'ativo',id:'1lykN-8WUNupCPGxlqQ8vXh996aH4Bami'},
+{n:'123',d:720,dif:'DIFICIL',st:'ativo',id:'104OHUK1IGbXWKtLOt72Gf-Rx0PVqj2Zi'},
+{n:'124',d:655,dif:'FACIL',st:'ativo',id:'1ebCy2nmkQKoTdzCsqFy6Fr4kHQslO1A3'},
+{n:'125',d:625,dif:'FACIL',st:'ativo',id:'14xgWCCKlqe732TV1zNVdWG8vyammTaaQ'},
+{n:'126',d:710,dif:'MEDIO',st:'ativo',id:'1x7hPmVVNrKA8ffT6hp-URxNXhHNJCOUQ'},
+{n:'127',d:680,dif:'MEDIO',st:'ativo',id:'1l83dhc_53hZaUzyxoGn61lg3IGBQkIlM'},
+{n:'132',d:615,dif:'FACIL',st:'ativo',id:'1djH1V3vXilSFndMyja6oOpUubS5hbTo6'},
+{n:'134',d:625,dif:'FACIL',st:'ativo',id:'1mzcg8QC3VVr_m3DHkkfMnsM1n7gaB0if'},
+{n:'137',d:825,dif:'MEDIO',st:'ativo',id:'1yKnU0bXTwBAbR7NcR4QmlnXoU-tIQztG'},
+{n:'138',d:780,dif:'DIFICIL',st:'ativo',id:'1AHfFKbIEBf-O_d8nhaCz6TR-HnrrSQvM'},
+{n:'139',d:755,dif:'MEDIO',st:'suspenso',id:'1JKAnh60DvkQG-hOwjfdtGWnU_qEZ8cC7'},
+{n:'140',d:590,dif:'FACIL',st:'suspenso',id:'1ftP0JKXYAY1lTyqgRNSesgTeAdlwfwnE'},
+{n:'141',d:660,dif:'EXPERT',st:'ativo',id:'1uPZ0ruXh4dTjomKFiNgaGW_cKk2SBijf'},
+{n:'145',d:950,dif:'DIFICIL',st:'suspenso',id:'1f7_ecT9GE4gj6L7ZG8BH3A0QYS-0zX45'}
+],
+demo_data:[
+{pos:1,kart:'013',t:'PICOLE',cat:'SUPER PRO',laps:52,last:'00:51.800',best:'00:51.491',diff:'+0.000',gap:'+0.000'},
+{pos:2,kart:'027',t:'TROVAO',cat:'SUPER PRO',laps:52,last:'00:51.900',best:'00:51.650',diff:'+0.159',gap:'+0.159'},
+{pos:3,kart:'064',t:'FKART PILOTO A',cat:'SUPER PRO',laps:51,last:'00:52.300',best:'00:52.200',diff:'+0.709',gap:'+1 volta'},
+{pos:4,kart:'088',t:'RELAMPAGO',cat:'ELITE',laps:51,last:'00:52.500',best:'00:52.380',diff:'+0.889',gap:'+1 volta'},
+{pos:5,kart:'045',t:'TUBARAO',cat:'ELITE',laps:50,last:'00:52.600',best:'00:52.500',diff:'+1.009',gap:'+2 voltas'},
+{pos:6,kart:'037',t:'FKART PILOTO B',cat:'ELITE',laps:50,last:'00:52.700',best:'00:52.650',diff:'+1.159',gap:'+2 voltas'},
+{pos:7,kart:'071',t:'AGUIA',cat:'AMADOR',laps:49,last:'00:53.100',best:'00:52.900',diff:'+1.409',gap:'+3 voltas'},
+{pos:8,kart:'002',t:'LEAO',cat:'AMADOR',laps:49,last:'00:53.200',best:'00:53.000',diff:'+1.509',gap:'+3 voltas'},
+{pos:9,kart:'033',t:'TOURO',cat:'AMADOR',laps:48,last:'00:53.500',best:'00:53.300',diff:'+1.809',gap:'+4 voltas'},
+{pos:10,kart:'055',t:'COBRA',cat:'AMADOR',laps:48,last:'00:53.800',best:'00:53.600',diff:'+2.109',gap:'+4 voltas'},
+{pos:11,kart:'019',t:'FALCAO',cat:'AMADOR',laps:47,last:'00:54.000',best:'00:53.800',diff:'+2.309',gap:'+5 voltas'},
+{pos:12,kart:'077',t:'LOBO',cat:'AMADOR',laps:47,last:'00:54.200',best:'00:54.000',diff:'+2.509',gap:'+5 voltas'},
+{pos:13,kart:'099',t:'JOSE NETO',cat:'AMADOR',laps:47,last:'00:54.500',best:'00:54.200',diff:'+2.709',gap:'+5 voltas'}
+],
+isMy:function(k){return FK.cfg.myKarts.indexOf(String(k))>=0;},
+fmtTime:function(sec){
+sec=Math.max(0,Math.floor(sec));
+var h=Math.floor(sec/3600);
+var m=Math.floor((sec%3600)/60);
+var s=sec%60;
+if(h>0) return (h<10?'0'+h:h)+':'+(m<10?'0'+m:m)+':'+(s<10?'0'+s:s);
+return (m<10?'0'+m:m)+':'+(s<10?'0'+s:s);
+},
+tab:function(name){
+document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('on');});
+document.querySelectorAll('.pane').forEach(function(p){p.classList.remove('on');});
+var t=document.querySelector('.tab[data-tab="'+name+'"]');
+var p=document.getElementById('pane-'+name);
+if(t)t.classList.add('on');
+if(p)p.classList.add('on');
+if(name==='mapa')FK.drawMap101();
+if(name==='tracados')FK.rTracados('all');
+if(name==='pilotos')FK.rPilotos();
+if(name==='comp')FK.rComp();
+if(name==='config')FK.renderConfig();
+},
+loadConfig:function(){
+try{
+var s=localStorage.getItem('fkart_cfg');
+if(s){var c=JSON.parse(s);FK.cfg=Object.assign(FK.cfg,c);}
+}catch(e){}
+},
+saveConfig:function(){
+FK.cfg.raceName=document.getElementById('cfg-race-name').value||'Corrida';
+FK.cfg.raceId=parseInt(document.getElementById('cfg-race-id').value)||26021;
+FK.cfg.raceTotal=parseInt(document.getElementById('cfg-duration').value)||10800;
+FK.cfg.apiToken=document.getElementById('cfg-api-token').value||'';
+try{localStorage.setItem('fkart_cfg',JSON.stringify(FK.cfg));}catch(e){}
+FK.updateTopbar();
+FK.rPlacar();
+FK.rComp();
+FK.rPilotos();
+var el=document.getElementById('cfg-race-name');
+if(el)el.style.borderColor='#66bb6a';
+setTimeout(function(){if(el)el.style.borderColor='';},1500);
+alert('Configuracao salva! Karts: '+FK.cfg.myKarts.join(', ')||'nenhum');
+},
+renderConfig:function(){
+var el=document.getElementById('cfg-race-name');if(el)el.value=FK.cfg.raceName;
+var er=document.getElementById('cfg-race-id');if(er)er.value=FK.cfg.raceId;
+var ed=document.getElementById('cfg-duration');if(ed)ed.value=FK.cfg.raceTotal;
+FK.renderKartTags();
+},
+renderKartTags:function(){
+var el=document.getElementById('kart-tags');
+if(!el)return;
+var html='';
+FK.cfg.myKarts.forEach(function(k){
+html+='<span class="kart-tag">'+k+'<button onclick="FK.removeKart(\''+k+'\')" title="Remover">&times;</button></span>';
+});
+if(!html)html='<span style="color:var(--mut);font-size:12px">Nenhum kart adicionado ainda</span>';
+el.innerHTML=html;
+},
+addKart:function(){
+var inp=document.getElementById('kart-input');
+if(!inp)return;
+var k=inp.value.trim().toUpperCase();
+if(!k){return;}
+if(FK.cfg.myKarts.indexOf(k)>=0){inp.value='';return;}
+FK.cfg.myKarts.push(k);
+inp.value='';
+inp.focus();
+FK.renderKartTags();
+},
+removeKart:function(k){
+FK.cfg.myKarts=FK.cfg.myKarts.filter(function(x){return x!==k;});
+FK.renderKartTags();
+},
+resetDemo:function(){
+FK.cfg.myKarts=['064','037'];
+FK.cfg.raceName='KGV Demo 3h';
+FK.cfg.raceTotal=10800;
+FK.state.elapsed=2730;
+FK.cfg.source='demo';
+FK.updateSrcBadge();
+FK.renderConfig();
+FK.rPlacar();
+},
+updateTopbar:function(){
+var rn=document.getElementById('race-name');
+if(rn)rn.textContent=FK.cfg.raceName;
+},
+updateSrcBadge:function(){
+var dot=document.getElementById('src-dot');
+var lbl=document.getElementById('src-label');
+if(!dot||!lbl)return;
+if(FK.cfg.source==='live'){
+dot.className='status-dot status-live';lbl.textContent='AO VIVO';
+}else{
+dot.className='status-dot status-demo';lbl.textContent='DEMO';
+}
+},
+startClock:function(){
+if(FK.state.clockInterval)clearInterval(FK.state.clockInterval);
+FK.state.clockInterval=setInterval(function(){
+if(FK.cfg.source==='demo')FK.state.elapsed++;
+var e=FK.state.elapsed;
+var rem=Math.max(0,FK.cfg.raceTotal-e);
+var elEl=document.getElementById('elapsed');
+var remEl=document.getElementById('remaining');
+if(elEl)elEl.textContent=FK.fmtTime(e);
+if(remEl)remEl.textContent=rem>0?FK.fmtTime(rem):'ENCERRADA';
+},1000);
+},
+rPlacar:function(){
+var data=FK.cfg.source==='live'&&FK.state.liveData?FK.state.liveData:FK.demo_data;
+var html='';
+data.forEach(function(d){
+var my=FK.isMy(d.kart);
+var pc='';
+if(d.pos===1)pc='p1';else if(d.pos===2)pc='p2';else if(d.pos===3)pc='p3';
+var star=my?' &#11088;':'';
+html+='<tr class="'+(my?'my-kart':'')+'">'+
+'<td><span class="pos-badge '+pc+'">'+d.pos+'</span></td>'+
+'<td><span class="kart-num'+(my?' my':'')+'">'+d.kart+'</span></td>'+
+'<td style="font-weight:'+(my?700:400)+'">'+d.t+star+'</td>'+
+'<td class="gap-badge">'+d.cat+'</td>'+
+'<td style="color:var(--acc)">'+d.laps+'</td>'+
+'<td style="color:'+(my?'var(--acc)':'var(--txt)')+'">'+d.best+'</td>'+
+'<td>'+d.last+'</td>'+
+'<td class="gap-badge">'+d.gap+'</td>'+
+'<td class="gap-badge">'+d.diff+'</td>'+
+'</tr>';
+});
+var el=document.getElementById('placar-body');
+if(el)el.innerHTML=html;
+var l=data[0];
+if(l){var li=document.getElementById('leader-info');if(li)li.textContent=l.kart+' - '+l.t+' ('+l.laps+'v)';}
+var fl=document.getElementById('flag-status');
+if(fl)fl.textContent=FK.cfg.source==='live'&&FK.state.flagStatus?FK.state.flagStatus:'Verde';
+},
+rComp:function(){
+var data=(FK.cfg.source==='live'&&FK.state.liveData?FK.state.liveData:FK.demo_data).slice(0,10);
+if(!data.length)return;
+var parseT=function(t){var p=t.replace('00:','').split(':');return p.length===2?parseFloat(p[0])*60+parseFloat(p[1]):parseFloat(p[0]);};
+var best=parseT(data[0].best);
+var html='';
+data.forEach(function(d){
+var my=FK.isMy(d.kart);
+var t=parseT(d.best);
+var pct=Math.min(100,Math.round((best/t)*100));
+var color=my?'#F7C600':'#4fc3f7';
+html+='<div style="margin-bottom:10px">'+
+'<div style="display:flex;justify-content:space-between;margin-bottom:3px">'+
+'<span style="font-weight:'+(my?700:400)+';color:'+(my?'var(--acc)':'var(--txt)')+'">'+
+'#'+d.pos+' '+d.kart+' - '+d.t+(my?' &#11088;':'')+'</span>'+
+'<span class="gap-badge">'+d.best+'</span></div>'+
+'<div class="comp-bar-wrap"><div class="comp-bar" style="width:'+pct+'%;background:'+color+'">'+pct+'%</div></div>'+
+'</div>';
+});
+var el=document.getElementById('comp-body');if(el)el.innerHTML=html;
+},
+startLive:function(){
+if(!FK.cfg.apiToken){
+alert('Configure o API Token primeiro na aba Config!');FK.tab('config');return;
+}
+FK.cfg.source='live';FK.state.elapsed=0;
+FK.updateSrcBadge();FK.fetchLive();
+if(FK.state.liveInterval)clearInterval(FK.state.liveInterval);
+FK.state.liveInterval=setInterval(FK.fetchLive,15000);
+var st=document.getElementById('config-status');
+if(st)st.style.display='block';
+var sb=document.getElementById('config-status-body');
+if(sb)sb.innerHTML='<span style="color:#66bb6a">&#10003; Conectado - atualizando a cada 15s</span>';
+},
+fetchLive:function(){
+var url='https://api.race-monitor.com/v2/Live/GetSession';
+var body='apiToken='+encodeURIComponent(FK.cfg.apiToken)+'&raceID='+FK.cfg.raceId;
+var xhr=new XMLHttpRequest();
+xhr.open('POST',url);
+xhr.setRequestHeader('Content-Type','application/x-www-form-urlencoded');
+xhr.onload=function(){
+try{
+var r=JSON.parse(xhr.responseText);
+if(r.Successful&&r.Session){
+FK.parseSession(r.Session);
+FK.rPlacar();FK.rComp();
+}else{
+console.warn('FKART Live: '+r.Message);
+}
+}catch(e){console.error('FKART parse error:',e);}
+};
+xhr.onerror=function(){console.warn('FKART: falha na requisicao ao vivo');};
+xhr.send(body);
+},
+parseSession:function(s){
+FK.state.flagStatus=s.FlagStatus||'Verde';
+var comps=[];
+var map=s.Competitors||{};
+Object.keys(map).forEach(function(k){
+var c=map[k];
+comps.push({
+pos:parseInt(c.Position)||999,
+kart:c.Number||k,
+t:(c.FirstName||'')+' '+(c.LastName||''),
+cat:(s.Classes&&s.Classes[c.ClassID])?s.Classes[c.ClassID].Description:'',
+laps:parseInt(c.Laps)||0,
+best:c.BestLapTime||'--:--.---',
+last:c.LastLapTime||'--:--.---',
+gap:'',diff:''
+});
+});
+comps.sort(function(a,b){return a.pos-b.pos;});
+if(s.SessionTime){
+var parts=s.SessionTime.split(':');
+if(parts.length>=2){
+var h=parseInt(parts[0])||0;var m=parseInt(parts[1])||0;var sec=parts[2]?parseFloat(parts[2]):0;
+FK.state.elapsed=h*3600+m*60+Math.floor(sec);
+}
+}
+FK.state.liveData=comps;
+},
+rTracados:function(filter){
+if(!filter)filter='all';
+var g=document.getElementById('tr-grid');if(!g)return;
+var html='';
+FK.tr.forEach(function(t){
+var show=filter==='all'||t.st===filter||t.dif===filter;
+if(!show)return;
+var dc='dif-'+t.dif.toLowerCase();
+var th='https://drive.google.com/thumbnail?id='+t.id+'&sz=w400';
+var susp=t.st==='suspenso'?' - SUSPENSO':'';
+html+='<div class="tr-card" onclick="FK.openTr(this.dataset.num)" data-num="'+t.n+'">'+
+'<img class="tr-thumb" src="'+th+'" alt="'+t.n+'" loading="lazy">'+
+'<div class="tr-info"><div class="tr-num">'+t.n+'</div>'+
+'<div class="tr-dist">'+t.d+'m</div>'+
+'<span class="tr-dif '+dc+'">'+t.dif+susp+'</span></div></div>';
+});
+if(!html)html='<p style="color:var(--mut);padding:20px">Nenhum tracado</p>';
+g.innerHTML=html;
+},
+filterTr:function(btn,f){
+document.querySelectorAll('.tr-filters button').forEach(function(b){b.classList.remove('on');});
+btn.classList.add('on');FK.rTracados(f);
+},
+openTr:function(num){
+var t=FK.tr.find(function(x){return x.n===num;});if(!t)return;
+document.getElementById('tr-modal-img').src='https://drive.google.com/thumbnail?id='+t.id+'&sz=w800';
+document.getElementById('tr-modal-num').textContent='Tracado '+t.n;
+var dc='dif-'+t.dif.toLowerCase();
+document.getElementById('tr-modal-info').innerHTML=
+'Distancia: <strong style="color:var(--acc)">'+t.d+'m</strong><br>'+
+'Dificuldade: <span class="tr-dif '+dc+'">'+t.dif+'</span><br>'+
+'Status: '+(t.st==='ativo'?'<span style="color:#66bb6a">&#10003; Ativo</span>':'<span style="color:#ef5350">&#9888; Suspenso</span>')+'<br>'+
+'Tempo estimado: ~'+Math.round(t.d/23.6)+'s por volta';
+document.getElementById('tr-overlay').classList.add('show');
+},
+closeTr:function(){document.getElementById('tr-overlay').classList.remove('show');},
+rPilotos:function(){
+var html='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">';
+if(FK.cfg.myKarts.length===0){
+html+='<p style="color:var(--mut);padding:8px">Nenhum kart configurado. Va em Config para adicionar.</p>';
+}
+FK.cfg.myKarts.forEach(function(k){
+var data=FK.cfg.source==='live'&&FK.state.liveData?FK.state.liveData:FK.demo_data;
+var d=data.find(function(x){return String(x.kart)===k;});
+var pos=d?'P'+d.pos:'--';var best=d?d.best:'--:--.---';var laps=d?d.laps:'--';
+html+='<div class="card" style="border-color:var(--acc)">'+
+'<div style="display:flex;align-items:center;gap:12px">'+
+'<span class="kart-num my">'+k+'</span>'+
+'<div><div style="font-weight:700;color:var(--acc)">Kart '+k+' &#11088;</div>'+
+'<div style="color:var(--mut);font-size:11px">'+pos+' &middot; '+laps+' voltas &middot; Melhor: '+best+'</div></div></div></div>';
+});
+html+='</div>';
+var el=document.getElementById('pilotos-body');if(el)el.innerHTML=html;
+},
+loadWx:function(){
+var url='https://api.open-meteo.com/v1/forecast?latitude=-23.6014&longitude=-46.8575&current=temperature_2m,weathercode,windspeed_10m,winddirection_10m,windgusts_10m,precipitation_probability&timezone=America/Sao_Paulo';
+var xhr=new XMLHttpRequest();xhr.open('GET',url);
+xhr.onload=function(){try{
+var d=JSON.parse(xhr.responseText).current;
+var wc=d.weathercode;
+var icon=wc===0?'Limpo':wc<=2?'Nublado parcial':wc<=3?'Nublado':wc<=67?'Chuva':'Neve';
+var dirs=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+var di=Math.round(d.winddirection_10m/22.5)%16;
+var rain=d.precipitation_probability>=30;
+var wx=document.getElementById('wxbar');
+if(wx)wx.innerHTML='KGV | '+icon+' | '+d.windspeed_10m+'km/h '+dirs[di]+' | <span style="color:var(--acc)">'+d.temperature_2m+'C</span> | <strong style="color:'+(rain?'#4fc3f7':'#66bb6a')+'">'+(rain?'Chuva possivel':'Sem chuva')+'</strong>';
+}catch(e){var wx2=document.getElementById('wxbar');if(wx2)wx2.textContent='KGV - Granja Viana';}};
+xhr.onerror=function(){var wx3=document.getElementById('wxbar');if(wx3)wx3.textContent='KGV - Granja Viana';};
+xhr.send();setInterval(function(){FK.loadWx();},600000);
+},
+_pts:function(){var W=800,H=500;return [[0.12,0.22],[0.18,0.18],[0.28,0.15],[0.40,0.14],[0.52,0.14],[0.62,0.15],[0.72,0.18],[0.80,0.24],[0.84,0.32],[0.82,0.40],[0.76,0.46],[0.68,0.50],[0.60,0.52],[0.54,0.56],[0.52,0.64],[0.54,0.72],[0.60,0.78],[0.68,0.82],[0.76,0.82],[0.82,0.78],[0.86,0.70],[0.84,0.62],[0.78,0.58],[0.70,0.56],[0.62,0.60],[0.56,0.68],[0.50,0.76],[0.42,0.80],[0.32,0.80],[0.22,0.76],[0.14,0.68],[0.10,0.58],[0.10,0.46],[0.12,0.34],[0.12,0.22]].map(function(p){return[p[0]*W,p[1]*H];});},
+drawMap101Static:function(){
+var cv=document.getElementById('mapa-canvas');if(!cv)return;
+var ctx=cv.getContext('2d');var W=FK.state.mapW,H=FK.state.mapH;
+cv.width=W*2;cv.height=H*2;cv.style.width=W+'px';cv.style.height=H+'px';ctx.scale(2,2);
+ctx.fillStyle='#0a0c10';ctx.fillRect(0,0,W,H);
+ctx.fillStyle='rgba(0,40,0,0.3)';ctx.beginPath();ctx.ellipse(W*0.5,H*0.5,W*0.44,H*0.38,0,0,Math.PI*2);ctx.fill();
+var pts=FK._pts();
+var sectors=[{from:0,to:5,color:'#F7C600'},{from:5,to:17,color:'#4fc3f7'},{from:17,to:pts.length-1,color:'#81c784'}];
+sectors.forEach(function(s){ctx.beginPath();ctx.moveTo(pts[s.from][0],pts[s.from][1]);for(var i=s.from+1;i<=s.to&&i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);ctx.strokeStyle=s.color;ctx.lineWidth=7;ctx.lineCap='round';ctx.lineJoin='round';ctx.shadowColor=s.color;ctx.shadowBlur=8;ctx.stroke();ctx.shadowBlur=0;});
+ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);ctx.lineTo(pts[1][0],pts[1][1]);ctx.strokeStyle='#ef5350';ctx.lineWidth=4;ctx.shadowColor='#ef5350';ctx.shadowBlur=10;ctx.stroke();ctx.shadowBlur=0;
+[0,4,8,11,15,20,25,30].forEach(function(ci,i){if(ci>=pts.length)return;ctx.beginPath();ctx.arc(pts[ci][0],pts[ci][1],7,0,Math.PI*2);ctx.fillStyle='rgba(255,255,255,0.12)';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();ctx.font='bold 9px sans-serif';ctx.fillStyle='#fff';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('C'+(i+1),pts[ci][0],pts[ci][1]);});
+ctx.beginPath();ctx.arc(W*0.47,H*0.47,38,0,Math.PI*2);ctx.fillStyle='rgba(13,15,20,0.85)';ctx.fill();ctx.strokeStyle='#2e3348';ctx.lineWidth=1.5;ctx.stroke();ctx.font='bold 18px sans-serif';ctx.fillStyle='#F7C600';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('101',W*0.47,H*0.44);ctx.font='10px sans-serif';ctx.fillStyle='#7a8099';ctx.fillText('1015m',W*0.47,H*0.51);
+[{c:'#F7C600',l:'S1'},{c:'#4fc3f7',l:'S2'},{c:'#81c784',l:'S3'},{c:'#ef5350',l:'S/F'}].forEach(function(item,i){var lx=14,ly=H-62+(i*15);ctx.fillStyle=item.c;ctx.fillRect(lx,ly,15,8);ctx.font='10px sans-serif';ctx.fillStyle='#aaa';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(item.l,lx+19,ly+4);});
+},
+drawMap101:function(){FK.drawMap101Static();if(FK.state.mapAnim)cancelAnimationFrame(FK.state.mapAnim);FK.state.kartT=0;FK.animateKart();},
+animateKart:function(){
+var pts=FK._pts();if(!pts||pts.length<2)return;
+FK.state.kartT+=0.008;if(FK.state.kartT>=pts.length-1)FK.state.kartT=0;
+var seg=Math.floor(FK.state.kartT);var frac=FK.state.kartT-seg;if(seg>=pts.length-1)seg=pts.length-2;
+var x=pts[seg][0]+(pts[seg+1][0]-pts[seg][0])*frac;
+var y=pts[seg][1]+(pts[seg+1][1]-pts[seg][1])*frac;
+FK.drawMap101Static();
+var cv=document.getElementById('mapa-canvas');if(!cv)return;
+var ctx=cv.getContext('2d');ctx.save();ctx.scale(2,2);
+var label=FK.cfg.myKarts[0]||'?';
+ctx.beginPath();ctx.ellipse(x,y,14,10,0,0,Math.PI*2);ctx.fillStyle='#F7C600';ctx.shadowColor='#F7C600';ctx.shadowBlur=14;ctx.fill();ctx.shadowBlur=0;
+ctx.font='bold 8px sans-serif';ctx.fillStyle='#000';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label,x,y);ctx.restore();
+FK.state.mapAnim=requestAnimationFrame(FK.animateKart);
+},
+render:function(){
+FK.loadConfig();FK.cfg.myKarts=FK.cfg.myKarts||[];
+if(FK.cfg.myKarts.length===0)FK.cfg.myKarts=['064','037'];
+FK.state.elapsed=FK.cfg.raceTotal>10800?0:2730;
+FK.updateTopbar();FK.updateSrcBadge();FK.rPlacar();FK.rComp();
+FK.rTracados('all');FK.rPilotos();FK.loadWx();FK.startClock();
+}
+};
+document.querySelectorAll('.tab').forEach(function(t){
+t.addEventListener('click',function(){FK.tab(t.getAttribute('data-tab'));});
+});
+document.getElementById('kart-input').addEventListener('keydown',function(e){if(e.key==='Enter')FK.addKart();});
+document.addEventListener('DOMContentLoaded',function(){FK.render();});
+if(document.readyState!=='loading')FK.render();
+</script>
+</body>
+</html>
