@@ -3,17 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>FKART Endurance Monitor v3.0</title>
+<title>SEMBOX Kart Racing Management</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-:root{--acc:#F7C600;--acc2:#CC2200;--bg:#0c0d0f;--card:#13151a;--txt:#e8eaf0;--mut:#7a8099;--border:#1e2130;--green:#66bb6a;--blue:#4fc3f7;--red:#ef5350}
+:root{--acc:#E2231A;--acc2:#4FA9DC;--navy:#16264A;--cream:#FFFFFF;--bg:#070b14;--card:#0f1830;--txt:#e8eaf0;--mut:#7c86a3;--border:#1c2740;--green:#66bb6a;--blue:#4fc3f7;--red:#ef5350}
 body{background:var(--bg);color:var(--txt);font-family:'Segoe UI',Arial,sans-serif;font-size:13px;min-height:100vh;display:flex;flex-direction:column}
-.topbar{background:linear-gradient(135deg,#0a0b0e,#111318);border-bottom:2px solid var(--acc2);padding:8px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.topbar{background:linear-gradient(135deg,#060a13,#0d1428);border-bottom:2px solid var(--acc2);padding:8px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .logo-text{font-style:italic;font-weight:900;font-size:24px;letter-spacing:1px;line-height:1;cursor:pointer}
-.logo-f{color:#999}.logo-kart{background:linear-gradient(90deg,#CC2200,#FF6600);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.logo-sub{font-size:9px;color:#666;letter-spacing:3px;text-transform:uppercase;margin-top:2px}
+.logo-sembo{color:#fff}
+.logo-x{color:var(--acc);margin-left:1px}
+.logo-stripe{height:3px;width:100%;margin-top:3px;border-radius:2px;transform:skewX(-14deg);background:linear-gradient(90deg,var(--navy),var(--acc2) 38%,#fff 50%,var(--acc) 100%)}
+.logo-sub{font-size:10px;color:var(--acc);font-weight:800;letter-spacing:4px;text-transform:uppercase;margin-top:3px}
 .infobar{display:flex;gap:10px;align-items:center;flex:1;flex-wrap:wrap}
-.info-badge{background:rgba(247,198,0,0.1);border:1px solid rgba(247,198,0,0.3);border-radius:6px;padding:4px 10px;font-size:11px;white-space:nowrap}
+.info-badge{background:rgba(226,35,26,0.1);border:1px solid rgba(226,35,26,0.3);border-radius:6px;padding:4px 10px;font-size:11px;white-space:nowrap}
 .info-badge span{color:var(--acc);font-weight:700}
 .info-badge.red-badge{border-color:rgba(239,83,80,0.5);background:rgba(239,83,80,0.1)}
 .info-badge.red-badge span{color:var(--red)}
@@ -24,15 +26,16 @@ body{background:var(--bg);color:var(--txt);font-family:'Segoe UI',Arial,sans-ser
 .tabs::-webkit-scrollbar{height:3px}.tabs::-webkit-scrollbar-thumb{background:var(--acc2)}
 .tab{padding:10px 14px;cursor:pointer;border-bottom:2px solid transparent;color:var(--mut);font-size:12px;white-space:nowrap;transition:all .2s;user-select:none}
 .tab:hover{color:var(--txt);background:rgba(255,255,255,0.04)}
-.tab.on{color:var(--acc);border-bottom-color:var(--acc);background:rgba(247,198,0,0.06)}
-.content{flex:1;overflow:auto;padding:12px}
+.tab.on{color:var(--acc);border-bottom-color:var(--acc);background:rgba(226,35,26,0.06)}
+.content{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column}
+#pane-dash.on{flex:1;display:flex;flex-direction:column;min-height:0}
 .pane{display:none}.pane.on{display:block}
 .card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px}
 h3{color:var(--acc);font-size:13px;margin-bottom:10px;text-transform:uppercase;letter-spacing:1px}
 table{width:100%;border-collapse:collapse}
 th{text-align:left;color:var(--mut);font-size:10px;text-transform:uppercase;padding:6px 8px;border-bottom:1px solid var(--border)}
 td{padding:7px 8px;border-bottom:1px solid rgba(30,33,48,0.5);font-size:12px;vertical-align:middle}
-tr.my-kart td{background:rgba(247,198,0,0.07);color:var(--acc)}
+tr.my-kart td{background:rgba(226,35,26,0.07);color:var(--acc)}
 tr.my-kart td:first-child{border-left:3px solid var(--acc)}
 tr:hover td{background:rgba(255,255,255,0.02)}
 .pos-badge{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:4px;font-weight:700;font-size:11px;background:rgba(255,255,255,0.05)}
@@ -40,13 +43,15 @@ tr:hover td{background:rgba(255,255,255,0.02)}
 .pos-badge.p2{background:linear-gradient(135deg,#C0C0C0,#888);color:#000}
 .pos-badge.p3{background:linear-gradient(135deg,#CD7F32,#8B4513);color:#fff}
 .kart-num{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;font-weight:900;font-size:13px;border:2px solid var(--border);color:var(--txt)}
-.kart-num.my{background:var(--acc);color:#000;border-color:var(--acc);box-shadow:0 0 12px rgba(247,198,0,0.4)}
+.kart-num.my{background:var(--acc);color:#fff;border-color:var(--acc);box-shadow:0 0 12px rgba(226,35,26,0.4)}
 .gap-badge{font-size:10px;color:var(--mut)}
 .comp-bar-wrap{background:#1a1d26;border-radius:4px;height:20px;overflow:hidden;margin:2px 0}
 .comp-bar{height:100%;display:flex;align-items:center;padding:0 6px;font-size:10px;font-weight:700;transition:width .6s ease}
 .tr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px}
 .tr-card{background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden;cursor:pointer;transition:all .2s}
-.tr-card:hover{border-color:var(--acc);transform:translateY(-2px);box-shadow:0 4px 16px rgba(247,198,0,0.15)}
+.tr-card:hover{border-color:var(--acc);transform:translateY(-2px);box-shadow:0 4px 16px rgba(226,35,26,0.15)}
+.tr-card-active{border-color:var(--acc)!important;box-shadow:0 0 0 2px var(--acc),0 4px 20px rgba(226,35,26,0.25)!important}
+.tr-canvas{width:100%;height:95px;background:#060810;display:block}
 .tr-thumb{width:100%;height:95px;object-fit:cover;background:#1a1d26}
 .tr-info{padding:8px}
 .tr-num{font-weight:900;font-size:16px;color:var(--acc)}
@@ -58,7 +63,7 @@ tr:hover td{background:rgba(255,255,255,0.02)}
 .dif-expert{background:rgba(239,83,80,0.15);color:#ef5350}
 .tr-filters{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
 .tr-filters button{padding:5px 12px;border:1px solid var(--border);background:var(--card);color:var(--mut);border-radius:4px;cursor:pointer;font-size:11px;transition:all .15s}
-.tr-filters button.on{border-color:var(--acc);color:var(--acc);background:rgba(247,198,0,0.08)}
+.tr-filters button.on{border-color:var(--acc);color:var(--acc);background:rgba(226,35,26,0.08)}
 .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:200;align-items:center;justify-content:center}
 .overlay.show{display:flex}
 .modal{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;max-width:640px;width:92%;max-height:92vh;overflow-y:auto;position:relative}
@@ -68,7 +73,7 @@ tr:hover td{background:rgba(255,255,255,0.02)}
 .stat-box{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:8px 14px;text-align:center;flex:1;min-width:80px}
 .stat-box .val{font-size:18px;font-weight:700;color:var(--acc);line-height:1}
 .stat-box .lbl{font-size:10px;color:var(--mut);text-transform:uppercase;margin-top:3px}
-.cfg-panel{background:rgba(247,198,0,0.04);border:1px solid rgba(247,198,0,0.2);border-radius:10px;padding:16px;margin-bottom:12px}
+.cfg-panel{background:rgba(226,35,26,0.04);border:1px solid rgba(226,35,26,0.2);border-radius:10px;padding:16px;margin-bottom:12px}
 .cfg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:14px}
 .cfg-field{display:flex;flex-direction:column;gap:4px}
 .cfg-field label{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:1px}
@@ -76,14 +81,14 @@ tr:hover td{background:rgba(255,255,255,0.02)}
 .cfg-field input:focus,.cfg-field select:focus{border-color:var(--acc)}
 .cfg-field input::placeholder{color:var(--mut)}
 .kart-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;min-height:32px}
-.kart-tag{background:var(--acc);color:#000;border-radius:4px;padding:3px 8px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:4px}
+.kart-tag{background:var(--acc);color:#fff;border-radius:4px;padding:3px 8px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:4px}
 .kart-tag button{background:none;border:none;color:#333;cursor:pointer;font-size:15px;line-height:1;padding:0}
 .kart-input-row{display:flex;gap:6px;margin-top:6px}
 .kart-input-row input{flex:1;background:#0c0d0f;border:1px solid var(--border);color:var(--txt);padding:7px 10px;border-radius:5px;font-size:13px;outline:none}
 .kart-input-row input:focus{border-color:var(--acc)}
-.kart-input-row button{background:var(--acc);color:#000;border:none;border-radius:5px;padding:7px 14px;font-weight:700;cursor:pointer;font-size:12px}
+.kart-input-row button{background:var(--acc);color:#fff;border:none;border-radius:5px;padding:7px 14px;font-weight:700;cursor:pointer;font-size:12px}
 .btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
-.btn-primary{background:var(--acc);color:#000;border:none;border-radius:6px;padding:9px 20px;font-weight:700;cursor:pointer;font-size:13px}
+.btn-primary{background:var(--acc);color:#fff;border:none;border-radius:6px;padding:9px 20px;font-weight:700;cursor:pointer;font-size:13px}
 .btn-secondary{background:transparent;color:var(--mut);border:1px solid var(--border);border-radius:6px;padding:9px 20px;cursor:pointer;font-size:13px}
 .btn-secondary:hover{border-color:var(--acc);color:var(--acc)}
 .status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:middle}
@@ -107,7 +112,7 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .pilots-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
 .pilot-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;overflow:hidden}
 .pilot-card-header{display:flex;align-items:center;gap:12px;padding:14px 16px;background:rgba(255,255,255,0.03);border-bottom:1px solid var(--border)}
-.pilot-avatar{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--acc2),var(--acc));display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#000;flex-shrink:0}
+.pilot-avatar{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--acc2),var(--acc));display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;flex-shrink:0}
 .pilot-card-info{flex:1}
 .pilot-card-name{font-weight:700;font-size:15px;color:var(--txt)}
 .pilot-card-apelido{font-size:12px;color:var(--acc);margin-top:2px}
@@ -119,7 +124,38 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .attr-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
 .attr-tag{background:var(--card);color:var(--mut);border:1px solid var(--border);border-radius:12px;padding:3px 10px;font-size:11px;cursor:pointer;transition:.2s}
 .attr-tag:hover{border-color:var(--acc);color:var(--acc)}
-.attr-tag.sel{background:rgba(247,198,0,0.15);color:var(--acc);border-color:var(--acc)}
+.attr-tag.sel{background:rgba(226,35,26,0.15);color:var(--acc);border-color:var(--acc)}
+
+/*  Estrategia tab CSS (glanceable em box) */
+.estrategia-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.est-card{background:var(--bg);border:2px solid var(--border);border-radius:12px;padding:16px;position:relative}
+.est-card.warn{border-color:#ffa726}
+.est-card.danger{border-color:var(--red)}
+.est-card.ok{border-color:var(--green)}
+.est-top{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.est-pos{font-size:38px;font-weight:900;color:var(--acc);line-height:1}
+.est-kart{font-size:15px;font-weight:700;color:var(--txt)}
+.est-kart small{display:block;color:var(--mut);font-size:11px;font-weight:400}
+.est-trend{margin-left:auto;font-size:22px}
+.est-gaps{display:flex;gap:10px;margin-bottom:12px}
+.est-gap-box{flex:1;background:rgba(255,255,255,0.03);border-radius:8px;padding:8px 10px;text-align:center}
+.est-gap-box .lbl{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:1px}
+.est-gap-box .val{font-size:17px;font-weight:700;margin-top:2px}
+.est-pace-badge{display:inline-block;width:100%;text-align:center;padding:8px;border-radius:8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px}
+.est-pace-badge.ok{background:rgba(102,187,106,0.15);color:var(--green)}
+.est-pace-badge.warn{background:rgba(255,167,38,0.15);color:#ffa726}
+.est-pace-badge.danger{background:rgba(239,83,80,0.15);color:var(--red)}
+.est-pace-badge.pending{background:rgba(255,255,255,0.05);color:var(--mut)}
+.est-foot{display:flex;justify-content:space-between;margin-top:10px;font-size:11px;color:var(--mut)}
+.est-wx-row{display:flex;gap:16px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.wx-hourly-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}
+.wx-hour-cell{min-width:60px;background:rgba(255,255,255,0.03);border-radius:8px;padding:6px 8px;text-align:center;flex-shrink:0}
+.wx-hour-cell.now{border:1px solid var(--acc)}
+.wx-hour-cell .wh-h{font-size:10px;color:var(--mut);text-transform:uppercase}
+.wx-hour-cell .wh-p{font-size:15px;font-weight:800;margin-top:2px;color:var(--mut)}
+.wx-hour-cell.rain .wh-p{color:#4fc3f7}
+.wx-hour-cell.dry .wh-p{color:var(--green)}
+.wx-hour-cell .wh-mm{font-size:10px;color:var(--mut);margin-top:1px}
 
 /*  Box tab CSS  */
 .box-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
@@ -136,7 +172,7 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .box-val{font-weight:600;color:var(--txt)}
 .box-pilots-list{border-top:1px solid var(--border);padding-top:8px;display:flex;flex-direction:column;gap:6px}
 .box-pilot-row{display:flex;align-items:center;gap:6px;padding:4px 8px;border-radius:6px;background:rgba(255,255,255,0.03)}
-.box-pilot-row.active{background:rgba(247,198,0,0.1);border:1px solid rgba(247,198,0,0.3)}
+.box-pilot-row.active{background:rgba(226,35,26,0.1);border:1px solid rgba(226,35,26,0.3)}
 .box-pilot-name{flex:1;font-size:13px;font-weight:600;color:var(--txt)}
 .box-pilot-badge{font-size:10px;color:var(--mut);background:var(--border);padding:2px 6px;border-radius:4px}
 .swap-btn{background:var(--acc2);color:#fff;border:none;border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;white-space:nowrap}
@@ -152,13 +188,132 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 /*  Dual kart selector  */
 .kart-sel-row{display:flex;gap:12px;flex-wrap:wrap}
 .kart-sel-lbl{font-size:12px;color:var(--mut);display:flex;align-items:center;gap:6px}
+
+/* ═══════════════ DASHBOARD WAR ROOM ═══════════════ */
+.dash-root{display:grid;grid-template-rows:auto 1fr;gap:10px;height:100%;min-height:0}
+.dash-hdr{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start}
+.dash-hdr-left{display:flex;flex-direction:column;gap:8px}
+.dash-race-chips{display:flex;gap:8px;flex-wrap:wrap;align-items:stretch}
+.race-chip{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:7px 14px;white-space:nowrap;display:flex;flex-direction:column;gap:2px}
+.race-chip .rc-lbl{font-size:9px;color:var(--mut);text-transform:uppercase;letter-spacing:1.5px}
+.race-chip .rc-val{font-size:22px;font-weight:900;color:var(--acc);line-height:1.1;font-variant-numeric:tabular-nums}
+.race-chip.sm .rc-val{font-size:14px;color:var(--txt)}
+.race-chip.leader-chip .rc-val{font-size:13px;color:var(--txt);font-weight:700}
+.race-chip.flag-verde{border-color:rgba(102,187,106,0.4)}.race-chip.flag-verde .rc-val{color:#66bb6a}
+.race-chip.flag-amarela{border-color:rgba(255,167,38,0.5)}.race-chip.flag-amarela .rc-val{color:#ffa726}
+.race-chip.flag-vermelha{border-color:rgba(239,83,80,0.5)}.race-chip.flag-vermelha .rc-val{color:var(--red)}
+/* Melhor parada chips no header */
+.dash-pit-strip{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.pit-hdr-lbl{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:1px;white-space:nowrap}
+.pit-chip{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:5px 12px;display:flex;align-items:center;gap:7px;white-space:nowrap}
+.pit-chip .pc-medal{font-size:15px}
+.pit-chip .pc-kart{font-weight:900;color:var(--acc);font-size:12px}
+.pit-chip .pc-equipe{font-size:10px;color:var(--mut)}
+.pit-chip .pc-dur{font-size:15px;font-weight:900;color:var(--txt)}
+.pit-chip .pc-delta{font-size:10px;font-weight:700}
+.pit-chip .pc-delta.ok{color:#66bb6a}.pit-chip .pc-delta.warn{color:#ffa726}.pit-chip .pc-delta.inv{color:var(--red)}
+/* Weather panel */
+.wx-panel{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;min-width:260px}
+.wx-current-row{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.wx-temp{font-size:30px;font-weight:900;color:var(--acc);line-height:1}
+.wx-details{font-size:11px;color:var(--mut);line-height:1.7}
+.wx-forecast-lbl{font-size:9px;color:var(--mut);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+/* Colunas principais */
+.dash-cols{display:grid;grid-template-columns:1.8fr 1.1fr 1fr;gap:10px;min-height:0;overflow:hidden}
+.dash-col{overflow-y:auto;display:flex;flex-direction:column;gap:8px}
+.dash-col::-webkit-scrollbar{width:3px}.dash-col::-webkit-scrollbar-thumb{background:var(--border)}
+.dash-card{background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.dash-card-hdr{padding:7px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);background:rgba(255,255,255,0.02)}
+.dash-card-hdr h3{margin:0;font-size:11px;letter-spacing:.5px}
+/* Ranking no dashboard */
+.dr-table{width:100%;border-collapse:collapse}
+.dr-table th{font-size:9px;color:var(--mut);text-transform:uppercase;padding:4px 5px;border-bottom:1px solid var(--border);white-space:nowrap;text-align:left}
+.dr-table td{padding:4px 5px;border-bottom:1px solid rgba(30,33,48,0.4);font-size:11px;vertical-align:middle}
+.dr-table tr.my-kart td{background:rgba(226,35,26,0.07)}.dr-table tr.my-kart td:first-child{border-left:3px solid var(--acc)}
+.dr-table tr:hover td{background:rgba(255,255,255,0.02)}
+.dr-sep td{background:rgba(226,35,26,0.05)!important;color:var(--acc)!important;font-size:9px;text-transform:uppercase;letter-spacing:2px;padding:3px 8px!important;font-weight:700}
+.d-pos{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:3px;font-weight:700;font-size:10px;background:rgba(255,255,255,0.05)}
+.d-pos.p1{background:linear-gradient(135deg,#FFD700,#FFA000);color:#000}
+.d-pos.p2{background:linear-gradient(135deg,#C0C0C0,#888);color:#000}
+.d-pos.p3{background:linear-gradient(135deg,#CD7F32,#8B4513);color:#fff}
+.d-kart{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;font-weight:900;font-size:10px;border:2px solid var(--border);color:var(--txt)}
+.d-kart.my{background:var(--acc);color:#fff;border-color:var(--acc);box-shadow:0 0 8px rgba(226,35,26,0.3)}
+.proj-arrow{font-size:10px}.proj-up{color:#66bb6a}.proj-dn{color:var(--red)}.proj-eq{color:var(--mut)}
+/* Cronômetros */
+.krono-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;padding:8px}
+.krono-card{background:var(--bg);border:1px solid rgba(226,35,26,0.3);border-radius:8px;padding:8px 10px}
+.krono-top{display:flex;align-items:center;gap:7px;margin-bottom:6px}
+.krono-badge{width:32px;height:32px;border-radius:50%;background:var(--acc);color:#fff;font-weight:900;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.krono-pos-info{font-size:10px;color:var(--mut)}
+.krono-timer{font-size:24px;font-weight:900;font-family:'Courier New',monospace;color:var(--acc);letter-spacing:-1px;line-height:1;text-align:center;padding:4px 0}
+.krono-timer.late{color:var(--red);animation:blink 0.8s infinite}
+.krono-row{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px}
+.kr-cell{display:flex;flex-direction:column;gap:1px}
+.kr-cell .kl{font-size:8px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+.kr-cell .kv{font-size:11px;font-weight:700;color:var(--txt)}
+.kr-cell .kv.acc{color:var(--acc)}
+.krono-stint-bar{display:flex;justify-content:space-between;align-items:center;margin-top:5px;padding-top:5px;border-top:1px solid var(--border);font-size:9px}
+.krono-stint-bar .ks-lbl{color:var(--mut)}
+.krono-stint-bar .ks-val{font-weight:700;color:var(--txt)}
+/* Box Intelligence */
+/* Box Intelligence — matriz visual */
+.bxi-matrix{display:flex;flex-wrap:wrap;gap:5px;padding:10px}
+.bxi-cell{width:52px;height:52px;border-radius:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px solid transparent;transition:transform .1s;position:relative}
+.bxi-cell:hover{transform:scale(1.08)}
+.bxi-cell.q5{background:rgba(76,175,80,0.22);border-color:#4caf50}
+.bxi-cell.q4{background:rgba(139,195,74,0.18);border-color:#8bc34a}
+.bxi-cell.q3{background:rgba(255,193,7,0.15);border-color:#ffc107}
+.bxi-cell.q2{background:rgba(255,87,34,0.15);border-color:#ff5722}
+.bxi-cell.q1{background:rgba(239,83,80,0.12);border-color:#ef5350}
+.bxi-cell-num{font-size:15px;font-weight:900;line-height:1;color:var(--txt)}
+.bxi-cell-time{font-size:8px;color:rgba(255,255,255,0.5);margin-top:2px}
+.bxi-cell-dot{width:6px;height:6px;border-radius:50%;margin-top:3px}
+.bxi-cell.q5 .bxi-cell-dot{background:#4caf50}
+.bxi-cell.q4 .bxi-cell-dot{background:#8bc34a}
+.bxi-cell.q3 .bxi-cell-dot{background:#ffc107}
+.bxi-cell.q2 .bxi-cell-dot{background:#ff5722}
+.bxi-cell.q1 .bxi-cell-dot{background:#ef5350}
+.bxi-legend{display:flex;gap:8px;padding:4px 10px 8px;flex-wrap:wrap;justify-content:center}
+.bxi-leg-item{display:flex;align-items:center;gap:4px;font-size:9px;color:var(--mut)}
+.bxi-leg-dot{width:8px;height:8px;border-radius:50%}
+.bxi-reco{margin:0 8px 8px;padding:8px 12px;border-radius:7px;text-align:center;font-weight:700;font-size:12px;line-height:1.4}
+.bxi-reco.go{background:rgba(76,175,80,0.12);color:#66bb6a;border:1px solid rgba(76,175,80,0.3)}
+.bxi-reco.wait{background:rgba(255,167,38,0.1);color:#ffa726;border:1px solid rgba(255,167,38,0.3)}
+.bxi-reco.hold{background:rgba(79,195,247,0.08);color:#4fc3f7;border:1px solid rgba(79,195,247,0.3)}
+/* Pace Comparison table */
+.pace-table{border-collapse:collapse;font-size:11px;min-width:100%}
+.pace-table th{font-size:9px;color:var(--mut);padding:3px 5px;text-align:center;white-space:nowrap;border-bottom:1px solid var(--border)}
+.pace-table td{padding:3px 4px;text-align:center;vertical-align:middle}
+.pace-table .row-kart{font-weight:900;font-size:12px;color:var(--acc);background:rgba(226,35,26,0.06);border-right:1px solid var(--border);padding:3px 8px;white-space:nowrap}
+.pace-cell{display:inline-flex;align-items:center;justify-content:center;width:44px;height:26px;border-radius:4px;font-size:10px;font-weight:700}
+.pace-cell.faster{background:rgba(76,175,80,0.25);color:#81c784}
+.pace-cell.slower{background:rgba(239,83,80,0.2);color:#ef9a9a}
+.pace-cell.same{background:rgba(255,255,255,0.05);color:var(--mut)}
+/* Pit ranking */
+.pit-rank-list{display:flex;flex-direction:column;gap:3px;padding:8px}
+.pr-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px}
+.pr-row:nth-child(1){background:rgba(255,215,0,0.07)}
+.pr-row:nth-child(2){background:rgba(192,192,192,0.05)}
+.pr-row:nth-child(3){background:rgba(205,127,50,0.05)}
+.pr-medal{font-size:16px;width:22px;text-align:center;flex-shrink:0}
+.pr-kart{width:30px;height:30px;border-radius:50%;background:var(--card);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:10px;flex-shrink:0}
+.pr-kart.my{background:var(--acc);color:#fff;border-color:var(--acc)}
+.pr-info{flex:1}
+.pr-dur{font-size:15px;font-weight:900;color:var(--acc);line-height:1}
+.pr-sub{font-size:9px;color:var(--mut);margin-top:1px}
+.pr-delta{font-size:12px;font-weight:700}
+.pr-delta.ok{color:#66bb6a}.pr-delta.warn{color:#ffa726}.pr-delta.inv{color:var(--red)}
+.pr-empty{padding:20px;text-align:center;color:var(--mut);font-size:12px}
+/* Mapa mini */
+.dash-map-wrap{padding:8px;background:var(--bg);border-radius:6px}
 </style>
 </head>
 <body>
 <div class="topbar">
 <div onclick="FK.tab('config')" title="Configurar corrida">
-<div class="logo-text"><span class="logo-f">F</span><span class="logo-kart">KART</span></div>
-<div class="logo-sub">Force Kart Racing</div>
+<div class="logo-text"><span class="logo-sembo">SEMBO</span><span class="logo-x">X</span></div>
+<div class="logo-stripe"></div>
+<div class="logo-sub">Racing</div>
 </div>
 <div class="infobar">
 <div class="info-badge red-badge"><span class="status-dot status-live" id="src-dot"></span><span id="src-label">DEMO</span></div>
@@ -167,11 +322,14 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 <div class="info-badge">Restante: <span id="remaining">--:--:--</span></div>
 <div class="info-badge">Flag: <span id="flag-status">-</span></div>
 <div class="info-badge">Lider: <span id="leader-info">-</span></div>
-<div class="wx-bar" id="wxbar">KGV - Granja Viana</div>
+<div class="wx-bar" id="wxbar">Carregando...</div>
+<div id="wx-topbar-forecast" style="display:flex;align-items:center;gap:4px;margin-left:8px"></div>
+<canvas id="wx-hourly-canvas" height="28" style="width:160px;border-radius:3px;display:none;vertical-align:middle;margin-left:4px"></canvas>
 </div>
 </div>
 <div class="tabs" id="tabs">
-<div class="tab on" data-tab="ranking">&#127937; Ranking</div>
+<div class="tab on" data-tab="dash">&#127931; Dashboard</div>
+<div class="tab" data-tab="ranking">&#127937; Ranking</div>
 <div class="tab" data-tab="comp">&#128200; Comparativo</div>
 <div class="tab" data-tab="crono">&#9201; Crono</div>
 <div class="tab" data-tab="mapa">&#128506; Mapa</div>
@@ -179,10 +337,81 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 <div class="tab" data-tab="pilotos">&#128100; Pilotos</div>
 <div class="tab" data-tab="box">&#127955; Box</div>
 <div class="tab" data-tab="projecao">&#128200; Projecao</div>
+<div class="tab" data-tab="estrategia">&#127919; Estrategia</div>
 <div class="tab" data-tab="config">&#9881; Config</div>
 </div>
 <div class="content">
-<div class="pane on" id="pane-ranking">
+<div class="pane on" id="pane-dash">
+<div class="dash-root">
+  <!-- COLUNAS PRINCIPAIS -->
+  <div class="dash-cols">
+    <!-- COL 1: RANKING -->
+    <div class="dash-col">
+      <div class="dash-card">
+        <div class="dash-card-hdr">
+          <h3>&#127937; Classificação — Top 10 + Equipe</h3>
+          <span style="font-size:10px;color:var(--mut)" id="d-rank-updated"></span>
+        </div>
+        <table class="dr-table" id="d-rank-table">
+          <thead><tr>
+            <th>Pos</th><th>Kart</th><th>Piloto / Equipe</th><th>Cat</th>
+            <th>Última</th><th>Gap</th><th>P6'</th><th>P10'</th><th>Proj</th>
+          </tr></thead>
+          <tbody id="d-rank-body"></tbody>
+        </table>
+      </div>
+    </div>
+    <!-- COL 2: CRONOS + BOX INTEL -->
+    <div class="dash-col">
+      <div class="dash-card">
+        <div class="dash-card-hdr">
+          <h3>&#9201; Cronômetros da Equipe</h3>
+          <span style="font-size:9px;color:var(--mut)">Volta atual</span>
+        </div>
+        <div class="krono-grid" id="d-krono-grid"></div>
+      </div>
+      <div class="dash-card">
+        <div class="dash-card-hdr">
+          <h3>&#127955; Box Intelligence — Karts Disponíveis</h3>
+          <span style="font-size:9px;color:var(--acc)" id="d-bxi-count"></span>
+        </div>
+        <div id="d-bxi-body"></div>
+      </div>
+      <div class="dash-card">
+        <div class="dash-card-hdr">
+          <h3>&#9889; Pace Equipe vs Top 10</h3>
+          <span style="font-size:9px;color:var(--mut)">verde = mais rápido · vermelho = mais lento</span>
+        </div>
+        <div id="d-pace-comp" style="overflow-x:auto;padding:8px"></div>
+      </div>
+    </div>
+    <!-- COL 3: MAPA + MELHOR PARADA -->
+    <div class="dash-col">
+      <div class="dash-card">
+        <div class="dash-card-hdr">
+          <h3>&#128506; Mapa <span id="d-map-track-name" style="font-weight:400;color:var(--mut);font-size:9px;letter-spacing:0"></span></h3>
+          <span style="font-size:9px;color:var(--mut)">Karts da equipe</span>
+        </div>
+        <div id="dash-rain-wrap" style="padding:0 8px 6px;display:none">
+          <div style="font-size:9px;color:var(--mut);margin-bottom:3px;letter-spacing:0.04em">🌧 CHUVA — PROBABILIDADE HORA A HORA</div>
+          <canvas id="dash-rain-chart" style="width:100%;border-radius:4px;display:block"></canvas>
+        </div>
+        <div class="dash-map-wrap">
+          <canvas id="mapa-canvas-dash" style="width:100%;border-radius:6px;display:block"></canvas>
+        </div>
+      </div>
+      <div class="dash-card">
+        <div class="dash-card-hdr">
+          <h3>&#9201; Ranking Melhor Parada</h3>
+          <span style="font-size:9px;color:var(--mut)">Alvo: 6:00 exatos</span>
+        </div>
+        <div class="pit-rank-list" id="d-pit-rank-body"></div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+<div class="pane" id="pane-ranking">
 <div class="card"><h3>&#127937; Classificacao Geral</h3>
 <table><thead><tr><th>Pos</th><th>Kart</th><th>Piloto / Equipe</th><th>Cat / Pos</th><th>Voltas</th><th>Melhor</th><th>Ultima</th><th>Gap</th><th>Diff</th><th title="Paradas 6min">P6'</th><th title="Paradas 10min">P10'</th></tr></thead>
 <tbody id="placar-body"></tbody></table></div></div>
@@ -191,7 +420,7 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 <div class="pane" id="pane-crono">
 <div class="card"><h3>&#9201; Cronometro - Meus Karts</h3><div id="crono-body"><div class="ph">&#9201;<br><small>Aguardando dados ao vivo...</small></div></div></div></div>
 <div class="pane" id="pane-mapa">
-<div class="card"><h3>&#128506; Mapa Virtual - Tracado 101</h3>
+<div class="card"><h3>&#128506; Mapa Virtual — <span id="mapa-track-name">500 Milhas</span></h3>
 <canvas id="mapa-canvas" width="800" height="500"></canvas>
 <div class="mapa-stats">
 <div class="stat-box"><div class="val">1015m</div><div class="lbl">Distancia</div></div>
@@ -200,21 +429,12 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 <div class="stat-box"><div class="val">INICIANTE</div><div class="lbl">Dificuldade</div></div>
 </div></div></div>
 <div class="pane" id="pane-tracados">
-<div class="card"><h3>&#128194; Tracados KGV - Granja Viana</h3>
-<div class="tr-filters">
-<button class="on" onclick="FK.filterTr(this,'all')">Todos (31)</button>
-<button onclick="FK.filterTr(this,'INICIANTE')">Iniciante</button>
-<button onclick="FK.filterTr(this,'FACIL')">Facil</button>
-<button onclick="FK.filterTr(this,'MEDIO')">Medio</button>
-<button onclick="FK.filterTr(this,'DIFICIL')">Dificil</button>
-<button onclick="FK.filterTr(this,'EXPERT')">Expert</button>
-<button onclick="FK.filterTr(this,'suspenso')">Suspenso</button>
-</div>
+<div class="card"><h3>&#128194; Traçados KGV — Granja Viana <span style="font-size:10px;color:var(--mut);font-weight:400">Clique para selecionar no dashboard</span></h3>
 <div class="tr-grid" id="tr-grid"></div></div></div>
 <div class="pane" id="pane-pilotos">
 <div class="card">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <h3 style="margin:0">&#128100; Pilotos FKART</h3>
+    <h3 style="margin:0">&#128100; Pilotos</h3>
     <button class="live-btn" onclick="FK.showAddPiloto()" style="padding:8px 16px;font-size:13px">&#43; Adicionar Piloto</button>
   </div>
   <div id="pilotos-body"></div>
@@ -229,7 +449,7 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
       <button onclick="FK.hideAddPiloto()" style="flex:1;background:var(--card);color:var(--mut);border:1px solid var(--border);padding:8px;border-radius:6px;cursor:pointer">Cancelar</button>
     </div>
   </div>
-</div></div></div>
+</div></div>
 <div class="pane" id="pane-box">
 <div class="card">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
@@ -249,6 +469,24 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
       <tbody id="proj-body"></tbody>
     </table>
   </div>
+</div>
+</div>
+<div class="pane" id="pane-estrategia">
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <h3 style="margin:0" id="est-wx-title">&#127782; Clima</h3>
+    <span style="font-size:11px;color:var(--mut)" id="est-wx-updated"></span>
+  </div>
+  <div id="est-wx-current" class="est-wx-row"><span style="color:var(--mut);font-size:12px">Carregando clima...</span></div>
+  <div id="est-wx-hourly" class="wx-hourly-row"><span style="color:var(--mut);font-size:12px">Previsao hora a hora ate o fim da prova aparece aqui.</span></div>
+</div>
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px">
+    <h3 style="margin:0">&#127919; Estrategia (Solo Endurance)</h3>
+    <span style="font-size:11px;color:var(--mut)" id="estrategia-updated">Aguardando leitura...</span>
+  </div>
+  <p style="color:var(--mut);font-size:12px;margin-bottom:14px">Feito para olhar rapido na parada de box: posicao, gap direto e se seu ritmo entre leituras esta normal. Alimente pela aba Config (Race Monitor ao vivo ou colar leitura do LapTime).</p>
+  <div id="estrategia-body" class="estrategia-grid"></div>
 </div>
 </div>
 <div class="pane" id="pane-config">
@@ -286,6 +524,36 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 <label>API Token Race Monitor</label>
 <input type="password" id="cfg-api-token" placeholder="Cole o token aqui (quando tiver)">
 </div>
+<div class="cfg-field">
+<label>Traçado KGV</label>
+<select id="cfg-tracado">
+<option value="500_milhas">500 Milhas</option>
+<option value="endurance_1">Endurance 1</option>
+<option value="101">Traçado 101</option>
+<option value="103">Traçado 103</option>
+<option value="104">Traçado 104</option>
+<option value="105">Traçado 105</option>
+<option value="107">Traçado 107</option>
+<option value="110">Traçado 110</option>
+<option value="114">Traçado 114</option>
+<option value="115">Traçado 115</option>
+<option value="116">Traçado 116</option>
+<option value="119">Traçado 119</option>
+<option value="120">Traçado 120</option>
+<option value="121">Traçado 121</option>
+<option value="121_2_5">Traçado 121 2.5</option>
+<option value="124">Traçado 124</option>
+<option value="126_invertido">Traçado 126 Invertido</option>
+<option value="135">Traçado 135</option>
+<option value="136">Traçado 136</option>
+<option value="140">Traçado 140</option>
+<option value="141">Traçado 141</option>
+<option value="142">Traçado 142</option>
+<option value="145">Traçado 145</option>
+<option value="146">Traçado 146</option>
+<option value="oval_invertido">Oval Invertido</option>
+</select>
+</div>
 </div>
 <div class="cfg-field">
 <label>Meus Karts nesta Corrida</label>
@@ -300,6 +568,79 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 <button class="btn-primary" onclick="FK.saveConfig()">&#10003; Salvar e Aplicar</button>
 <button class="btn-secondary" onclick="FK.resetDemo()">&#8635; Carregar Demo</button>
 <button class="btn-secondary" id="btn-live" onclick="FK.startLive()" style="border-color:rgba(102,187,106,0.4);color:#66bb6a">&#9654; Iniciar Ao Vivo</button>
+</div>
+</div>
+<div class="cfg-panel">
+<h3>&#127937; LapTime ao Vivo (MyLapTime) — Estrategia Solo</h3>
+<p style="color:var(--mut);font-size:12px;margin-bottom:14px">Sem API publica: leia a tela do LiveTime e cole o texto abaixo a cada atualizacao (ex: a cada 5min durante a prova). O app calcula posicao, gaps e ritmo entre leituras.</p>
+<div class="cfg-grid">
+<div class="cfg-field">
+<label>Link do LiveTime (MyLapTime)</label>
+<input type="text" id="cfg-laptime-url" placeholder="https://tools.mylaptime.com.br/livetime/...">
+</div>
+<div class="cfg-field">
+<label>Duracao da Prova (Estrategia)</label>
+<select id="cfg-laptime-duration">
+<option value="3600">1 hora</option>
+<option value="7200">2 horas</option>
+<option value="9000">2h 30min</option>
+<option value="10800">3 horas</option>
+<option value="14400" selected>4 horas (+1 volta)</option>
+<option value="18000">5 horas</option>
+<option value="21600">6 horas</option>
+</select>
+</div>
+</div>
+<div class="cfg-field">
+<label>Colar leitura da tela do LiveTime (Ctrl+A, Ctrl+C na pagina)</label>
+<textarea id="cfg-laptime-paste" rows="6" placeholder="Cole aqui o texto copiado da tela do LiveTime..." style="width:100%;background:#0c0d0f;border:1px solid var(--border);color:var(--txt);padding:8px 10px;border-radius:5px;font-size:12px;font-family:monospace;resize:vertical"></textarea>
+</div>
+<div class="btn-row" style="margin-top:10px">
+<button class="btn-primary" onclick="FK.processLaptimePaste()">&#10003; Processar Leitura</button>
+</div>
+</div>
+<div class="cfg-panel">
+<h3>&#127942; Regras da Prova</h3>
+<div class="cfg-grid">
+<div class="cfg-field">
+<label>Paradas Obrigatorias (minimo)</label>
+<input type="number" id="cfg-pit-min-count" min="0" value="5">
+</div>
+<div class="cfg-field">
+<label>Duracao Minima por Parada (min)</label>
+<input type="number" id="cfg-pit-min-dur" min="0" step="0.5" value="6">
+</div>
+<div class="cfg-field">
+<label>Paradas Maximas (desclassifica se exceder)</label>
+<input type="number" id="cfg-pit-max-count" min="0" value="6">
+</div>
+<div class="cfg-field">
+<label>Box Fecha em (min de prova)</label>
+<input type="number" id="cfg-pit-close-min" min="0" value="220">
+</div>
+<div class="cfg-field">
+<label>Minha Categoria</label>
+<input type="text" id="cfg-my-category" placeholder="Ex: LIGHT" oninput="this.value=this.value.toUpperCase()">
+</div>
+</div>
+<small style="color:var(--mut);font-size:11px;display:block">Defaults conforme o regulamento KNO 2026: minimo 5 paradas de 6min, maximo 6 paradas (a 7&#170; desclassifica), box aberto da 2&#170; volta at&eacute; 220min de prova. As paradas cumpridas sao contadas a partir do registro manual na aba Box (entrada/saida). A categoria precisa bater com o texto da coluna CATEGORIA da fonte de dados.</small>
+</div>
+<div class="cfg-panel">
+<h3>&#127777; Localizacao do Clima</h3>
+<p style="color:var(--mut);font-size:12px;margin-bottom:14px">Coordenadas usadas na previsao do tempo (barra superior e aba Estrategia). Ajuste para o kartodromo da etapa atual.</p>
+<div class="cfg-grid">
+<div class="cfg-field">
+<label>Nome/Local (rotulo)</label>
+<input type="text" id="cfg-wx-label" placeholder="Ex: KNO Nova Odessa">
+</div>
+<div class="cfg-field">
+<label>Latitude</label>
+<input type="number" id="cfg-wx-lat" step="0.000001" placeholder="-22.778938">
+</div>
+<div class="cfg-field">
+<label>Longitude</label>
+<input type="number" id="cfg-wx-lon" step="0.000001" placeholder="-47.229576">
+</div>
 </div>
 </div>
 <div class="card" id="config-status" style="display:none">
@@ -325,7 +666,17 @@ raceId:26021,
 raceTotal:10800,
 apiToken:'',
 myKarts:[],
-source:'demo'
+source:'demo',
+tracado:'500_milhas',
+laptimeUrl:'',
+minPitStops:5,
+minPitDurationSec:360,
+maxPitStops:6,
+pitCloseMin:220,
+myCategory:'',
+wxLat:-22.778938,
+wxLon:-47.229576,
+wxLabel:'KNO Nova Odessa'
 },
 /* === ESTADO DA CORRIDA === */
 state:{
@@ -373,21 +724,38 @@ tr:[
 {n:'145',d:950,dif:'DIFICIL',st:'suspenso',id:'1f7_ecT9GE4gj6L7ZG8BH3A0QYS-0zX45'}
 ],
 demo_data:[
-{pos:1,kart:'013',t:'PICOLE',cat:'SUPER PRO',laps:52,last:'00:51.800',best:'00:51.491',diff:'+0.000',gap:'+0.000',pit6:3,pit10:1,equipe:'RAIO VELOZ'},
-{pos:2,kart:'027',t:'TROVAO',cat:'SUPER PRO',laps:52,last:'00:51.900',best:'00:51.650',diff:'+0.159',gap:'+0.159',pit6:3,pit10:1,equipe:'RAIO VELOZ'},
-{pos:3,kart:'064',t:'FKART PILOTO A',cat:'SUPER PRO',laps:51,last:'00:52.300',best:'00:52.200',diff:'+0.709',gap:'+1 volta',pit6:2,pit10:1,equipe:'FORCE KART'},
-{pos:4,kart:'088',t:'RELAMPAGO',cat:'ELITE',laps:51,last:'00:52.500',best:'00:52.380',diff:'+0.889',gap:'+1 volta',pit6:3,pit10:1,equipe:'THUNDER TEAM'},
-{pos:5,kart:'045',t:'TUBARAO',cat:'ELITE',laps:50,last:'00:52.600',best:'00:52.500',diff:'+1.009',gap:'+2 voltas',pit6:2,pit10:1,equipe:'SHARK RACING'},
-{pos:6,kart:'037',t:'FKART PILOTO B',cat:'ELITE',laps:50,last:'00:52.700',best:'00:52.650',diff:'+1.159',gap:'+2 voltas',pit6:2,pit10:1,equipe:'FORCE KART'},
-{pos:7,kart:'071',t:'AGUIA',cat:'AMADOR',laps:49,last:'00:53.100',best:'00:52.900',diff:'+1.409',gap:'+3 voltas',pit6:3,pit10:1,equipe:'EAGLES RC'},
-{pos:8,kart:'002',t:'LEAO',cat:'AMADOR',laps:49,last:'00:53.200',best:'00:53.000',diff:'+1.509',gap:'+3 voltas',pit6:2,pit10:0,equipe:'PRIDE RC'},
-{pos:9,kart:'033',t:'TOURO',cat:'AMADOR',laps:48,last:'00:53.500',best:'00:53.300',diff:'+1.809',gap:'+4 voltas',pit6:2,pit10:0,equipe:'BULL TEAM'},
-{pos:10,kart:'055',t:'COBRA',cat:'AMADOR',laps:48,last:'00:53.800',best:'00:53.600',diff:'+2.109',gap:'+4 voltas',pit6:2,pit10:0,equipe:'SERPENTES'},
-{pos:11,kart:'019',t:'FALCAO',cat:'AMADOR',laps:47,last:'00:54.000',best:'00:53.800',diff:'+2.309',gap:'+5 voltas',pit6:1,pit10:0,equipe:'DESCONHECIDO'},
-{pos:12,kart:'077',t:'LOBO',cat:'AMADOR',laps:47,last:'00:54.200',best:'00:54.000',diff:'+2.509',gap:'+5 voltas',pit6:1,pit10:0,equipe:'DESCONHECIDO'},
-{pos:13,kart:'099',t:'JOSE NETO',cat:'AMADOR',laps:47,last:'00:54.500',best:'00:54.200',diff:'+2.709',gap:'+5 voltas',pit6:1,pit10:0,equipe:'DESCONHECIDO'}
+{pos:1,kart:'032',t:'NE RACING',cat:'ELITE',laps:44,last:'01:01.200',best:'01:01.148',diff:'+0.000',gap:'+0.000',pit6:2,pit10:1,equipe:'NE RACING MUNDOS DO PHONE'},
+{pos:2,kart:'066',t:'FORÇA G 2',cat:'ELITE',laps:44,last:'01:01.350',best:'01:01.301',diff:'+0.153',gap:'+0.153',pit6:2,pit10:1,equipe:'FORÇA G RACING 2'},
+{pos:3,kart:'028',t:'KARTEIROS',cat:'ELITE',laps:43,last:'01:01.400',best:'01:01.302',diff:'+0.154',gap:'+1 volta',pit6:2,pit10:1,equipe:'KARTEIROS DKR'},
+{pos:4,kart:'054',t:'LIGA FG4',cat:'ELITE',laps:43,last:'01:01.500',best:'01:01.355',diff:'+0.207',gap:'+1 volta',pit6:2,pit10:1,equipe:'LIGA DO KART FG4'},
+{pos:5,kart:'055',t:'LIGA FG5',cat:'ELITE',laps:43,last:'01:01.520',best:'01:01.442',diff:'+0.294',gap:'+1 volta',pit6:2,pit10:1,equipe:'LIGA DO KART FG5'},
+{pos:6,kart:'033',t:'NE RACING 2',cat:'ELITE',laps:42,last:'01:01.650',best:'01:01.559',diff:'+0.411',gap:'+2 voltas',pit6:2,pit10:1,equipe:'NE RACING ESQUADRÃO DO KART'},
+{pos:7,kart:'062',t:'ACADEMIA',cat:'ELITE',laps:42,last:'01:01.700',best:'01:01.606',diff:'+0.458',gap:'+2 voltas',pit6:2,pit10:1,equipe:'ACADEMIA FKR HYSPEX / MITRE'},
+{pos:8,kart:'027',t:'KARTEIROS 2',cat:'ELITE',laps:42,last:'01:01.750',best:'01:01.622',diff:'+0.474',gap:'+2 voltas',pit6:2,pit10:1,equipe:'KARTEIROS WE CONSORCIOS'},
+{pos:9,kart:'013',t:'TR 3',cat:'CHALLENGE',laps:42,last:'01:01.600',best:'01:01.522',diff:'+0.374',gap:'+2 voltas',pit6:2,pit10:0,equipe:'TR 3'},
+{pos:10,kart:'058',t:'FKART ROSS',cat:'ELITE',laps:41,last:'01:01.800',best:'01:01.574',diff:'+0.426',gap:'+3 voltas',pit6:1,pit10:1,equipe:'FKART ROSS PERFORMACE CAR'},
+{pos:11,kart:'063',t:'ACADEMIA 2',cat:'ELITE',laps:41,last:'01:01.850',best:'01:01.574',diff:'+0.426',gap:'+3 voltas',pit6:2,pit10:1,equipe:'ACADEMIA FKR HYSPEX / MITRE 2'},
+{pos:12,kart:'060',t:'FKART 060',cat:'CHALLENGE',laps:40,last:'01:01.620',best:'01:01.524',diff:'+0.376',gap:'+4 voltas',pit6:2,pit10:0,equipe:'FKART 060 RACING'},
+{pos:13,kart:'061',t:'FKART 061',cat:'ELITE',laps:38,last:'01:02.000',best:'01:01.927',diff:'+0.779',gap:'+6 voltas',pit6:1,pit10:0,equipe:'FKART 061 RACING'},
+{pos:14,kart:'059',t:'FKART RACE',cat:'CHALLENGE',laps:36,last:'01:02.300',best:'01:02.210',diff:'+1.062',gap:'+8 voltas',pit6:1,pit10:0,equipe:'FKART RACE TEAM'},
+{pos:15,kart:'048',t:'LEMANS 3',cat:'ELITE',laps:42,last:'01:01.900',best:'01:01.562',diff:'+0.414',gap:'+2 voltas',pit6:2,pit10:1,equipe:'LEMANS 3'},
+{pos:16,kart:'080',t:'KDM',cat:'ELITE',laps:41,last:'01:01.950',best:'01:01.741',diff:'+0.593',gap:'+3 voltas',pit6:1,pit10:0,equipe:'KDM ENDURANCE'},
+{pos:17,kart:'083',t:'ROCKETS',cat:'ELITE',laps:40,last:'01:02.000',best:'01:01.859',diff:'+0.711',gap:'+4 voltas',pit6:1,pit10:0,equipe:'ROCKETS KART RACING'},
+{pos:18,kart:'079',t:'PAPA-LÉGUAS 3',cat:'ELITE',laps:40,last:'01:02.100',best:'01:01.827',diff:'+0.679',gap:'+4 voltas',pit6:1,pit10:0,equipe:'PAPA-LÉGUAS/EDAG 3'},
+{pos:19,kart:'046',t:'LEMANS 1',cat:'ELITE',laps:39,last:'01:02.150',best:'01:01.747',diff:'+0.599',gap:'+5 voltas',pit6:1,pit10:0,equipe:'LEMANS 1'},
+{pos:20,kart:'001',t:'KARTRAK 1',cat:'ELITE',laps:38,last:'01:02.200',best:'01:01.987',diff:'+0.839',gap:'+6 voltas',pit6:1,pit10:0,equipe:'KARTRAK 1'}
 ],
 isMy:function(k){return FK.cfg.myKarts.indexOf(String(k))>=0;},
+getData:function(){
+if(FK.cfg.source!=='demo'&&FK.state.liveData&&FK.state.liveData.length)return FK.state.liveData;
+return FK.demo_data;
+},
+parseT:function(t){
+if(!t)return null;
+var p=String(t).replace('00:','').split(':');
+var v=p.length===2?parseFloat(p[0])*60+parseFloat(p[1]):parseFloat(p[0]);
+return isNaN(v)?null:v;
+},
 fmtTime:function(sec){
 sec=Math.max(0,Math.floor(sec));
 var h=Math.floor(sec/3600);
@@ -403,10 +771,13 @@ var t=document.querySelector('.tab[data-tab="'+name+'"]');
 var p=document.getElementById('pane-'+name);
 if(t)t.classList.add('on');
 if(p)p.classList.add('on');
+if(name==='dash'){FK.rDash();setTimeout(function(){FK.drawWxChart();FK.drawMapDash();},50);}
 if(name==='mapa')FK.drawMap101();
-if(name==='tracados')FK.rTracados('all');
+if(name==='tracados')FK.rTracados();
 if(name==='pilotos')FK.rPilotos();
 if(name==='comp')FK.rComp();
+if(name==='projecao')FK.rProjecao();
+if(name==='estrategia')FK.rEstrategia();
 if(name==='config')FK.renderConfig();
 },
 loadConfig:function(){
@@ -420,11 +791,22 @@ FK.cfg.raceName=document.getElementById('cfg-race-name').value||'Corrida';
 FK.cfg.raceId=parseInt(document.getElementById('cfg-race-id').value)||26021;
 FK.cfg.raceTotal=parseInt(document.getElementById('cfg-duration').value)||10800;
 FK.cfg.apiToken=document.getElementById('cfg-api-token').value||'';
+var et=document.getElementById('cfg-tracado');if(et)FK.cfg.tracado=et.value||'500_milhas';
+var elt=document.getElementById('cfg-laptime-url');if(elt&&elt.value)FK.cfg.laptimeUrl=elt.value;
+var epc=document.getElementById('cfg-pit-min-count');if(epc)FK.cfg.minPitStops=parseInt(epc.value)||0;
+var epd=document.getElementById('cfg-pit-min-dur');if(epd)FK.cfg.minPitDurationSec=Math.round((parseFloat(epd.value)||0)*60);
+var epx=document.getElementById('cfg-pit-max-count');if(epx)FK.cfg.maxPitStops=parseInt(epx.value)||0;
+var epcl=document.getElementById('cfg-pit-close-min');if(epcl)FK.cfg.pitCloseMin=parseInt(epcl.value)||0;
+var emc=document.getElementById('cfg-my-category');if(emc)FK.cfg.myCategory=(emc.value||'').trim().toUpperCase();
+var ewl=document.getElementById('cfg-wx-label');if(ewl)FK.cfg.wxLabel=(ewl.value||'').trim();
+var ewlat=document.getElementById('cfg-wx-lat');if(ewlat&&ewlat.value!=='')FK.cfg.wxLat=parseFloat(ewlat.value);
+var ewlon=document.getElementById('cfg-wx-lon');if(ewlon&&ewlon.value!=='')FK.cfg.wxLon=parseFloat(ewlon.value);
 try{localStorage.setItem('fkart_cfg',JSON.stringify(FK.cfg));}catch(e){}
 FK.updateTopbar();
 FK.rPlacar();
 FK.rComp();
 FK.rPilotos();
+FK.loadWx();FK.loadWxHourly();
 var el=document.getElementById('cfg-race-name');
 if(el)el.style.borderColor='#66bb6a';
 setTimeout(function(){if(el)el.style.borderColor='';},1500);
@@ -434,6 +816,18 @@ renderConfig:function(){
 var el=document.getElementById('cfg-race-name');if(el)el.value=FK.cfg.raceName;
 var er=document.getElementById('cfg-race-id');if(er)er.value=FK.cfg.raceId;
 var ed=document.getElementById('cfg-duration');if(ed)ed.value=FK.cfg.raceTotal;
+var etr=document.getElementById('cfg-tracado');if(etr)etr.value=FK.cfg.tracado||'500_milhas';
+var eat=document.getElementById('cfg-api-token');if(eat)eat.value=FK.cfg.apiToken||'';
+var elt=document.getElementById('cfg-laptime-url');if(elt)elt.value=FK.cfg.laptimeUrl||'';
+var eld=document.getElementById('cfg-laptime-duration');if(eld&&FK.cfg.source==='mylaptime')eld.value=FK.cfg.raceTotal;
+var epc=document.getElementById('cfg-pit-min-count');if(epc)epc.value=FK.cfg.minPitStops!=null?FK.cfg.minPitStops:5;
+var epd=document.getElementById('cfg-pit-min-dur');if(epd)epd.value=FK.cfg.minPitDurationSec!=null?(FK.cfg.minPitDurationSec/60):6;
+var epx=document.getElementById('cfg-pit-max-count');if(epx)epx.value=FK.cfg.maxPitStops!=null?FK.cfg.maxPitStops:6;
+var epcl=document.getElementById('cfg-pit-close-min');if(epcl)epcl.value=FK.cfg.pitCloseMin!=null?FK.cfg.pitCloseMin:220;
+var emc=document.getElementById('cfg-my-category');if(emc)emc.value=FK.cfg.myCategory||'';
+var ewl=document.getElementById('cfg-wx-label');if(ewl)ewl.value=FK.cfg.wxLabel||'';
+var ewlat=document.getElementById('cfg-wx-lat');if(ewlat)ewlat.value=FK.cfg.wxLat!=null?FK.cfg.wxLat:-22.778938;
+var ewlon=document.getElementById('cfg-wx-lon');if(ewlon)ewlon.value=FK.cfg.wxLon!=null?FK.cfg.wxLon:-47.229576;
 FK.renderKartTags();
 },
 renderKartTags:function(){
@@ -462,10 +856,10 @@ FK.cfg.myKarts=FK.cfg.myKarts.filter(function(x){return x!==k;});
 FK.renderKartTags();
 },
 resetDemo:function(){
-FK.cfg.myKarts=['064','037'];
-FK.cfg.raceName='KGV Demo 3h';
-FK.cfg.raceTotal=10800;
-FK.state.elapsed=2730;
+FK.cfg.myKarts=['058','059','060','061','062','063'];
+FK.cfg.raceName='KGV Demo 6h';
+FK.cfg.raceTotal=21600;
+FK.state.elapsed=10800;
 FK.cfg.source='demo';
 FK.updateSrcBadge();
 FK.renderConfig();
@@ -474,6 +868,8 @@ FK.rPlacar();
 updateTopbar:function(){
 var rn=document.getElementById('race-name');
 if(rn)rn.textContent=FK.cfg.raceName;
+var wx=document.getElementById('wxbar');
+if(wx&&!FK.state.wxCurrent)wx.textContent=FK.cfg.wxLabel||'—';
 },
 updateSrcBadge:function(){
 var dot=document.getElementById('src-dot');
@@ -481,6 +877,8 @@ var lbl=document.getElementById('src-label');
 if(!dot||!lbl)return;
 if(FK.cfg.source==='live'){
 dot.className='status-dot status-live';lbl.textContent='AO VIVO';
+}else if(FK.cfg.source==='mylaptime'){
+dot.className='status-dot status-live';lbl.textContent='LAPTIME';
 }else{
 dot.className='status-dot status-demo';lbl.textContent='DEMO';
 }
@@ -495,10 +893,13 @@ var elEl=document.getElementById('elapsed');
 var remEl=document.getElementById('remaining');
 if(elEl)elEl.textContent=FK.fmtTime(e);
 if(remEl)remEl.textContent=rem>0?FK.fmtTime(rem):'ENCERRADA';
+/* atualiza dashboard se visível (só ranking + mapa, krono via kronoFast) */
+var dashPane=document.getElementById('pane-dash');
+if(dashPane&&dashPane.classList.contains('on')){FK.rDashRanking();FK.drawMapDash();}
 },1000);
 },
 rPlacar:function(){
-var data=(FK.cfg.source==='live'&&FK.state.liveData?FK.state.liveData:FK.demo_data);
+var data=FK.getData();
 var html='';
 // Compute category positions
 var catPos={};
@@ -530,10 +931,10 @@ html+='<tr class="'+(my?'my-kart':'')+'">'+'\n'+
 });
 var el=document.getElementById('placar-body');if(el)el.innerHTML=html;
 var l=data[0];if(l){var li=document.getElementById('leader-info');if(li)li.textContent=l.kart+' - '+l.t+' ('+l.laps+'v)';}
-var fl=document.getElementById('flag-status');if(fl)fl.textContent=FK.cfg.source==='live'&&FK.state.flagStatus?FK.state.flagStatus:'Verde';
+var fl=document.getElementById('flag-status');if(fl)fl.textContent=FK.cfg.source!=='demo'&&FK.state.flagStatus?FK.state.flagStatus:'Verde';
 },
 rComp:function(){
-var data=(FK.cfg.source==='live'&&FK.state.liveData?FK.state.liveData:FK.demo_data).slice(0,10);
+var data=FK.getData().slice(0,10);
 if(!data.length)return;
 var parseT=function(t){var p=t.replace('00:','').split(':');return p.length===2?parseFloat(p[0])*60+parseFloat(p[1]):parseFloat(p[0]);};
 var best=parseT(data[0].best);
@@ -542,7 +943,7 @@ data.forEach(function(d){
 var my=FK.isMy(d.kart);
 var t=parseT(d.best);
 var pct=Math.min(100,Math.round((best/t)*100));
-var color=my?'#F7C600':'#4fc3f7';
+var color=my?'#E2231A':'#4fc3f7';
 html+='<div style="margin-bottom:10px">'+
 '<div style="display:flex;justify-content:space-between;margin-bottom:3px">'+
 '<span style="font-weight:'+(my?700:400)+';color:'+(my?'var(--acc)':'var(--txt)')+'">'+
@@ -577,7 +978,8 @@ try{
 var r=JSON.parse(xhr.responseText);
 if(r.Successful&&r.Session){
 FK.parseSession(r.Session);
-FK.rPlacar();FK.rComp();
+FK.rPlacar();FK.rComp();FK.rProjecao();
+if(typeof FK.rEstrategia==='function')FK.rEstrategia();
 }else{
 console.warn('FKART Live: '+r.Message);
 }
@@ -612,41 +1014,133 @@ FK.state.elapsed=h*3600+m*60+Math.floor(sec);
 }
 }
 FK.state.liveData=comps;
+FK.recordHistory(comps);
 },
-rTracados:function(filter){
-if(!filter)filter='all';
-var g=document.getElementById('tr-grid');if(!g)return;
-var html='';
-FK.tr.forEach(function(t){
-var show=filter==='all'||t.st===filter||t.dif===filter;
-if(!show)return;
-var dc='dif-'+t.dif.toLowerCase();
-var th='https://drive.google.com/thumbnail?id='+t.id+'&sz=w400';
-var susp=t.st==='suspenso'?' - SUSPENSO':'';
-html+='<div class="tr-card" onclick="FK.openTr(this.dataset.num)" data-num="'+t.n+'">'+
-'<img class="tr-thumb" src="'+th+'" alt="'+t.n+'" loading="lazy">'+
-'<div class="tr-info"><div class="tr-num">'+t.n+'</div>'+
-'<div class="tr-dist">'+t.d+'m</div>'+
-'<span class="tr-dif '+dc+'">'+t.dif+susp+'</span></div></div>';
+/* === MYLAPTIME (colar leitura da tela) === */
+parseLaptimePaste:function(text){
+if(!text)return[];
+var lines=text.split('\n').map(function(l){return l.trim();}).filter(function(l){return l.length>0;});
+var headerEnd=lines.lastIndexOf('GAP');
+var rows=headerEnd>=0?lines.slice(headerEnd+1):lines;
+var out=[];
+for(var i=0;i+9<rows.length;i+=10){
+var pos=parseInt(rows[i])||(out.length+1);
+var kartTok=String(rows[i+1]).replace('#','').trim();
+var nome=rows[i+2];
+var cat=rows[i+3];
+var laps=parseInt(rows[i+4])||0;
+var last=rows[i+5];
+var best=rows[i+6];
+var bestLapNum=rows[i+7];
+var diff=rows[i+8];
+var gap=rows[i+9];
+if(!kartTok)continue;
+out.push({pos:pos,kart:kartTok,t:nome,cat:cat,laps:laps,last:last,best:best,diff:diff,gap:gap,bestLapNum:bestLapNum,equipe:''});
+}
+return out;
+},
+processLaptimePaste:function(){
+var urlEl=document.getElementById('cfg-laptime-url');if(urlEl&&urlEl.value)FK.cfg.laptimeUrl=urlEl.value;
+var durEl=document.getElementById('cfg-laptime-duration');if(durEl)FK.cfg.raceTotal=parseInt(durEl.value)||FK.cfg.raceTotal;
+var ta=document.getElementById('cfg-laptime-paste');
+if(!ta||!ta.value.trim()){alert('Cole o texto copiado da tela do LiveTime primeiro.');return;}
+var rows=FK.parseLaptimePaste(ta.value);
+if(!rows.length){alert('Nao consegui reconhecer nenhuma linha de dados nesse texto. Confira se copiou a tabela completa (Ctrl+A, Ctrl+C na pagina do LiveTime).');return;}
+/* tenta achar o relogio da sessao (formato h:mm:ss ou hh:mm:ss, sem casar com voltas mm:ss.mmm) */
+var clockMatch=ta.value.match(/(\d{1,2}):([0-5]\d):([0-5]\d)(?:\.\d+)?/);
+if(clockMatch)FK.state.elapsed=parseInt(clockMatch[1])*3600+parseInt(clockMatch[2])*60+parseInt(clockMatch[3]);
+FK.cfg.source='mylaptime';
+FK.state.liveData=rows;
+FK.recordHistory(rows);
+try{localStorage.setItem('fkart_cfg',JSON.stringify(FK.cfg));}catch(e){}
+FK.updateSrcBadge();FK.rPlacar();FK.rComp();FK.rProjecao();
+if(typeof FK.rEstrategia==='function')FK.rEstrategia();
+if(typeof FK.rDash==='function')FK.rDash();
+var st=document.getElementById('config-status');if(st)st.style.display='block';
+var sb=document.getElementById('config-status-body');
+if(sb)sb.innerHTML='<span style="color:#66bb6a">&#10003; '+rows.length+' karts lidos do LapTime as '+new Date().toLocaleTimeString('pt-BR')+'</span>';
+},
+/* === HISTORICO DE LEITURAS (base para a aba Estrategia) === */
+recordHistory:function(data){
+if(!data||!data.length)return;
+if(!FK.state.history)FK.state.history={};
+var t=FK.state.elapsed||0;
+data.forEach(function(d){
+if(!FK.state.history[d.kart])FK.state.history[d.kart]=[];
+var h=FK.state.history[d.kart];
+var prev=h[h.length-1];
+if(!prev||prev.ts!==t){
+h.push({ts:t,pos:d.pos,laps:d.laps,best:d.best,last:d.last,gap:d.gap});
+if(h.length>100)h.shift();
+}
 });
-if(!html)html='<p style="color:var(--mut);padding:20px">Nenhum tracado</p>';
+},
+rTracados:function(){
+var g=document.getElementById('tr-grid');if(!g)return;
+var cur=FK.cfg.tracado||'500_milhas';
+var html='';
+FK._TRORDER.forEach(function(key){
+  var lbl=FK._TRLBL[key]||key;
+  var isCur=cur===key;
+  var cid='trc-'+key.replace(/[^a-z0-9]/gi,'_');
+  html+='<div class="tr-card'+(isCur?' tr-card-active':'')+'" id="'+cid+'" onclick="FK.selectTracado(\''+key+'\')">'+
+  '<canvas class="tr-canvas" id="trcanvas-'+key.replace(/[^a-z0-9]/gi,'_')+'" style="width:100%;height:95px;display:block"></canvas>'+
+  '<div class="tr-info">'+
+  '<div class="tr-num">'+lbl+'</div>'+
+  (isCur?'<span class="tr-dif" style="background:rgba(226,35,26,0.2);color:var(--acc);border:1px solid rgba(226,35,26,0.4);display:inline-block;font-size:10px;padding:2px 6px;border-radius:3px;margin-top:4px;font-weight:700">✓ Ativo</span>':'')+'</div>'+
+  '</div>';
+});
 g.innerHTML=html;
+setTimeout(function(){FK._TRORDER.forEach(function(key){FK.drawTrackCard(key);});},30);
 },
-filterTr:function(btn,f){
-document.querySelectorAll('.tr-filters button').forEach(function(b){b.classList.remove('on');});
-btn.classList.add('on');FK.rTracados(f);
+selectTracado:function(key){
+FK.cfg.tracado=key;
+try{localStorage.setItem('fkart_cfg',JSON.stringify(FK.cfg));}catch(e){}
+FK.rTracados();
+FK.drawMapDash();
+if(document.getElementById('pane-mapa').classList.contains('on'))FK.drawMap101();else FK.drawMap101Static();
 },
-openTr:function(num){
-var t=FK.tr.find(function(x){return x.n===num;});if(!t)return;
-document.getElementById('tr-modal-img').src='https://drive.google.com/thumbnail?id='+t.id+'&sz=w800';
-document.getElementById('tr-modal-num').textContent='Tracado '+t.n;
-var dc='dif-'+t.dif.toLowerCase();
-document.getElementById('tr-modal-info').innerHTML=
-'Distancia: <strong style="color:var(--acc)">'+t.d+'m</strong><br>'+
-'Dificuldade: <span class="tr-dif '+dc+'">'+t.dif+'</span><br>'+
-'Status: '+(t.st==='ativo'?'<span style="color:#66bb6a">&#10003; Ativo</span>':'<span style="color:#ef5350">&#9888; Suspenso</span>')+'<br>'+
-'Tempo estimado: ~'+Math.round(t.d/23.6)+'s por volta';
-document.getElementById('tr-overlay').classList.add('show');
+drawTrackCard:function(key){
+var cid='trcanvas-'+key.replace(/[^a-z0-9]/gi,'_');
+var cv=document.getElementById(cid);if(!cv)return;
+var W=cv.offsetWidth||155;var H=95;
+cv.width=W*2;cv.height=H*2;cv.style.height=H+'px';
+var ctx=cv.getContext('2d');ctx.scale(2,2);
+ctx.fillStyle='#060810';ctx.fillRect(0,0,W,H);
+var rawPts=FK._tracks[key];if(!rawPts||!rawPts.length)return;
+/* uniform scaling — preserves aspect ratio so reta principal fica horizontal */
+var minX=1,maxX=0,minY=1,maxY=0;
+rawPts.forEach(function(p){if(p[0]<minX)minX=p[0];if(p[0]>maxX)maxX=p[0];if(p[1]<minY)minY=p[1];if(p[1]>maxY)maxY=p[1];});
+var dxR=maxX-minX||0.1,dyR=maxY-minY||0.1;
+var pad=6;var sc=Math.min((W-pad*2)/dxR,(H-pad*2)/dyR);
+var ox=pad+(W-pad*2-dxR*sc)/2-minX*sc;
+var oy=pad+(H-pad*2-dyR*sc)/2-minY*sc;
+var pts=rawPts.map(function(p){return[p[0]*sc+ox,p[1]*sc+oy];});
+var n=pts.length;var isCur=FK.cfg.tracado===key;
+var isClosed=rawPts[0][0]===rawPts[n-1][0]&&rawPts[0][1]===rawPts[n-1][1];
+/* glow shadow */
+ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
+for(var i=1;i<n;i++)ctx.lineTo(pts[i][0],pts[i][1]);
+if(isClosed)ctx.closePath();
+ctx.strokeStyle='rgba(255,255,255,0.05)';ctx.lineWidth=8;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke();
+/* traçado — cor única */
+var tCol=isCur?'#4fc3f7':'rgba(79,195,247,0.55)';
+ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
+for(var i=1;i<n;i++)ctx.lineTo(pts[i][0],pts[i][1]);
+if(isClosed)ctx.closePath();
+ctx.strokeStyle=tCol;ctx.lineWidth=isCur?3:2;
+ctx.lineCap='round';ctx.lineJoin='round';
+if(isCur){ctx.shadowColor='#4fc3f7';ctx.shadowBlur=5;}ctx.stroke();ctx.shadowBlur=0;
+/* S/F line */
+if(pts.length>1){
+  var dx=pts[1][0]-pts[0][0],dy=pts[1][1]-pts[0][1],len=Math.sqrt(dx*dx+dy*dy)||1;
+  var px=-dy/len*5,py=dx/len*5;
+  ctx.beginPath();ctx.moveTo(pts[0][0]-px,pts[0][1]-py);ctx.lineTo(pts[0][0]+px,pts[0][1]+py);
+  ctx.strokeStyle='#ef5350';ctx.lineWidth=isCur?2.5:1.5;ctx.shadowColor='#ef5350';ctx.shadowBlur=isCur?6:3;ctx.stroke();ctx.shadowBlur=0;
+}
+/* label */
+var lbl=FK._TRLBL[key]||key;
+ctx.font='bold 8px sans-serif';ctx.fillStyle=isCur?'rgba(226,35,26,0.95)':'rgba(255,255,255,0.35)';ctx.textAlign='right';ctx.textBaseline='top';ctx.fillText(lbl,W-4,3);
 },
 closeTr:function(){document.getElementById('tr-overlay').classList.remove('show');},
 rPilotos:function(){
@@ -739,9 +1233,9 @@ toggleAttr:function(i,a){
 },
 rProjecao:function(){
   var el=document.getElementById('proj-body');if(!el)return;
-  var data=(FK.cfg.source==='live'&&FK.state.liveData?FK.state.liveData:FK.demo_data);
-  var elapsed=FK.state.elapsed||4279;
-  var total=FK.cfg.raceTotal||10800;
+  var data=FK.getData();
+  var elapsed=FK.state.elapsed||10800;
+  var total=FK.cfg.raceTotal||21600;
   var remaining=Math.max(0,total-elapsed);
   var parseT=function(t){var p=t.replace('00:','').split(':');return p.length===2?parseFloat(p[0])*60+parseFloat(p[1]):parseFloat(p[0]);};
   var proj=data.map(function(d){
@@ -769,10 +1263,179 @@ rProjecao:function(){
   });
   el.innerHTML=html;
 },
+/* gap-para-lider em segundos (null se estiver a X volta(s), ai mostramos o texto crua) */
+parseGapSec:function(s){
+  if(!s)return null;
+  s=String(s).trim();
+  if(/volta/i.test(s))return null;
+  var neg=s.indexOf('-')===0;
+  s=s.replace('+','').replace('-','');
+  var parts=s.split(':');
+  var sec=parts.length===2?parseFloat(parts[0])*60+parseFloat(parts[1]):parseFloat(parts[0]);
+  if(isNaN(sec))return null;
+  return neg?-sec:sec;
+},
+rEstWeather:function(){
+  var elCur=document.getElementById('est-wx-current');
+  var elHourly=document.getElementById('est-wx-hourly');
+  if(!elCur||!elHourly)return;
+  var elTitle=document.getElementById('est-wx-title');
+  if(elTitle)elTitle.innerHTML='&#127782; Clima'+(FK.cfg.wxLabel?' - '+FK.cfg.wxLabel:'');
+  var cw=FK.state.wxCurrent;
+  if(cw){
+    elCur.innerHTML='<div class="wx-temp">'+Math.round(cw.temp)+'&deg;C</div>'+
+    '<div class="wx-details">'+cw.icon+'<br>'+cw.wind+'km/h '+cw.dir+' &middot; '+cw.hum+'% UR</div>';
+  }
+  var hrs=FK.state.wxHourly||[];
+  if(hrs.length){
+    var nowH=new Date().getHours();
+    var html='';
+    hrs.forEach(function(h){
+      var cls=h.p>=50?'rain':(h.p<30?'dry':'');
+      html+='<div class="wx-hour-cell '+cls+(h.h===nowH?' now':'')+'"><div class="wh-h">'+(h.h<10?'0'+h.h:h.h)+'h</div><div class="wh-p">'+h.p+'%</div><div class="wh-mm">'+(h.mm!=null?h.mm.toFixed(1):'-')+'mm</div></div>';
+    });
+    elHourly.innerHTML=html;
+  }
+  var elUpd=document.getElementById('est-wx-updated');
+  if(elUpd)elUpd.textContent='Atualizado '+new Date().toLocaleTimeString('pt-BR');
+},
+rEstrategia:function(){
+  var el=document.getElementById('estrategia-body');if(!el)return;
+  var data=FK.getData();
+  var rem=Math.max(0,(FK.cfg.raceTotal||0)-(FK.state.elapsed||0));
+  var upd=document.getElementById('estrategia-updated');
+  if(upd){
+    upd.textContent='Decorrido '+FK.fmtTime(FK.state.elapsed||0)+' · Restante '+(rem>0?FK.fmtTime(rem):'ENCERRADA')+' · fonte: '+(FK.cfg.source==='mylaptime'?'LapTime (colado)':FK.cfg.source==='live'?'Race Monitor':'Demo');
+  }
+  var myCat=(FK.cfg.myCategory||'').trim().toUpperCase();
+  var catData=myCat?data.filter(function(d){return (d.cat||'').trim().toUpperCase()===myCat;}):null;
+  var myKarts=FK.cfg.myKarts||[];
+  if(!data.length){el.innerHTML='<p style="color:var(--mut);text-align:center;padding:24px">Sem dados ainda. Va em Config: inicie Ao Vivo (Race Monitor) ou cole uma leitura do LapTime.</p>';return;}
+  if(!myKarts.length){el.innerHTML='<p style="color:var(--mut);text-align:center;padding:24px">Configure seus karts/numeros de competidor em Config.</p>';return;}
+  var html='';
+  myKarts.forEach(function(knum){
+    var idx=data.findIndex(function(d){return d.kart===knum;});
+    if(idx<0){
+      html+='<div class="est-card"><div class="est-top"><div class="est-kart">#'+knum+'<small>Nao encontrado na leitura atual</small></div></div></div>';
+      return;
+    }
+    var cur=data[idx];
+    var ahead=idx>0?data[idx-1]:null;
+    var behind=idx<data.length-1?data[idx+1]:null;
+    var curGapSec=FK.parseGapSec(cur.gap);
+    var aheadGapSec=ahead?FK.parseGapSec(ahead.gap):null;
+    var behindGapSec=behind?FK.parseGapSec(behind.gap):null;
+    var intervalAhead=(ahead&&curGapSec!=null&&aheadGapSec!=null)?Math.abs(curGapSec-aheadGapSec):null;
+    var intervalBehind=(behind&&curGapSec!=null&&behindGapSec!=null)?Math.abs(behindGapSec-curGapSec):null;
+    var gapFrente=!ahead?'Lider':(intervalAhead!=null?'+'+intervalAhead.toFixed(3)+'s':(ahead.gap||'-'));
+    var gapAtras=!behind?'Ultimo':(intervalBehind!=null?'+'+intervalBehind.toFixed(3)+'s':(behind.gap||'-'));
+    /* Ritmo: compara o intervalo mais recente (h1->h2) com o intervalo anterior (h0->h1) da PROPRIA leitura,
+       em vez de usar a "melhor volta" da fonte (na tela do LapTime esse campo às vezes é so um setor, nao a volta inteira,
+       o que geraria alarme falso). Precisa de 3 leituras pra ter 2 intervalos comparaveis. */
+    var hist=(FK.state.history&&FK.state.history[knum])||[];
+    var prevH=hist.length>=2?hist[hist.length-2]:null;
+    var paceStatus='pending',paceLabel='COLETANDO LEITURAS ('+hist.length+'/3)',paceDetail='Precisa de ao menos 3 leituras pra comparar ritmo entre intervalos';
+    if(hist.length>=3){
+      var h0=hist[hist.length-3],h1=hist[hist.length-2],h2=hist[hist.length-1];
+      var dt1=h1.ts-h0.ts,dl1=h1.laps-h0.laps;
+      var dt2=h2.ts-h1.ts,dl2=h2.laps-h1.laps;
+      if(dt1<=0||dt2<=0){
+        paceStatus='pending';paceLabel='LEITURAS FORA DE ORDEM';paceDetail='Timestamps nao crescentes — ignore e aguarde a proxima leitura';
+      }else if(dl2<=0){
+        paceStatus='danger';paceLabel='SEM VOLTA NOVA NA ULTIMA LEITURA';
+        paceDetail='0 voltas em '+FK.fmtTime(dt2)+' · possivel parada, trafego ou sessao parada';
+      }else if(dl1<=0){
+        paceStatus='pending';paceLabel='COLETANDO LEITURAS (intervalo anterior sem voltas)';paceDetail='';
+      }else{
+        var pace1=dt1/dl1,pace2=dt2/dl2;
+        var deltaPct=((pace2-pace1)/pace1)*100;
+        if(deltaPct<=15){paceStatus='ok';paceLabel='RITMO ESTAVEL';}
+        else if(deltaPct<=45){paceStatus='warn';paceLabel='RITMO CAINDO (parada/trafego?)';}
+        else{paceStatus='danger';paceLabel='RITMO MUITO ABAIXO - VERIFICAR';}
+        paceDetail=dl2+' volta(s) em '+FK.fmtTime(dt2)+' · '+pace2.toFixed(1)+'s/volta (intervalo anterior: '+pace1.toFixed(1)+'s/volta)';
+      }
+    }
+    /* lastH e a propria leitura atual (ja gravada no historico antes deste render) — a comparacao de tendencia
+       usa prevH (leitura anterior a atual) */
+    var trendArrow='<span style="color:var(--mut)">&#8212;</span>';
+    if(prevH&&prevH.pos&&cur.pos){
+      if(cur.pos<prevH.pos)trendArrow='<span style="color:var(--green)">&#9650;'+(prevH.pos-cur.pos)+'</span>';
+      else if(cur.pos>prevH.pos)trendArrow='<span style="color:var(--red)">&#9660;'+(cur.pos-prevH.pos)+'</span>';
+    }
+    /* Comparacao dentro da categoria (ex: LIGHT) — o gap ainda usa o campo "gap ao lider geral" de cada kart,
+       entao subtrair entre dois karts continua dando o intervalo real entre eles mesmo filtrando por categoria. */
+    var catHtml='';
+    if(myCat){
+      if((cur.cat||'').trim().toUpperCase()!==myCat){
+        catHtml='<div class="est-pace-badge warn">CATEGORIA DA FONTE ("'+(cur.cat||'-')+'") NAO BATE COM "'+myCat+'"</div>';
+      }else if(catData){
+        var cIdx=catData.findIndex(function(d){return d.kart===cur.kart;});
+        var cAhead=cIdx>0?catData[cIdx-1]:null;
+        var cBehind=cIdx<catData.length-1?catData[cIdx+1]:null;
+        var cAheadSec=cAhead?FK.parseGapSec(cAhead.gap):null;
+        var cBehindSec=cBehind?FK.parseGapSec(cBehind.gap):null;
+        var cIntAhead=(cAhead&&curGapSec!=null&&cAheadSec!=null)?Math.abs(curGapSec-cAheadSec):null;
+        var cIntBehind=(cBehind&&curGapSec!=null&&cBehindSec!=null)?Math.abs(cBehindSec-curGapSec):null;
+        var cGapFrente=!cAhead?'Lider cat.':(cIntAhead!=null?'+'+cIntAhead.toFixed(3)+'s':(cAhead.gap||'-'));
+        var cGapAtras=!cBehind?'Ultimo cat.':(cIntBehind!=null?'+'+cIntBehind.toFixed(3)+'s':(cBehind.gap||'-'));
+        catHtml='<div class="est-gaps"><div class="est-gap-box" style="background:rgba(226,35,26,0.08)"><div class="lbl">Cat. '+myCat+' — P'+(cIdx+1)+' · Frente'+(cAhead?' #'+cAhead.kart:'')+'</div><div class="val">'+cGapFrente+'</div></div>'+
+        '<div class="est-gap-box" style="background:rgba(226,35,26,0.08)"><div class="lbl">Cat. '+myCat+' — Atras'+(cBehind?' #'+cBehind.kart:'')+'</div><div class="val">'+cGapAtras+'</div></div></div>';
+      }
+    }
+    /* Paradas obrigatorias — regulamento KNO: toda parada conta (mesmo curta), mas parada <duracao minima
+       gera Stop&Go de 2x o tempo que faltou pra completar o minimo. Prazo real e o fechamento do box
+       (pitCloseMin), nao o fim da prova — depois disso nao rola mais completar parada. */
+    var minStops=FK.cfg.minPitStops||0;
+    var minDur=FK.cfg.minPitDurationSec||0;
+    var maxStops=FK.cfg.maxPitStops||0;
+    var pitCloseSec=(FK.cfg.pitCloseMin||0)*60;
+    var myStops=(FK.state.pitStops||[]).filter(function(p){return p.kart===knum;});
+    var doneStops=myStops.length;
+    var shortStops=myStops.filter(function(p){return p.duracao<minDur;});
+    var penaltyDebtSec=shortStops.reduce(function(sum,p){return sum+2*(minDur-p.duracao);},0);
+    var stopsLeft=Math.max(0,minStops-doneStops);
+    var pitWindowRemaining=pitCloseSec-(FK.state.elapsed||0);
+    var pitHtml='';
+    if(minStops>0){
+      var pitCls='ok',pitMsg='PARADAS OK: '+doneStops+'/'+minStops+' cumpridas (>='+(minDur/60)+'min)';
+      if(maxStops>0&&doneStops>maxStops){
+        pitCls='danger';pitMsg='EXCEDEU O MAXIMO DE PARADAS ('+doneStops+'/'+maxStops+') — DESCLASSIFICADO PELO REGULAMENTO';
+      }else if(stopsLeft>0){
+        var budgetNeeded=stopsLeft*minDur*1.3; /* +30% de margem pra voltar a pista/box lotado, nao e so o minimo cravado */
+        if(pitWindowRemaining<=0){pitCls='danger';pitMsg='BOX FECHADO E FALTAM '+stopsLeft+' PARADA(S) — RISCO DE DESCLASSIFICACAO';}
+        else{
+          pitCls=pitWindowRemaining<budgetNeeded?'danger':'warn';
+          pitMsg='FALTAM '+stopsLeft+' PARADA(S) (>='+(minDur/60)+'min) · '+doneStops+'/'+minStops+' feitas · box fecha em '+FK.fmtTime(pitWindowRemaining);
+          if(pitCls==='danger')pitMsg+=' — RISCO DE NAO CUMPRIR!';
+        }
+      }else if(maxStops>0&&doneStops===maxStops){
+        pitCls='warn';pitMsg='PARADAS OK ('+doneStops+'/'+minStops+') · JA NO LIMITE MAXIMO ('+maxStops+') — NAO PARE DE NOVO';
+      }
+      if(penaltyDebtSec>0){
+        pitCls=pitCls==='ok'?'warn':pitCls;
+        pitMsg+=' · '+shortStops.length+' parada(s) curta(s) = Stop&amp;Go de '+FK.fmtTime(penaltyDebtSec)+' a cumprir';
+      }
+      pitHtml='<div class="est-pace-badge '+pitCls+'" style="margin-top:6px">'+pitMsg+'</div>';
+    }
+    var cardCls=paceStatus==='pending'?'':paceStatus;
+    html+='<div class="est-card '+cardCls+'">'+
+    '<div class="est-top"><div class="est-pos">P'+cur.pos+'</div><div class="est-kart">#'+cur.kart+'<small>'+(cur.t||'')+'</small></div><div class="est-trend">'+trendArrow+'</div></div>'+
+    '<div class="est-gaps">'+
+      '<div class="est-gap-box"><div class="lbl">Frente'+(ahead?' · #'+ahead.kart:'')+'</div><div class="val">'+gapFrente+'</div></div>'+
+      '<div class="est-gap-box"><div class="lbl">Atras'+(behind?' · #'+behind.kart:'')+'</div><div class="val">'+gapAtras+'</div></div>'+
+    '</div>'+
+    catHtml+
+    '<div class="est-pace-badge '+paceStatus+'">'+paceLabel+'</div>'+
+    pitHtml+
+    '<div class="est-foot"><span>'+paceDetail+'</span><span>Volta '+cur.laps+'</span></div>'+
+    '</div>';
+  });
+  el.innerHTML=html;
+},
 rBox:function(){
   var el=document.getElementById('box-body');
   if(!el)return;
-  var data=(FK.cfg.source==='live'&&FK.state.liveData?FK.state.liveData:FK.demo_data);
+  var data=FK.getData();
   var pilotos=FK.getPilotos();
   var myKarts=FK.cfg.myKarts||[];
   var html='';
@@ -855,43 +1518,119 @@ registrarTroca:function(knum,pilotoNome){
 setBoxStatus:function(knum,status){
   if(!FK.state.boxState)FK.state.boxState={};
   if(!FK.state.boxState[knum])FK.state.boxState[knum]={piloto:'',status:'disponivel'};
+  var prev=FK.state.boxState[knum].status;
+  /* entra no box: registra timestamp */
+  if(status==='box'&&prev!=='box'){
+    FK.state.boxState[knum].entryElapsed=FK.state.elapsed;
+    /* adiciona à lista Box Intelligence */
+    if(!FK.state.kartsInBox)FK.state.kartsInBox=[];
+    if(FK.state.kartsInBox.indexOf(knum)<0)FK.state.kartsInBox.push(knum);
+  }
+  /* sai do box: calcula duração e registra parada */
+  if(prev==='box'&&status==='pista'){
+    var entry=FK.state.boxState[knum].entryElapsed||FK.state.elapsed;
+    var dur=FK.state.elapsed-entry;
+    if(dur>10){
+      if(!FK.state.pitStops)FK.state.pitStops=[];
+      var pilot=FK.state.boxState[knum].piloto||'—';
+      var data2=FK.getData();
+      var kd2=data2.find(function(d){return d.kart===knum;});
+      FK.state.pitStops.push({kart:knum,piloto:pilot,equipe:kd2?kd2.equipe||'FORCE KART':'FORCE KART',entrada:entry,saida:FK.state.elapsed,duracao:dur});
+    }
+    /* remove da lista Box Intelligence */
+    if(FK.state.kartsInBox)FK.state.kartsInBox=FK.state.kartsInBox.filter(function(k){return k!==knum;});
+  }
   FK.state.boxState[knum].status=status;
   FK.rBox();
+  FK.rDashBoxIntel&&FK.rDashBoxIntel();
+  FK.rDashPitRanking&&FK.rDashPitRanking();
 },
 loadWx:function(){
-var url='https://api.open-meteo.com/v1/forecast?latitude=-23.6014&longitude=-46.8575&current=temperature_2m,weathercode,windspeed_10m,winddirection_10m,windgusts_10m,precipitation_probability&timezone=America/Sao_Paulo';
+var url='https://api.open-meteo.com/v1/forecast?latitude='+(FK.cfg.wxLat!=null?FK.cfg.wxLat:-22.778938)+'&longitude='+(FK.cfg.wxLon!=null?FK.cfg.wxLon:-47.229576)+'&current=temperature_2m,weathercode,windspeed_10m,winddirection_10m,windgusts_10m,precipitation_probability,relativehumidity_2m&timezone=America/Sao_Paulo';
 var xhr=new XMLHttpRequest();xhr.open('GET',url);
 xhr.onload=function(){try{
 var d=JSON.parse(xhr.responseText).current;
 var wc=d.weathercode;
-var icon=wc===0?'Limpo':wc<=2?'Nublado parcial':wc<=3?'Nublado':wc<=67?'Chuva':'Neve';
+var icon=wc===0?'☀️':wc<=2?'⛅':wc<=3?'☁️':wc<=67?'🌧️':'❄️';
 var dirs=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
 var di=Math.round(d.winddirection_10m/22.5)%16;
 var rain=d.precipitation_probability>=30;
+var hum=d.relativehumidity_2m!=null?d.relativehumidity_2m:'--';
+FK.state.wxCurrent={temp:d.temperature_2m,hum:hum,wind:d.windspeed_10m,dir:dirs[di],icon:icon+' '+(wc===0?'Limpo':wc<=2?'Nublado parcial':wc<=3?'Nublado':wc<=67?'Chuva':'Neve'),rain:rain};
+if(typeof FK.rEstWeather==='function')FK.rEstWeather();
 var wx=document.getElementById('wxbar');
-if(wx)wx.innerHTML='KGV | '+icon+' | '+d.windspeed_10m+'km/h '+dirs[di]+' | <span style="color:var(--acc)">'+d.temperature_2m+'C</span> | <strong style="color:'+(rain?'#4fc3f7':'#66bb6a')+'">'+(rain?'Chuva possivel':'Sem chuva')+'</strong>';
-}catch(e){var wx2=document.getElementById('wxbar');if(wx2)wx2.textContent='KGV - Granja Viana';}};
-xhr.onerror=function(){var wx3=document.getElementById('wxbar');if(wx3)wx3.textContent='KGV - Granja Viana';};
+if(wx)wx.innerHTML=(FK.cfg.wxLabel||'—')+' | '+icon+' | <span style="color:#90caf9">'+d.windspeed_10m+'km/h '+dirs[di]+'</span> | <span style="color:var(--acc)">'+d.temperature_2m+'°C</span> | <span style="color:#80deea">'+hum+'% UR</span> | <strong style="color:'+(rain?'#4fc3f7':'#66bb6a')+'">'+(rain?'Chuva possível':'Sem chuva')+'</strong>';
+}catch(e){}};
+xhr.onerror=function(){};
 xhr.send();setInterval(function(){FK.loadWx();},600000);
 },
-_pts:function(){var W=800,H=500;return [[0.12,0.22],[0.18,0.18],[0.28,0.15],[0.40,0.14],[0.52,0.14],[0.62,0.15],[0.72,0.18],[0.80,0.24],[0.84,0.32],[0.82,0.40],[0.76,0.46],[0.68,0.50],[0.60,0.52],[0.54,0.56],[0.52,0.64],[0.54,0.72],[0.60,0.78],[0.68,0.82],[0.76,0.82],[0.82,0.78],[0.86,0.70],[0.84,0.62],[0.78,0.58],[0.70,0.56],[0.62,0.60],[0.56,0.68],[0.50,0.76],[0.42,0.80],[0.32,0.80],[0.22,0.76],[0.14,0.68],[0.10,0.58],[0.10,0.46],[0.12,0.34],[0.12,0.22]].map(function(p){return[p[0]*W,p[1]*H];});},
+/* GPS KGV - todos os 25 traçados - Real GPS do Race Studio 3, 90°CW rotado */
+_TRLBL:{
+  '500_milhas':'500 Milhas','endurance_1':'Endurance 1','101':'101','103':'103','104':'104',
+  '105':'105','107':'107','110':'110','114':'114','115':'115','116':'116','119':'119',
+  '120':'120','121':'121','121_2_5':'121 2.5','124':'124','126_invertido':'126 Inv.',
+  '135':'135','136':'136','140':'140','141':'141','142':'142','145':'145','146':'146',
+  'oval_invertido':'Oval Inv.'
+},
+_TRORDER:['500_milhas','endurance_1','101','103','104','105','107','110','114','115','116',
+  '119','120','121','121_2_5','124','126_invertido','135','136','140','141','142','145','146','oval_invertido'],
+_tracks:{
+  '500_milhas':[[0.365,0.830],[0.380,0.793],[0.423,0.781],[0.497,0.830],[0.541,0.844],[0.590,0.848],[0.686,0.835],[0.730,0.819],[0.789,0.758],[0.799,0.719],[0.794,0.680],[0.767,0.607],[0.751,0.570],[0.717,0.493],[0.699,0.455],[0.679,0.415],[0.626,0.339],[0.588,0.304],[0.488,0.251],[0.432,0.229],[0.385,0.206],[0.297,0.169],[0.249,0.154],[0.202,0.141],[0.119,0.170],[0.107,0.208],[0.133,0.282],[0.159,0.314],[0.198,0.335],[0.298,0.331],[0.347,0.318],[0.446,0.334],[0.491,0.353],[0.520,0.385],[0.489,0.450],[0.453,0.477],[0.472,0.546],[0.517,0.563],[0.564,0.575],[0.635,0.627],[0.640,0.665],[0.619,0.701],[0.529,0.729],[0.480,0.724],[0.386,0.690],[0.341,0.666],[0.299,0.637],[0.226,0.568],[0.195,0.529],[0.137,0.446],[0.112,0.402],[0.090,0.357],[0.055,0.265],[0.050,0.217],[0.086,0.128],[0.128,0.096],[0.179,0.073],[0.293,0.051],[0.352,0.050],[0.468,0.069],[0.523,0.086],[0.575,0.110],[0.664,0.176],[0.700,0.216],[0.729,0.260],[0.774,0.356],[0.796,0.406],[0.841,0.509],[0.864,0.562],[0.886,0.616],[0.932,0.722],[0.950,0.769],[0.948,0.849],[0.924,0.881],[0.882,0.903],[0.783,0.900],[0.734,0.901],[0.641,0.929],[0.591,0.946],[0.535,0.950],[0.427,0.919],[0.387,0.888]],
+  'endurance_1':[[0.797,0.417],[0.946,0.775],[0.950,0.812],[0.945,0.835],[0.932,0.856],[0.912,0.873],[0.888,0.885],[0.857,0.893],[0.790,0.892],[0.687,0.902],[0.600,0.942],[0.574,0.948],[0.524,0.950],[0.475,0.940],[0.427,0.915],[0.386,0.880],[0.356,0.831],[0.340,0.737],[0.347,0.722],[0.358,0.712],[0.370,0.705],[0.384,0.702],[0.399,0.702],[0.420,0.708],[0.437,0.720],[0.454,0.754],[0.465,0.798],[0.477,0.818],[0.496,0.833],[0.519,0.844],[0.561,0.852],[0.588,0.850],[0.675,0.833],[0.763,0.794],[0.786,0.761],[0.792,0.745],[0.797,0.710],[0.794,0.688],[0.632,0.361],[0.587,0.312],[0.482,0.247],[0.193,0.141],[0.168,0.141],[0.145,0.146],[0.125,0.156],[0.112,0.171],[0.104,0.189],[0.102,0.205],[0.112,0.243],[0.138,0.294],[0.188,0.334],[0.230,0.344],[0.250,0.343],[0.272,0.340],[0.331,0.323],[0.345,0.322],[0.361,0.325],[0.378,0.333],[0.398,0.355],[0.400,0.368],[0.399,0.378],[0.387,0.396],[0.344,0.443],[0.287,0.501],[0.270,0.518],[0.258,0.524],[0.230,0.529],[0.221,0.528],[0.202,0.520],[0.193,0.515],[0.179,0.501],[0.096,0.352],[0.050,0.224],[0.052,0.179],[0.103,0.111],[0.153,0.086],[0.259,0.061],[0.369,0.050],[0.439,0.058],[0.511,0.080],[0.577,0.116],[0.674,0.200]],
+  '101':[[0.790,0.362],[0.945,0.763],[0.950,0.790],[0.947,0.823],[0.936,0.847],[0.921,0.866],[0.900,0.882],[0.872,0.893],[0.849,0.897],[0.727,0.898],[0.697,0.904],[0.596,0.943],[0.565,0.949],[0.506,0.950],[0.452,0.938],[0.402,0.912],[0.370,0.884],[0.340,0.831],[0.340,0.809],[0.346,0.791],[0.356,0.779],[0.368,0.771],[0.385,0.766],[0.406,0.765],[0.420,0.768],[0.434,0.775],[0.461,0.800],[0.490,0.823],[0.515,0.832],[0.549,0.839],[0.596,0.840],[0.678,0.822],[0.724,0.806],[0.776,0.750],[0.787,0.714],[0.785,0.668],[0.690,0.430],[0.603,0.279],[0.552,0.236],[0.524,0.221],[0.459,0.208],[0.434,0.211],[0.411,0.220],[0.394,0.233],[0.385,0.248],[0.382,0.264],[0.385,0.280],[0.395,0.297],[0.409,0.309],[0.433,0.321],[0.550,0.379],[0.597,0.432],[0.640,0.508],[0.655,0.571],[0.655,0.604],[0.649,0.625],[0.631,0.654],[0.594,0.687],[0.551,0.707],[0.497,0.716],[0.441,0.711],[0.380,0.690],[0.310,0.650],[0.241,0.586],[0.109,0.398],[0.053,0.228],[0.050,0.143],[0.063,0.117],[0.081,0.100],[0.103,0.088],[0.131,0.081],[0.155,0.080],[0.187,0.085],[0.283,0.105],[0.314,0.105],[0.386,0.085],[0.490,0.053],[0.520,0.050],[0.549,0.051],[0.589,0.061],[0.636,0.084],[0.678,0.121]],
+  '103':[[0.700,0.167],[0.947,0.787],[0.950,0.810],[0.946,0.837],[0.936,0.858],[0.919,0.878],[0.899,0.891],[0.882,0.898],[0.857,0.902],[0.794,0.898],[0.737,0.895],[0.713,0.898],[0.651,0.921],[0.584,0.945],[0.542,0.950],[0.496,0.946],[0.446,0.927],[0.395,0.891],[0.370,0.859],[0.359,0.833],[0.358,0.811],[0.361,0.797],[0.371,0.783],[0.389,0.767],[0.422,0.749],[0.492,0.735],[0.570,0.717],[0.596,0.702],[0.616,0.683],[0.633,0.652],[0.638,0.618],[0.630,0.573],[0.582,0.469],[0.506,0.377],[0.451,0.345],[0.384,0.325],[0.318,0.321],[0.244,0.331],[0.188,0.339],[0.152,0.335],[0.116,0.324],[0.090,0.311],[0.068,0.291],[0.055,0.271],[0.050,0.249],[0.051,0.211],[0.060,0.179],[0.070,0.162],[0.089,0.143],[0.114,0.126],[0.139,0.117],[0.168,0.113],[0.197,0.116],[0.220,0.123],[0.248,0.139],[0.281,0.149],[0.307,0.150],[0.341,0.145],[0.404,0.124],[0.462,0.086],[0.508,0.058],[0.536,0.051],[0.565,0.050],[0.592,0.055],[0.615,0.064],[0.654,0.093],[0.686,0.136]],
+  '104':[[0.628,0.195],[0.941,0.769],[0.950,0.807],[0.945,0.832],[0.930,0.856],[0.908,0.875],[0.879,0.888],[0.853,0.896],[0.818,0.899],[0.689,0.896],[0.647,0.900],[0.547,0.926],[0.465,0.947],[0.405,0.950],[0.338,0.943],[0.279,0.923],[0.221,0.890],[0.063,0.639],[0.050,0.558],[0.062,0.496],[0.096,0.437],[0.142,0.394],[0.191,0.368],[0.235,0.354],[0.271,0.350],[0.303,0.351],[0.329,0.357],[0.350,0.367],[0.363,0.382],[0.369,0.396],[0.367,0.409],[0.355,0.425],[0.346,0.434],[0.279,0.483],[0.275,0.503],[0.280,0.524],[0.296,0.543],[0.322,0.560],[0.347,0.570],[0.453,0.592],[0.486,0.606],[0.510,0.622],[0.526,0.642],[0.530,0.662],[0.524,0.681],[0.508,0.697],[0.484,0.710],[0.468,0.716],[0.380,0.736],[0.349,0.751],[0.318,0.789],[0.317,0.805],[0.321,0.818],[0.336,0.835],[0.358,0.849],[0.385,0.858],[0.419,0.863],[0.439,0.863],[0.501,0.856],[0.630,0.823],[0.700,0.792],[0.725,0.771],[0.741,0.748],[0.746,0.723],[0.740,0.681],[0.567,0.369],[0.455,0.286],[0.346,0.256],[0.253,0.233],[0.232,0.219],[0.215,0.201],[0.208,0.181],[0.212,0.160],[0.220,0.145],[0.233,0.133],[0.270,0.111],[0.385,0.059],[0.419,0.052],[0.453,0.050],[0.489,0.054],[0.518,0.063],[0.531,0.070]],
+  '105':[[0.931,0.744],[0.698,0.155],[0.650,0.090],[0.631,0.074],[0.597,0.057],[0.570,0.050],[0.542,0.050],[0.518,0.056],[0.482,0.074],[0.371,0.141],[0.307,0.159],[0.253,0.158],[0.186,0.142],[0.134,0.132],[0.109,0.135],[0.086,0.145],[0.068,0.159],[0.057,0.177],[0.050,0.199],[0.050,0.213],[0.080,0.337],[0.113,0.479],[0.149,0.540],[0.171,0.558],[0.184,0.564],[0.202,0.567],[0.225,0.565],[0.246,0.557],[0.262,0.548],[0.278,0.528],[0.349,0.415],[0.370,0.398],[0.395,0.385],[0.421,0.378],[0.445,0.377],[0.461,0.381],[0.476,0.387],[0.488,0.397],[0.495,0.408],[0.498,0.421],[0.495,0.436],[0.477,0.463],[0.445,0.490],[0.431,0.509],[0.425,0.531],[0.426,0.553],[0.437,0.574],[0.454,0.593],[0.471,0.604],[0.535,0.624],[0.593,0.644],[0.612,0.661],[0.624,0.680],[0.630,0.701],[0.629,0.721],[0.619,0.740],[0.602,0.757],[0.578,0.769],[0.504,0.792],[0.483,0.807],[0.468,0.826],[0.460,0.848],[0.461,0.868],[0.468,0.888],[0.483,0.905],[0.506,0.919],[0.531,0.926],[0.550,0.928],[0.582,0.921],[0.668,0.893],[0.700,0.891],[0.714,0.893],[0.732,0.898],[0.776,0.924],[0.817,0.947],[0.843,0.950],[0.870,0.947],[0.896,0.937],[0.919,0.921],[0.936,0.900],[0.942,0.888],[0.950,0.830]],
+  '107':[[0.771,0.409],[0.876,0.649],[0.947,0.827],[0.950,0.875],[0.939,0.908],[0.923,0.926],[0.906,0.938],[0.886,0.946],[0.864,0.950],[0.842,0.950],[0.822,0.945],[0.801,0.936],[0.780,0.919],[0.766,0.899],[0.759,0.870],[0.770,0.808],[0.780,0.734],[0.720,0.562],[0.621,0.383],[0.563,0.332],[0.509,0.303],[0.460,0.292],[0.425,0.292],[0.405,0.296],[0.388,0.303],[0.375,0.315],[0.366,0.330],[0.365,0.339],[0.367,0.348],[0.374,0.359],[0.386,0.368],[0.428,0.385],[0.459,0.398],[0.475,0.410],[0.483,0.421],[0.486,0.436],[0.482,0.455],[0.463,0.480],[0.420,0.517],[0.411,0.532],[0.407,0.548],[0.409,0.564],[0.417,0.580],[0.429,0.593],[0.446,0.605],[0.543,0.634],[0.587,0.652],[0.603,0.664],[0.614,0.677],[0.620,0.692],[0.620,0.708],[0.615,0.724],[0.604,0.738],[0.580,0.756],[0.548,0.769],[0.495,0.774],[0.438,0.767],[0.364,0.743],[0.292,0.706],[0.228,0.655],[0.118,0.503],[0.050,0.242],[0.052,0.212],[0.065,0.188],[0.077,0.176],[0.096,0.166],[0.122,0.160],[0.148,0.159],[0.216,0.174],[0.289,0.188],[0.338,0.180],[0.385,0.162],[0.414,0.142],[0.445,0.103],[0.476,0.068],[0.499,0.056],[0.519,0.051],[0.541,0.050],[0.566,0.054],[0.595,0.064],[0.633,0.089],[0.662,0.125]],
+  '110':[[0.782,0.355],[0.950,0.775],[0.950,0.808],[0.942,0.834],[0.927,0.856],[0.883,0.886],[0.863,0.892],[0.838,0.895],[0.742,0.891],[0.641,0.922],[0.577,0.945],[0.533,0.950],[0.481,0.945],[0.378,0.890],[0.361,0.872],[0.344,0.840],[0.339,0.817],[0.343,0.797],[0.363,0.774],[0.377,0.767],[0.393,0.765],[0.412,0.766],[0.441,0.780],[0.469,0.806],[0.502,0.828],[0.532,0.836],[0.641,0.832],[0.712,0.811],[0.736,0.797],[0.769,0.763],[0.787,0.720],[0.784,0.667],[0.621,0.316],[0.577,0.266],[0.521,0.229],[0.455,0.211],[0.429,0.212],[0.413,0.217],[0.399,0.224],[0.382,0.247],[0.380,0.259],[0.386,0.276],[0.394,0.289],[0.422,0.304],[0.485,0.338],[0.494,0.357],[0.496,0.374],[0.493,0.387],[0.438,0.443],[0.428,0.463],[0.427,0.484],[0.433,0.505],[0.464,0.538],[0.489,0.548],[0.568,0.565],[0.592,0.578],[0.609,0.595],[0.624,0.639],[0.620,0.662],[0.608,0.684],[0.590,0.701],[0.537,0.725],[0.503,0.729],[0.460,0.724],[0.434,0.717],[0.223,0.559],[0.107,0.360],[0.050,0.166],[0.051,0.144],[0.055,0.132],[0.088,0.094],[0.112,0.082],[0.139,0.077],[0.162,0.078],[0.310,0.109],[0.336,0.106],[0.368,0.098],[0.474,0.054],[0.551,0.050],[0.604,0.065],[0.650,0.092],[0.685,0.130]],
+  '114':[[0.741,0.215],[0.922,0.625],[0.950,0.723],[0.944,0.781],[0.889,0.871],[0.833,0.908],[0.763,0.937],[0.692,0.950],[0.529,0.937],[0.454,0.912],[0.396,0.880],[0.352,0.840],[0.262,0.599],[0.261,0.540],[0.279,0.476],[0.359,0.373],[0.400,0.349],[0.433,0.338],[0.457,0.337],[0.497,0.350],[0.509,0.362],[0.515,0.373],[0.518,0.389],[0.504,0.418],[0.470,0.446],[0.443,0.472],[0.435,0.491],[0.445,0.527],[0.462,0.542],[0.480,0.551],[0.613,0.585],[0.634,0.597],[0.647,0.612],[0.653,0.630],[0.641,0.672],[0.623,0.691],[0.605,0.703],[0.577,0.714],[0.446,0.761],[0.439,0.778],[0.439,0.796],[0.453,0.820],[0.474,0.832],[0.493,0.840],[0.529,0.845],[0.686,0.826],[0.743,0.809],[0.777,0.787],[0.797,0.767],[0.822,0.723],[0.825,0.701],[0.822,0.678],[0.791,0.606],[0.623,0.294],[0.603,0.279],[0.564,0.261],[0.494,0.252],[0.427,0.259],[0.365,0.282],[0.257,0.342],[0.204,0.349],[0.176,0.344],[0.149,0.335],[0.129,0.323],[0.081,0.264],[0.056,0.206],[0.050,0.172],[0.054,0.154],[0.072,0.136],[0.087,0.130],[0.112,0.124],[0.264,0.152],[0.301,0.154],[0.370,0.144],[0.402,0.133],[0.493,0.071],[0.523,0.058],[0.556,0.051],[0.589,0.050],[0.645,0.065],[0.668,0.081],[0.682,0.095]],
+  '115':[[0.726,0.221],[0.945,0.784],[0.950,0.821],[0.945,0.847],[0.932,0.871],[0.914,0.890],[0.889,0.903],[0.868,0.910],[0.838,0.911],[0.724,0.898],[0.699,0.900],[0.675,0.906],[0.589,0.943],[0.560,0.949],[0.504,0.950],[0.452,0.937],[0.403,0.910],[0.356,0.862],[0.298,0.766],[0.294,0.742],[0.297,0.721],[0.306,0.703],[0.315,0.694],[0.331,0.686],[0.355,0.680],[0.379,0.679],[0.401,0.685],[0.416,0.693],[0.427,0.703],[0.438,0.724],[0.445,0.763],[0.457,0.802],[0.472,0.819],[0.494,0.832],[0.519,0.840],[0.540,0.842],[0.604,0.834],[0.721,0.798],[0.754,0.773],[0.779,0.738],[0.788,0.712],[0.789,0.699],[0.760,0.616],[0.663,0.390],[0.609,0.289],[0.561,0.250],[0.508,0.227],[0.451,0.218],[0.408,0.221],[0.383,0.228],[0.326,0.260],[0.270,0.292],[0.239,0.300],[0.203,0.303],[0.173,0.299],[0.147,0.290],[0.107,0.262],[0.068,0.212],[0.054,0.180],[0.050,0.157],[0.053,0.135],[0.063,0.115],[0.080,0.099],[0.103,0.087],[0.129,0.080],[0.153,0.078],[0.186,0.084],[0.269,0.104],[0.295,0.103],[0.386,0.081],[0.506,0.050],[0.545,0.050],[0.597,0.063],[0.642,0.088],[0.678,0.123],[0.726,0.221]],
+  '116':[[0.777,0.416],[0.939,0.783],[0.950,0.824],[0.948,0.848],[0.940,0.867],[0.909,0.890],[0.882,0.897],[0.790,0.900],[0.712,0.900],[0.663,0.912],[0.484,0.950],[0.426,0.940],[0.379,0.920],[0.343,0.890],[0.276,0.717],[0.219,0.575],[0.222,0.522],[0.239,0.474],[0.252,0.454],[0.299,0.419],[0.318,0.413],[0.335,0.413],[0.348,0.416],[0.385,0.467],[0.407,0.505],[0.428,0.523],[0.501,0.555],[0.599,0.591],[0.635,0.622],[0.645,0.642],[0.646,0.662],[0.639,0.679],[0.606,0.704],[0.569,0.715],[0.466,0.732],[0.441,0.743],[0.424,0.757],[0.411,0.792],[0.431,0.826],[0.452,0.839],[0.496,0.852],[0.657,0.837],[0.719,0.814],[0.740,0.800],[0.775,0.760],[0.788,0.719],[0.686,0.461],[0.600,0.304],[0.568,0.276],[0.539,0.260],[0.502,0.249],[0.434,0.248],[0.394,0.256],[0.364,0.266],[0.313,0.300],[0.231,0.348],[0.204,0.353],[0.176,0.350],[0.150,0.343],[0.118,0.328],[0.077,0.288],[0.068,0.271],[0.064,0.235],[0.067,0.203],[0.050,0.143],[0.054,0.133],[0.062,0.125],[0.076,0.117],[0.094,0.112],[0.128,0.112],[0.185,0.131],[0.249,0.149],[0.293,0.149],[0.370,0.132],[0.432,0.094],[0.486,0.061],[0.513,0.054],[0.546,0.050],[0.605,0.062],[0.631,0.077],[0.650,0.094],[0.670,0.125]],
+  '119':[[0.821,0.400],[0.950,0.714],[0.947,0.761],[0.926,0.811],[0.891,0.854],[0.837,0.891],[0.763,0.924],[0.680,0.944],[0.596,0.950],[0.529,0.945],[0.471,0.929],[0.414,0.898],[0.370,0.857],[0.304,0.745],[0.251,0.618],[0.243,0.554],[0.254,0.489],[0.283,0.423],[0.321,0.370],[0.364,0.336],[0.400,0.321],[0.427,0.315],[0.456,0.315],[0.487,0.322],[0.531,0.342],[0.563,0.369],[0.615,0.442],[0.656,0.531],[0.663,0.587],[0.655,0.627],[0.642,0.650],[0.625,0.668],[0.608,0.678],[0.550,0.700],[0.510,0.715],[0.485,0.731],[0.470,0.749],[0.463,0.766],[0.464,0.780],[0.471,0.795],[0.486,0.810],[0.507,0.820],[0.531,0.826],[0.576,0.828],[0.672,0.813],[0.748,0.788],[0.769,0.777],[0.790,0.755],[0.812,0.713],[0.814,0.681],[0.804,0.639],[0.667,0.339],[0.635,0.293],[0.594,0.259],[0.540,0.230],[0.489,0.219],[0.421,0.221],[0.384,0.229],[0.315,0.268],[0.234,0.308],[0.208,0.310],[0.172,0.306],[0.142,0.297],[0.116,0.281],[0.084,0.246],[0.055,0.185],[0.050,0.152],[0.052,0.138],[0.057,0.125],[0.073,0.105],[0.091,0.094],[0.115,0.087],[0.142,0.085],[0.224,0.107],[0.278,0.117],[0.326,0.114],[0.409,0.091],[0.501,0.053],[0.535,0.050],[0.580,0.055],[0.632,0.074],[0.671,0.103]],
+  '120':[[0.802,0.432],[0.875,0.604],[0.950,0.804],[0.950,0.829],[0.944,0.854],[0.932,0.872],[0.915,0.887],[0.892,0.898],[0.869,0.903],[0.835,0.905],[0.735,0.902],[0.692,0.912],[0.618,0.943],[0.587,0.949],[0.530,0.950],[0.477,0.939],[0.430,0.917],[0.389,0.884],[0.371,0.861],[0.272,0.618],[0.263,0.561],[0.273,0.513],[0.295,0.474],[0.317,0.452],[0.333,0.443],[0.345,0.440],[0.367,0.439],[0.383,0.441],[0.407,0.458],[0.419,0.475],[0.444,0.516],[0.461,0.532],[0.598,0.599],[0.619,0.614],[0.635,0.630],[0.646,0.649],[0.650,0.668],[0.646,0.685],[0.635,0.701],[0.618,0.715],[0.595,0.725],[0.526,0.742],[0.507,0.753],[0.493,0.770],[0.484,0.791],[0.484,0.812],[0.490,0.830],[0.503,0.843],[0.523,0.855],[0.544,0.863],[0.562,0.865],[0.615,0.858],[0.730,0.826],[0.750,0.816],[0.766,0.803],[0.799,0.749],[0.803,0.726],[0.796,0.679],[0.668,0.374],[0.629,0.327],[0.581,0.297],[0.519,0.279],[0.465,0.276],[0.427,0.282],[0.385,0.298],[0.290,0.344],[0.250,0.352],[0.225,0.353],[0.169,0.343],[0.116,0.320],[0.078,0.287],[0.056,0.247],[0.050,0.204],[0.060,0.163],[0.084,0.128],[0.124,0.099],[0.183,0.076],[0.346,0.053],[0.499,0.050],[0.552,0.063],[0.606,0.092],[0.657,0.136]],
+  '121':[[0.794,0.422],[0.875,0.593],[0.950,0.787],[0.950,0.808],[0.928,0.855],[0.905,0.875],[0.878,0.888],[0.808,0.897],[0.716,0.899],[0.668,0.912],[0.559,0.950],[0.503,0.950],[0.477,0.945],[0.402,0.906],[0.355,0.858],[0.278,0.725],[0.244,0.530],[0.269,0.467],[0.308,0.409],[0.371,0.361],[0.396,0.353],[0.420,0.351],[0.443,0.355],[0.474,0.375],[0.482,0.389],[0.486,0.405],[0.474,0.432],[0.443,0.458],[0.421,0.479],[0.415,0.517],[0.423,0.536],[0.437,0.551],[0.514,0.580],[0.570,0.599],[0.590,0.613],[0.610,0.648],[0.610,0.666],[0.603,0.683],[0.576,0.706],[0.532,0.719],[0.480,0.734],[0.444,0.763],[0.437,0.781],[0.438,0.800],[0.447,0.818],[0.485,0.845],[0.505,0.851],[0.541,0.853],[0.707,0.816],[0.730,0.801],[0.754,0.772],[0.769,0.723],[0.750,0.637],[0.616,0.344],[0.537,0.274],[0.477,0.256],[0.425,0.253],[0.331,0.286],[0.265,0.331],[0.229,0.342],[0.165,0.343],[0.138,0.336],[0.114,0.323],[0.104,0.314],[0.050,0.215],[0.050,0.191],[0.057,0.168],[0.091,0.129],[0.114,0.117],[0.137,0.112],[0.173,0.116],[0.221,0.136],[0.254,0.147],[0.316,0.146],[0.363,0.135],[0.411,0.112],[0.503,0.055],[0.532,0.050],[0.560,0.051],[0.617,0.071],[0.641,0.089],[0.655,0.106]],
+  '121_2_5':[[0.314,0.830],[0.299,0.789],[0.299,0.749],[0.318,0.715],[0.360,0.692],[0.412,0.692],[0.460,0.711],[0.509,0.720],[0.560,0.717],[0.602,0.697],[0.624,0.662],[0.612,0.625],[0.577,0.597],[0.530,0.578],[0.479,0.568],[0.441,0.543],[0.423,0.508],[0.432,0.468],[0.469,0.439],[0.494,0.406],[0.489,0.368],[0.457,0.337],[0.414,0.318],[0.363,0.309],[0.311,0.311],[0.260,0.324],[0.211,0.332],[0.161,0.327],[0.116,0.307],[0.083,0.277],[0.061,0.242],[0.050,0.205],[0.057,0.166],[0.087,0.133],[0.131,0.118],[0.181,0.121],[0.229,0.135],[0.282,0.143],[0.336,0.138],[0.387,0.122],[0.432,0.099],[0.471,0.070],[0.518,0.052],[0.571,0.050],[0.620,0.066],[0.658,0.096],[0.679,0.131],[0.693,0.169],[0.711,0.209],[0.728,0.250],[0.746,0.293],[0.764,0.337],[0.783,0.383],[0.804,0.430],[0.824,0.478],[0.845,0.528],[0.867,0.578],[0.890,0.630],[0.913,0.682],[0.934,0.731],[0.950,0.778],[0.949,0.820],[0.929,0.857],[0.894,0.883],[0.846,0.897],[0.792,0.896],[0.737,0.895],[0.681,0.904],[0.631,0.926],[0.576,0.944],[0.515,0.950],[0.455,0.940],[0.399,0.917],[0.350,0.885],[0.313,0.846]],
+  '124':[[0.833,0.939],[0.791,0.918],[0.748,0.893],[0.700,0.884],[0.653,0.890],[0.605,0.903],[0.556,0.906],[0.513,0.891],[0.486,0.856],[0.494,0.815],[0.531,0.788],[0.575,0.773],[0.617,0.750],[0.642,0.714],[0.637,0.674],[0.605,0.643],[0.558,0.628],[0.510,0.619],[0.472,0.595],[0.455,0.557],[0.467,0.519],[0.497,0.487],[0.517,0.450],[0.509,0.409],[0.477,0.377],[0.437,0.355],[0.390,0.343],[0.342,0.346],[0.296,0.359],[0.248,0.369],[0.197,0.368],[0.148,0.354],[0.107,0.328],[0.076,0.295],[0.056,0.256],[0.050,0.215],[0.061,0.174],[0.084,0.138],[0.119,0.107],[0.162,0.084],[0.209,0.069],[0.260,0.061],[0.312,0.057],[0.364,0.053],[0.418,0.050],[0.474,0.051],[0.529,0.060],[0.581,0.079],[0.627,0.106],[0.665,0.142],[0.695,0.185],[0.717,0.231],[0.737,0.280],[0.756,0.331],[0.775,0.382],[0.794,0.434],[0.814,0.489],[0.835,0.544],[0.857,0.600],[0.880,0.656],[0.902,0.713],[0.923,0.766],[0.941,0.814],[0.950,0.858],[0.942,0.899],[0.914,0.934],[0.869,0.950]],
+  '126_invertido':[[0.337,0.808],[0.367,0.765],[0.426,0.771],[0.474,0.805],[0.532,0.830],[0.603,0.833],[0.662,0.822],[0.720,0.802],[0.765,0.766],[0.792,0.717],[0.793,0.663],[0.771,0.608],[0.747,0.551],[0.724,0.492],[0.705,0.447],[0.686,0.401],[0.665,0.355],[0.637,0.310],[0.596,0.270],[0.543,0.240],[0.481,0.222],[0.415,0.222],[0.356,0.239],[0.304,0.271],[0.247,0.297],[0.185,0.302],[0.122,0.281],[0.072,0.234],[0.050,0.180],[0.061,0.128],[0.105,0.093],[0.168,0.086],[0.233,0.100],[0.302,0.107],[0.372,0.097],[0.437,0.072],[0.504,0.050],[0.574,0.055],[0.635,0.084],[0.684,0.129],[0.716,0.177],[0.736,0.223],[0.755,0.272],[0.775,0.322],[0.796,0.374],[0.817,0.428],[0.838,0.483],[0.861,0.539],[0.884,0.595],[0.908,0.653],[0.932,0.710],[0.950,0.764],[0.950,0.813],[0.918,0.862],[0.857,0.887],[0.782,0.889],[0.723,0.895],[0.665,0.911],[0.607,0.934],[0.543,0.950],[0.476,0.947],[0.414,0.926],[0.369,0.889],[0.337,0.841]],
+  '135':[[0.410,0.942],[0.332,0.921],[0.262,0.891],[0.203,0.854],[0.154,0.813],[0.118,0.767],[0.090,0.718],[0.070,0.668],[0.056,0.618],[0.050,0.567],[0.055,0.517],[0.073,0.468],[0.103,0.421],[0.154,0.382],[0.215,0.353],[0.280,0.337],[0.348,0.338],[0.446,0.389],[0.483,0.424],[0.514,0.458],[0.545,0.495],[0.570,0.533],[0.586,0.572],[0.587,0.615],[0.561,0.656],[0.521,0.688],[0.465,0.712],[0.400,0.722],[0.345,0.744],[0.319,0.778],[0.334,0.816],[0.387,0.840],[0.455,0.844],[0.592,0.827],[0.657,0.817],[0.712,0.795],[0.751,0.763],[0.770,0.725],[0.768,0.684],[0.755,0.645],[0.736,0.608],[0.713,0.571],[0.689,0.533],[0.665,0.494],[0.641,0.455],[0.617,0.415],[0.589,0.374],[0.552,0.336],[0.501,0.302],[0.443,0.274],[0.316,0.238],[0.254,0.219],[0.208,0.190],[0.204,0.152],[0.248,0.123],[0.302,0.097],[0.348,0.070],[0.407,0.051],[0.473,0.050],[0.538,0.067],[0.587,0.093],[0.624,0.126],[0.648,0.163],[0.671,0.201],[0.692,0.238],[0.713,0.276],[0.757,0.359],[0.781,0.404],[0.808,0.449],[0.838,0.494],[0.867,0.541],[0.898,0.588],[0.925,0.638],[0.946,0.688],[0.950,0.740],[0.937,0.792],[0.905,0.839],[0.852,0.880],[0.780,0.912],[0.696,0.935],[0.604,0.949],[0.507,0.950]],
+  '136':[[0.341,0.815],[0.358,0.777],[0.395,0.749],[0.413,0.712],[0.388,0.677],[0.343,0.656],[0.303,0.633],[0.270,0.600],[0.251,0.563],[0.247,0.523],[0.260,0.482],[0.285,0.446],[0.315,0.413],[0.346,0.380],[0.376,0.348],[0.385,0.310],[0.353,0.280],[0.305,0.275],[0.259,0.291],[0.209,0.299],[0.160,0.294],[0.117,0.274],[0.083,0.242],[0.062,0.204],[0.050,0.165],[0.056,0.125],[0.086,0.093],[0.133,0.079],[0.185,0.084],[0.232,0.098],[0.284,0.103],[0.336,0.096],[0.387,0.082],[0.437,0.064],[0.489,0.050],[0.542,0.050],[0.595,0.062],[0.640,0.087],[0.672,0.118],[0.696,0.155],[0.717,0.195],[0.734,0.238],[0.752,0.283],[0.770,0.329],[0.789,0.377],[0.809,0.427],[0.830,0.478],[0.852,0.530],[0.874,0.582],[0.895,0.636],[0.919,0.690],[0.940,0.741],[0.950,0.787],[0.943,0.828],[0.918,0.863],[0.878,0.886],[0.829,0.896],[0.776,0.894],[0.721,0.897],[0.667,0.910],[0.615,0.933],[0.558,0.949],[0.497,0.950],[0.437,0.935],[0.386,0.906],[0.352,0.868],[0.340,0.828]],
+  '140':[[0.194,0.851],[0.174,0.813],[0.153,0.773],[0.130,0.733],[0.106,0.691],[0.082,0.650],[0.061,0.607],[0.050,0.564],[0.053,0.523],[0.073,0.485],[0.106,0.452],[0.153,0.427],[0.213,0.425],[0.251,0.455],[0.274,0.491],[0.306,0.524],[0.345,0.553],[0.394,0.578],[0.450,0.594],[0.511,0.596],[0.552,0.569],[0.545,0.532],[0.518,0.497],[0.487,0.463],[0.455,0.430],[0.420,0.397],[0.374,0.369],[0.319,0.350],[0.267,0.328],[0.232,0.296],[0.226,0.258],[0.240,0.221],[0.231,0.182],[0.244,0.145],[0.282,0.116],[0.325,0.090],[0.368,0.063],[0.426,0.050],[0.485,0.056],[0.537,0.077],[0.576,0.106],[0.605,0.142],[0.626,0.177],[0.646,0.216],[0.664,0.252],[0.683,0.290],[0.702,0.329],[0.722,0.371],[0.741,0.414],[0.758,0.460],[0.777,0.507],[0.797,0.555],[0.822,0.603],[0.852,0.650],[0.884,0.695],[0.911,0.737],[0.934,0.774],[0.950,0.812],[0.947,0.850],[0.916,0.884],[0.859,0.901],[0.795,0.900],[0.733,0.893],[0.669,0.894],[0.604,0.904],[0.547,0.922],[0.491,0.939],[0.430,0.949],[0.362,0.950],[0.300,0.941],[0.248,0.923],[0.209,0.895],[0.185,0.861]],
+  '141':[[0.752,0.385],[0.770,0.425],[0.788,0.467],[0.804,0.506],[0.821,0.545],[0.838,0.583],[0.856,0.621],[0.871,0.659],[0.889,0.698],[0.908,0.740],[0.925,0.781],[0.941,0.822],[0.950,0.863],[0.943,0.903],[0.865,0.950],[0.813,0.944],[0.771,0.918],[0.752,0.880],[0.754,0.838],[0.760,0.797],[0.758,0.755],[0.750,0.712],[0.737,0.669],[0.722,0.626],[0.706,0.588],[0.690,0.550],[0.674,0.511],[0.659,0.472],[0.627,0.397],[0.607,0.358],[0.578,0.321],[0.542,0.291],[0.498,0.267],[0.450,0.257],[0.402,0.266],[0.376,0.298],[0.388,0.337],[0.429,0.361],[0.475,0.382],[0.516,0.406],[0.552,0.437],[0.603,0.510],[0.620,0.549],[0.632,0.592],[0.637,0.633],[0.633,0.675],[0.612,0.713],[0.575,0.744],[0.527,0.761],[0.472,0.764],[0.417,0.753],[0.365,0.733],[0.315,0.706],[0.272,0.674],[0.233,0.639],[0.167,0.560],[0.140,0.518],[0.118,0.473],[0.101,0.427],[0.090,0.380],[0.080,0.333],[0.069,0.287],[0.055,0.242],[0.050,0.199],[0.066,0.159],[0.105,0.132],[0.157,0.128],[0.205,0.140],[0.254,0.151],[0.357,0.142],[0.403,0.120],[0.441,0.091],[0.480,0.063],[0.529,0.050],[0.580,0.055],[0.626,0.077],[0.661,0.111],[0.682,0.150],[0.696,0.189],[0.710,0.230],[0.726,0.273],[0.743,0.318]],
+  '142':[[0.928,0.864],[0.890,0.895],[0.839,0.904],[0.786,0.894],[0.729,0.884],[0.672,0.890],[0.625,0.911],[0.579,0.934],[0.527,0.948],[0.475,0.950],[0.424,0.937],[0.381,0.912],[0.347,0.880],[0.319,0.845],[0.314,0.803],[0.344,0.769],[0.385,0.744],[0.387,0.704],[0.347,0.678],[0.300,0.658],[0.251,0.637],[0.215,0.607],[0.181,0.574],[0.148,0.541],[0.119,0.507],[0.091,0.471],[0.065,0.433],[0.050,0.393],[0.064,0.353],[0.102,0.327],[0.151,0.313],[0.204,0.300],[0.256,0.282],[0.299,0.255],[0.328,0.223],[0.341,0.185],[0.347,0.142],[0.367,0.104],[0.402,0.073],[0.453,0.054],[0.509,0.050],[0.559,0.060],[0.604,0.082],[0.643,0.113],[0.673,0.149],[0.697,0.186],[0.718,0.226],[0.739,0.269],[0.759,0.313],[0.779,0.359],[0.799,0.407],[0.821,0.456],[0.842,0.507],[0.865,0.558],[0.888,0.611],[0.911,0.664],[0.934,0.716],[0.950,0.766],[0.950,0.812],[0.932,0.852]],
+  '145':[[0.867,0.575],[0.889,0.625],[0.911,0.675],[0.932,0.725],[0.950,0.772],[0.937,0.852],[0.905,0.881],[0.862,0.898],[0.812,0.901],[0.707,0.908],[0.656,0.924],[0.604,0.942],[0.546,0.950],[0.434,0.924],[0.391,0.891],[0.362,0.851],[0.341,0.806],[0.321,0.761],[0.285,0.669],[0.274,0.621],[0.272,0.573],[0.282,0.525],[0.327,0.436],[0.362,0.398],[0.403,0.374],[0.451,0.366],[0.518,0.414],[0.499,0.449],[0.464,0.477],[0.451,0.514],[0.466,0.550],[0.551,0.587],[0.597,0.604],[0.629,0.633],[0.635,0.670],[0.566,0.717],[0.518,0.729],[0.484,0.755],[0.475,0.792],[0.536,0.849],[0.586,0.848],[0.633,0.840],[0.681,0.829],[0.727,0.812],[0.785,0.748],[0.792,0.708],[0.787,0.670],[0.775,0.633],[0.742,0.560],[0.725,0.523],[0.708,0.485],[0.692,0.446],[0.654,0.367],[0.625,0.330],[0.586,0.298],[0.536,0.275],[0.482,0.265],[0.371,0.288],[0.324,0.317],[0.269,0.338],[0.210,0.343],[0.104,0.308],[0.068,0.274],[0.051,0.233],[0.050,0.191],[0.095,0.115],[0.139,0.091],[0.189,0.077],[0.242,0.067],[0.297,0.061],[0.408,0.052],[0.464,0.050],[0.520,0.055],[0.573,0.070],[0.652,0.130],[0.681,0.168],[0.706,0.210],[0.728,0.253],[0.769,0.346],[0.789,0.394],[0.810,0.443],[0.831,0.494]],
+  '146':[[0.906,0.875],[0.856,0.902],[0.789,0.910],[0.724,0.902],[0.658,0.897],[0.594,0.906],[0.534,0.927],[0.468,0.945],[0.395,0.950],[0.320,0.941],[0.254,0.917],[0.200,0.883],[0.160,0.842],[0.130,0.796],[0.081,0.701],[0.062,0.652],[0.051,0.602],[0.050,0.551],[0.059,0.501],[0.081,0.452],[0.120,0.408],[0.176,0.373],[0.243,0.355],[0.312,0.356],[0.376,0.370],[0.430,0.394],[0.470,0.428],[0.503,0.465],[0.553,0.547],[0.564,0.593],[0.551,0.640],[0.516,0.680],[0.462,0.709],[0.395,0.726],[0.339,0.748],[0.310,0.782],[0.322,0.821],[0.375,0.845],[0.443,0.850],[0.507,0.843],[0.570,0.832],[0.687,0.790],[0.723,0.755],[0.738,0.716],[0.733,0.678],[0.716,0.640],[0.694,0.602],[0.671,0.564],[0.649,0.524],[0.628,0.483],[0.606,0.442],[0.580,0.401],[0.549,0.360],[0.506,0.323],[0.451,0.290],[0.315,0.250],[0.253,0.233],[0.209,0.202],[0.206,0.163],[0.235,0.128],[0.281,0.100],[0.326,0.073],[0.381,0.053],[0.448,0.050],[0.509,0.064],[0.557,0.090],[0.592,0.125],[0.614,0.160],[0.635,0.198],[0.682,0.275],[0.706,0.317],[0.730,0.361],[0.754,0.406],[0.780,0.453],[0.807,0.501],[0.835,0.551],[0.863,0.601],[0.892,0.653],[0.920,0.705],[0.943,0.752],[0.950,0.796],[0.934,0.834]],
+  'oval_invertido':[[0.812,0.433],[0.677,0.141],[0.643,0.099],[0.602,0.072],[0.548,0.055],[0.484,0.050],[0.196,0.074],[0.131,0.092],[0.090,0.119],[0.061,0.154],[0.050,0.192],[0.053,0.235],[0.151,0.431],[0.380,0.824],[0.415,0.872],[0.461,0.910],[0.511,0.933],[0.573,0.947],[0.651,0.950],[0.727,0.938],[0.841,0.903],[0.889,0.877],[0.922,0.843],[0.943,0.802],[0.950,0.757],[0.939,0.704],[0.812,0.433]],
+},
+_pts:function(W,H){
+  var raw=FK._tracks[FK.cfg.tracado]||FK._tracks['500_milhas']||[];
+  return raw.map(function(p){return[p[0]*(W||800),p[1]*(H||500)];});
+},
 drawMap101Static:function(){
 var cv=document.getElementById('mapa-canvas');if(!cv)return;
+var mtn=document.getElementById('mapa-track-name');if(mtn)mtn.textContent=FK._TRLBL[FK.cfg.tracado]||FK.cfg.tracado||'KGV';
 var ctx=cv.getContext('2d');var W=FK.state.mapW,H=FK.state.mapH;
 cv.width=W*2;cv.height=H*2;cv.style.width=W+'px';cv.style.height=H+'px';ctx.scale(2,2);
 ctx.fillStyle='#0a0c10';ctx.fillRect(0,0,W,H);
 ctx.fillStyle='rgba(0,40,0,0.3)';ctx.beginPath();ctx.ellipse(W*0.5,H*0.5,W*0.44,H*0.38,0,0,Math.PI*2);ctx.fill();
-var pts=FK._pts();
-var sectors=[{from:0,to:5,color:'#F7C600'},{from:5,to:17,color:'#4fc3f7'},{from:17,to:pts.length-1,color:'#81c784'}];
-sectors.forEach(function(s){ctx.beginPath();ctx.moveTo(pts[s.from][0],pts[s.from][1]);for(var i=s.from+1;i<=s.to&&i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);ctx.strokeStyle=s.color;ctx.lineWidth=7;ctx.lineCap='round';ctx.lineJoin='round';ctx.shadowColor=s.color;ctx.shadowBlur=8;ctx.stroke();ctx.shadowBlur=0;});
+var pts=FK._pts(W,H);
+var n=pts.length;
+/* shadow glow */
+ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
+for(var i=1;i<n;i++)ctx.lineTo(pts[i][0],pts[i][1]);
+ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=14;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke();
+/* traçado — cor única */
+ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
+for(var i=1;i<n;i++)ctx.lineTo(pts[i][0],pts[i][1]);
+ctx.strokeStyle='#4fc3f7';ctx.lineWidth=7;ctx.lineCap='round';ctx.lineJoin='round';ctx.shadowColor='#4fc3f7';ctx.shadowBlur=10;ctx.stroke();ctx.shadowBlur=0;
+/* S/F line */
 ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);ctx.lineTo(pts[1][0],pts[1][1]);ctx.strokeStyle='#ef5350';ctx.lineWidth=4;ctx.shadowColor='#ef5350';ctx.shadowBlur=10;ctx.stroke();ctx.shadowBlur=0;
 [0,4,8,11,15,20,25,30].forEach(function(ci,i){if(ci>=pts.length)return;ctx.beginPath();ctx.arc(pts[ci][0],pts[ci][1],7,0,Math.PI*2);ctx.fillStyle='rgba(255,255,255,0.12)';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();ctx.font='bold 9px sans-serif';ctx.fillStyle='#fff';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('C'+(i+1),pts[ci][0],pts[ci][1]);});
-ctx.beginPath();ctx.arc(W*0.47,H*0.47,38,0,Math.PI*2);ctx.fillStyle='rgba(13,15,20,0.85)';ctx.fill();ctx.strokeStyle='#2e3348';ctx.lineWidth=1.5;ctx.stroke();ctx.font='bold 18px sans-serif';ctx.fillStyle='#F7C600';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('101',W*0.47,H*0.44);ctx.font='10px sans-serif';ctx.fillStyle='#7a8099';ctx.fillText('1015m',W*0.47,H*0.51);
-[{c:'#F7C600',l:'S1'},{c:'#4fc3f7',l:'S2'},{c:'#81c784',l:'S3'},{c:'#ef5350',l:'S/F'}].forEach(function(item,i){var lx=14,ly=H-62+(i*15);ctx.fillStyle=item.c;ctx.fillRect(lx,ly,15,8);ctx.font='10px sans-serif';ctx.fillStyle='#aaa';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(item.l,lx+19,ly+4);});
+ctx.beginPath();ctx.arc(W*0.47,H*0.47,38,0,Math.PI*2);ctx.fillStyle='rgba(13,15,20,0.85)';ctx.fill();ctx.strokeStyle='#2e3348';ctx.lineWidth=1.5;ctx.stroke();var trLabel=(FK._TRLBL[FK.cfg.tracado]||FK.cfg.tracado||'KGV').toUpperCase();ctx.font='bold '+(trLabel.length>5?'12':'16')+'px sans-serif';ctx.fillStyle='#E2231A';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(trLabel,W*0.47,H*0.47);
+[{c:'#4fc3f7',l:'Traçado'},{c:'#ef5350',l:'S/F'}].forEach(function(item,i){var lx=14,ly=H-32+(i*15);ctx.fillStyle=item.c;ctx.fillRect(lx,ly,15,8);ctx.font='10px sans-serif';ctx.fillStyle='#aaa';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(item.l,lx+19,ly+4);});
 },
 drawMap101:function(){FK.drawMap101Static();if(FK.state.mapAnim)cancelAnimationFrame(FK.state.mapAnim);FK.state.kartT=0;FK.animateKart();},
 animateKart:function(){
-var pts=FK._pts();if(!pts||pts.length<2)return;
+var pts=FK._pts(FK.state.mapW,FK.state.mapH);if(!pts||pts.length<2)return;
 FK.state.kartT+=0.008;if(FK.state.kartT>=pts.length-1)FK.state.kartT=0;
 var seg=Math.floor(FK.state.kartT);var frac=FK.state.kartT-seg;if(seg>=pts.length-1)seg=pts.length-2;
 var x=pts[seg][0]+(pts[seg+1][0]-pts[seg][0])*frac;
@@ -900,16 +1639,484 @@ FK.drawMap101Static();
 var cv=document.getElementById('mapa-canvas');if(!cv)return;
 var ctx=cv.getContext('2d');ctx.save();ctx.scale(2,2);
 var label=FK.cfg.myKarts[0]||'?';
-ctx.beginPath();ctx.ellipse(x,y,14,10,0,0,Math.PI*2);ctx.fillStyle='#F7C600';ctx.shadowColor='#F7C600';ctx.shadowBlur=14;ctx.fill();ctx.shadowBlur=0;
+ctx.beginPath();ctx.ellipse(x,y,14,10,0,0,Math.PI*2);ctx.fillStyle='#E2231A';ctx.shadowColor='#E2231A';ctx.shadowBlur=14;ctx.fill();ctx.shadowBlur=0;
 ctx.font='bold 8px sans-serif';ctx.fillStyle='#000';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label,x,y);ctx.restore();
 FK.state.mapAnim=requestAnimationFrame(FK.animateKart);
 },
+/* ══════════ DASHBOARD ══════════ */
+parseT:function(t){
+  if(!t||t==='--:--'||t==='--:--.---')return 999;
+  var s=t.replace(/^00:/,'');var p=s.split(':');
+  return p.length===2?parseFloat(p[0])*60+parseFloat(p[1]):parseFloat(p[0]);
+},
+fmtLap:function(sec){
+  if(sec>=999)return '--:--.--';
+  var m=Math.floor(sec/60);var s=sec%60;
+  return (m<10?'0'+m:m)+':'+(s<10?'0'+s.toFixed(2):''+s.toFixed(2));
+},
+fmtMs:function(sec){
+  var m=Math.floor(sec/60);var s=Math.floor(sec%60);
+  var ms=Math.round((sec-Math.floor(sec))*1000);
+  var msStr=ms<10?'00'+ms:ms<100?'0'+ms:''+ms;
+  return (m<10?'0'+m:m)+':'+(s<10?'0'+s:s)+'.'+msStr;
+},
+/* ── Atualiza header do dashboard ── */
+rDashHeader:function(){
+  var e=FK.state.elapsed;
+  var rem=Math.max(0,FK.cfg.raceTotal-e);
+  var de=document.getElementById('d-elapsed');if(de)de.textContent=FK.fmtTime(e);
+  var dr=document.getElementById('d-remaining');if(dr)dr.textContent=rem>0?FK.fmtTime(rem):'ENCERRADA';
+  var flag=FK.cfg.source!=='demo'&&FK.state.flagStatus?FK.state.flagStatus:'Verde';
+  var df=document.getElementById('d-flag');if(df)df.textContent=flag;
+  var dc=document.getElementById('d-flag-chip');
+  if(dc){dc.className='race-chip flag-'+flag.toLowerCase().replace(' ','');}
+  var data=FK.getData();
+  if(data.length){
+    var l=data[0];
+    var dl=document.getElementById('d-leader');
+    if(dl)dl.textContent='#'+l.kart+' '+l.t+' — '+l.laps+'v';
+  }
+  var srcLbl=document.getElementById('d-src-lbl');
+  if(srcLbl)srcLbl.textContent=FK.cfg.source==='live'?'AO VIVO':(FK.cfg.source==='mylaptime'?'LAPTIME':'DEMO');
+  var srcChip=document.getElementById('d-src-chip');
+  if(srcChip)srcChip.style.borderColor=FK.cfg.source!=='demo'?'rgba(102,187,106,0.5)':'rgba(255,167,38,0.4)';
+},
+/* ── Ranking dashboard ── */
+rDashRanking:function(){
+  var data=FK.getData();
+  var tbody=document.getElementById('d-rank-body');if(!tbody)return;
+  var elapsed=FK.state.elapsed||2730;
+  var total=FK.cfg.raceTotal||10800;
+  var remaining=Math.max(0,total-elapsed);
+  var catPos={};
+  data.forEach(function(d){if(!catPos[d.cat])catPos[d.cat]=0;catPos[d.cat]++;d.catPos=catPos[d.cat];});
+  /* projeção */
+  var proj=data.map(function(d){
+    var lt=FK.parseT(d.best)||55;
+    return {kart:d.kart,projLaps:d.laps+Math.floor(remaining/lt)};
+  });
+  proj.sort(function(a,b){return b.projLaps-a.projLaps;});
+  var projPos={};proj.forEach(function(p,i){projPos[p.kart]=i+1;});
+  /* top 10 */
+  var top10=data.slice(0,10);
+  var teamExtra=data.filter(function(d){return FK.isMy(d.kart)&&d.pos>10;});
+  var html='';
+  function rowHtml(d,sep){
+    var my=FK.isMy(d.kart);
+    var pc=d.pos===1?'p1':d.pos===2?'p2':d.pos===3?'p3':'';
+    var pPos=projPos[d.kart]||d.pos;var delta=d.pos-pPos;
+    var arrow=delta>0?'<span class="proj-arrow proj-up">▲'+delta+'</span>':delta<0?'<span class="proj-arrow proj-dn">▼'+Math.abs(delta)+'</span>':'<span class="proj-arrow proj-eq">—</span>';
+    return '<tr class="'+(my?'my-kart':'')+(sep?' dr-sep':'')+'">'+
+    '<td><span class="d-pos '+pc+'">'+d.pos+'</span></td>'+
+    '<td><span class="d-kart'+(my?' my':'')+'">'+d.kart+'</span></td>'+
+    '<td><div style="line-height:1.3"><span style="font-weight:'+(my?700:400)+'">'+d.t+(my?' ★':'')+'</span><br><span style="font-size:9px;color:var(--mut)">'+( d.equipe||'')+'</span></div></td>'+
+    '<td><span style="font-size:10px;color:var(--mut)">'+d.cat+'</span><span style="font-size:9px;color:#555;margin-left:3px">'+d.catPos+'º</span></td>'+
+    '<td style="color:'+(my?'var(--acc)':'var(--txt)')+'">'+d.last+'</td>'+
+    '<td style="font-size:10px;color:var(--mut)">'+d.gap+'</td>'+
+    '<td><span class="pit6-badge">'+( d.pit6||0)+'</span></td>'+
+    '<td><span class="pit10-badge">'+( d.pit10||0)+'</span></td>'+
+    '<td>'+arrow+'</td>'+
+    '</tr>';
+  }
+  top10.forEach(function(d){html+=rowHtml(d,false);});
+  if(teamExtra.length){
+    html+='<tr class="dr-sep"><td colspan="9" style="background:rgba(226,35,26,0.05);color:var(--acc);font-size:9px;text-transform:uppercase;letter-spacing:2px;padding:3px 8px;font-weight:700">— Equipe fora do top 10 —</td></tr>';
+    teamExtra.forEach(function(d){html+=rowHtml(d,false);});
+  }
+  tbody.innerHTML=html;
+  var upd=document.getElementById('d-rank-updated');
+  if(upd)upd.textContent='atualizado '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+},
+/* ── Cronômetros equipe (milissegundos) ── */
+initKrono:function(){
+  if(!FK.state.kronoState)FK.state.kronoState={};
+  var now=Date.now();
+  FK.cfg.myKarts.forEach(function(k){
+    if(FK.state.kronoState[k]&&FK.state.kronoState[k].lapStartTs)return;
+    var kd=FK.demo_data.find(function(d){return d.kart===k;});
+    var lapTime=kd?FK.parseT(kd.best):52;
+    var phase=Math.random()*lapTime*1000;
+    FK.state.kronoState[k]={
+      lapStartTs:now-phase,
+      lapTime:lapTime,
+      stintLaps:kd?Math.max(3,Math.floor(kd.laps*0.22)):5,
+      best:kd?kd.best:'--:--',
+      last:kd?kd.last:'--:--',
+      pos:kd?kd.pos:'?'
+    };
+  });
+},
+startKronoInterval:function(){
+  if(FK.state.kronoFast)clearInterval(FK.state.kronoFast);
+  FK.state.kronoFast=setInterval(function(){
+    var pane=document.getElementById('pane-dash');
+    if(!pane||!pane.classList.contains('on'))return;
+    FK.cfg.myKarts.forEach(function(k){
+      var ks=FK.state.kronoState&&FK.state.kronoState[k];
+      if(!ks||!ks.lapStartTs)return;
+      var elapsed=(Date.now()-ks.lapStartTs)/1000;
+      /* avança volta quando completa */
+      while(elapsed>=ks.lapTime){
+        ks.lapStartTs+=Math.round(ks.lapTime*1000);
+        elapsed-=ks.lapTime;
+        ks.stintLaps=(ks.stintLaps||0)+1;
+        ks.last=ks.best;
+      }
+      var m=Math.floor(elapsed/60);
+      var s=elapsed%60;
+      var ss=s<10?'0'+s.toFixed(3):s.toFixed(3);
+      var timerStr=(m<10?'0'+m:m)+':'+ss;
+      var tel=document.getElementById('kt-'+k);
+      if(tel){tel.textContent=timerStr;tel.className='krono-timer'+(elapsed>ks.lapTime*0.96?' late':'');}
+      var sel=document.getElementById('ks-'+k);
+      if(sel)sel.textContent=(ks.stintLaps||0)+' voltas';
+    });
+  },50);
+},
+rDashCrono:function(){
+  var el=document.getElementById('d-krono-grid');if(!el)return;
+  if(!FK.cfg.myKarts.length){el.innerHTML='<div style="padding:20px;color:var(--mut);text-align:center;font-size:12px">Nenhum kart configurado</div>';return;}
+  /* só reconstrói estrutura se karts mudaram */
+  var kartKey=FK.cfg.myKarts.join(',');
+  if(el.dataset.kartKey===kartKey)return;
+  el.dataset.kartKey=kartKey;
+  var html='';
+  FK.cfg.myKarts.forEach(function(k){
+    var ks=FK.state.kronoState&&FK.state.kronoState[k];
+    var kd=FK.demo_data.find(function(d){return d.kart===k;});
+    var pos=kd?kd.pos:'?';
+    var best=ks?ks.best:'--:--';
+    var last=ks?ks.last:'--:--';
+    html+='<div class="krono-card">'+
+    '<div class="krono-top"><div class="krono-badge">'+k+'</div><div class="krono-pos-info">P'+pos+'</div></div>'+
+    '<div class="krono-timer" id="kt-'+k+'">00:00.000</div>'+
+    '<div class="krono-row">'+
+    '<div class="kr-cell"><span class="kl">Melhor</span><span class="kv acc">'+best+'</span></div>'+
+    '<div class="kr-cell"><span class="kl">Última</span><span class="kv">'+last+'</span></div>'+
+    '</div>'+
+    '<div class="krono-stint-bar"><span class="ks-lbl">Stint</span><span class="ks-val" id="ks-'+k+'">0 voltas</span></div>'+
+    '</div>';
+  });
+  el.innerHTML=html;
+},
+/* ── Pace Equipe vs Top 10 ── */
+rDashPaceComp:function(){
+  var el=document.getElementById('d-pace-comp');if(!el)return;
+  var data=FK.getData();
+  var myKarts=FK.cfg.myKarts.filter(function(k){return data.find(function(d){return d.kart===k;});});
+  if(!myKarts.length){el.innerHTML='<p style="color:var(--mut);font-size:11px;padding:4px">Configure seus karts para ver o comparativo.</p>';return;}
+  var top10=data.slice(0,10);
+  var html='<table class="pace-table"><thead><tr><th style="text-align:left">Kart</th>';
+  top10.forEach(function(d){html+='<th>#'+d.kart+'</th>';});
+  html+='</tr></thead><tbody>';
+  myKarts.forEach(function(k){
+    var my=data.find(function(d){return d.kart===k;});
+    if(!my)return;
+    var myT=FK.parseT(my.best);
+    html+='<tr><td class="row-kart">#'+k+'<br><span style="font-size:8px;color:var(--mut);font-weight:400">'+my.best+'</span></td>';
+    top10.forEach(function(d){
+      if(d.kart===k){html+='<td><span class="pace-cell same">—</span></td>';return;}
+      var dT=FK.parseT(d.best);
+      var diff=myT-dT;
+      var cls=diff<-0.05?'faster':diff>0.05?'slower':'same';
+      var sign=diff>0?'+':'';
+      html+='<td><span class="pace-cell '+cls+'">'+sign+diff.toFixed(2)+'</span></td>';
+    });
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  el.innerHTML=html;
+},
+/* ── Clima horário ── */
+loadWxHourly:function(){
+  var url='https://api.open-meteo.com/v1/forecast?latitude='+(FK.cfg.wxLat!=null?FK.cfg.wxLat:-22.778938)+'&longitude='+(FK.cfg.wxLon!=null?FK.cfg.wxLon:-47.229576)+
+    '&hourly=precipitation_probability,precipitation,temperature_2m,weathercode&current=temperature_2m,weathercode,windspeed_10m,winddirection_10m,precipitation_probability,relativehumidity_2m'+
+    '&timezone=America/Sao_Paulo&forecast_days=2';
+  var xhr=new XMLHttpRequest();xhr.open('GET',url);
+  xhr.onload=function(){try{
+    var d=JSON.parse(xhr.responseText);
+    var cur=d.current;
+    var wc=cur.weathercode;
+    var iconTxt=wc===0?'☀️ Limpo':wc<=2?'⛅ Nublado parcial':wc<=3?'☁️ Nublado':wc<=67?'🌧️ Chuva':'❄️ Neve';
+    var dirs=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+    var di=Math.round(cur.winddirection_10m/22.5)%16;
+    var rain=cur.precipitation_probability>=30;
+    var hum=cur.relativehumidity_2m!=null?cur.relativehumidity_2m:'--';
+    FK.state.wxCurrent={temp:cur.temperature_2m,hum:hum,wind:cur.windspeed_10m,dir:dirs[di],icon:iconTxt,rain:rain};
+    /* previsao hora a hora ate o fim da prova (elapsed + tempo restante), com folga de +1h e teto de seguranca de 12h */
+    var now=new Date();var nowH=now.getHours();
+    var remainingSec=Math.max(0,(FK.cfg.raceTotal||14400)-(FK.state.elapsed||0));
+    var raceEndMs=now.getTime()+remainingSec*1000+3600000;
+    var times=d.hourly.time;var probs=d.hourly.precipitation_probability;var mms=d.hourly.precipitation;
+    var hrs=[];
+    for(var i=0;i<times.length&&hrs.length<12;i++){
+      var t=new Date(times[i]);
+      if(t>=now){
+        hrs.push({h:t.getHours(),p:probs[i],mm:mms?mms[i]:null});
+        if(t.getTime()>=raceEndMs)break;
+      }
+    }
+    FK.state.wxHourly=hrs;
+    FK.drawWxChart();FK.drawDashRainChart();
+    if(typeof FK.rEstWeather==='function')FK.rEstWeather();
+    /* update main wx bar too */
+    var wx=document.getElementById('wxbar');
+    if(wx)wx.innerHTML=(FK.cfg.wxLabel||'—')+' | '+iconTxt+' | <span style="color:#90caf9">'+cur.windspeed_10m+'km/h '+dirs[di]+'</span> | <span style="color:var(--acc)">'+cur.temperature_2m+'°C</span> | <span style="color:#80deea">'+hum+'% UR</span> | <strong style="color:'+(rain?'#4fc3f7':'#66bb6a')+'">'+(rain?'Chuva possível':'Sem chuva')+'</strong>';
+  }catch(e){console.warn('wx error',e);}};
+  xhr.onerror=function(){};
+  xhr.send();
+},
+/* ── Box Intelligence — Matriz Visual ── */
+rDashBoxIntel:function(){
+  var el=document.getElementById('d-bxi-body');if(!el)return;
+  var data=FK.getData();
+  /* melhor tempo dos karts da equipe em pista */
+  var myBest=999;
+  FK.cfg.myKarts.forEach(function(k){
+    var kd=data.find(function(d){return d.kart===k;});
+    if(kd){var t=FK.parseT(kd.best);if(t<myBest)myBest=t;}
+  });
+  /* pool: todos karts registrados no box + karts do campo (simulação) */
+  var inBox=FK.state.kartsInBox||[];
+  /* para demo: usar TODOS os karts do campo como pool do box */
+  var pool=data.map(function(d){
+    var t=FK.parseT(d.best);
+    return {kart:d.kart,best:t,bestStr:d.best,pos:d.pos,inBox:inBox.indexOf(d.kart)>=0||true};
+  });
+  /* ordenar por tempo (melhor primeiro) */
+  pool.sort(function(a,b){return a.best-b.best;});
+  /* calcular rank de qualidade */
+  var n=pool.length;
+  pool.forEach(function(k,i){
+    var pct=i/Math.max(n-1,1);
+    if(pct<0.20)k.grade='q5';
+    else if(pct<0.40)k.grade='q4';
+    else if(pct<0.60)k.grade='q3';
+    else if(pct<0.80)k.grade='q2';
+    else k.grade='q1';
+  });
+  var cntEl=document.getElementById('d-bxi-count');
+  if(cntEl)cntEl.textContent=pool.length+' karts disponíveis';
+  /* MATRIZ */
+  var matrixHtml='<div class="bxi-matrix">';
+  pool.forEach(function(bk){
+    var isTeam=FK.isMy(bk.kart);
+    var style=isTeam?' style="box-shadow:0 0 0 2px #E2231A,0 0 10px rgba(226,35,26,0.4)"':'';
+    matrixHtml+='<div class="bxi-cell '+bk.grade+'"'+style+' title="Kart #'+bk.kart+' | '+bk.bestStr+'">'+
+    '<span class="bxi-cell-num">'+(isTeam?'★':'')+bk.kart+'</span>'+
+    '<span class="bxi-cell-time">'+bk.bestStr+'</span>'+
+    '<span class="bxi-cell-dot"></span>'+
+    '</div>';
+  });
+  matrixHtml+='</div>';
+  /* Legenda */
+  matrixHtml+='<div class="bxi-legend">'+
+  '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#4caf50"></span>Top 20%</span>'+
+  '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#8bc34a"></span>Bom</span>'+
+  '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#ffc107"></span>Médio</span>'+
+  '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#ff5722"></span>Fraco</span>'+
+  '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#ef5350"></span>Ruim</span>'+
+  '<span class="bxi-leg-item" style="margin-left:8px"><span style="color:var(--acc)">★</span> = Nosso</span>'+
+  '</div>';
+  /* Recomendação */
+  var bestInPool=pool[0];
+  var diffBest=myBest-(bestInPool?bestInPool.best:999);
+  var reco='';
+  if(!pool.length){
+    reco='<div class="bxi-reco hold">📊 Aguardando karts no box</div>';
+  }else if(diffBest<-0.4){
+    reco='<div class="bxi-reco go">⚡ TROQUE! Kart #'+bestInPool.kart+' é '+Math.abs(diffBest).toFixed(2)+'s mais rápido</div>';
+  }else if(diffBest>0.4){
+    reco='<div class="bxi-reco wait">✋ Aguarde — seus karts estão mais rápidos</div>';
+  }else{
+    reco='<div class="bxi-reco hold">⚖️ Ritmo similar — prefira kart mais conservado</div>';
+  }
+  el.innerHTML=matrixHtml+reco;
+},
+/* ── Pit Stop Ranking ── */
+rDashPitRanking:function(){
+  var el=document.getElementById('d-pit-rank-body');if(!el)return;
+  var pit_el2=document.getElementById('d-pit-chips');
+  var stops=FK.state.pitStops||[];
+  /* apenas paradas válidas (>= 360s) ordenadas por delta */
+  var valid=stops.filter(function(p){return p.duracao>=360;});
+  valid.sort(function(a,b){return(a.duracao-360)-(b.duracao-360);});
+  /* chips no header */
+  if(pit_el2){
+    if(!valid.length){pit_el2.innerHTML='<span style="color:var(--mut);font-size:11px">Nenhuma parada registrada</span>';}
+    else{
+      var medals=['🥇','🥈','🥉'];
+      pit_el2.innerHTML=valid.slice(0,3).map(function(p,i){
+        var delta=p.duracao-360;
+        var dStr='+'+Math.floor(delta/60)+':'+(delta%60<10?'0'+delta%60:delta%60);
+        return '<div class="pit-chip">'+
+        '<span class="pc-medal">'+medals[i]+'</span>'+
+        '<span class="pc-kart">#'+p.kart+'</span>'+
+        '<span class="pc-equipe">'+p.equipe+'</span>'+
+        '<span class="pc-dur">'+FK.fmtMs(p.duracao)+'</span>'+
+        '<span class="pc-delta ok">'+dStr+'</span>'+
+        '</div>';
+      }).join('');
+    }
+  }
+  /* ranking completo */
+  if(!valid.length){el.innerHTML='<div class="pr-empty">Nenhuma parada registrada ainda<br><small style="color:#2a2d38">Use o Controle de Box para registrar entradas e saídas</small></div>';return;}
+  var medals2=['🥇','🥈','🥉','4','5','6','7','8'];
+  el.innerHTML=valid.slice(0,8).map(function(p,i){
+    var my=FK.isMy(p.kart);
+    var delta=p.duracao-360;
+    var dStr='+'+FK.fmtMs(delta);
+    return '<div class="pr-row">'+
+    '<span class="pr-medal">'+(i<3?medals2[i]:(i+1)+'º')+'</span>'+
+    '<div class="pr-kart'+(my?' my':'')+'">'+p.kart+'</div>'+
+    '<div class="pr-info">'+
+    '<div class="pr-dur">'+FK.fmtMs(p.duracao)+'</div>'+
+    '<div class="pr-sub">#'+p.kart+' · '+p.equipe+'</div>'+
+    '</div>'+
+    '<span class="pr-delta ok">'+dStr+'</span>'+
+    '</div>';
+  }).join('');
+},
+/* ── Mapa mini no dashboard ── */
+drawMapDash:function(){
+  var cv=document.getElementById('mapa-canvas-dash');if(!cv)return;
+  var W=cv.offsetWidth||300;var H=Math.round(W*0.65);
+  if(H<120)H=120;
+  cv.width=W*2;cv.height=H*2;cv.style.height=H+'px';
+  var ctx=cv.getContext('2d');ctx.scale(2,2);
+  ctx.fillStyle='#060810';ctx.fillRect(0,0,W,H);
+  /* track label */
+  var trackName=(FK._TRLBL[FK.cfg.tracado]||FK.cfg.tracado||'KGV').toUpperCase();
+  var el_mn=document.getElementById('d-map-track-name');if(el_mn)el_mn.textContent='— '+trackName;
+  var pts=FK._pts(W,H);
+  var n=pts.length;
+  /* draw track shadow/glow */
+  ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
+  for(var i=1;i<n;i++)ctx.lineTo(pts[i][0],pts[i][1]);
+  ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=12;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke();
+  /* draw track — cor única */
+  ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
+  for(var i=1;i<n;i++)ctx.lineTo(pts[i][0],pts[i][1]);
+  ctx.strokeStyle='#4fc3f7';ctx.lineWidth=4;ctx.lineCap='round';ctx.lineJoin='round';ctx.shadowColor='#4fc3f7';ctx.shadowBlur=5;ctx.stroke();ctx.shadowBlur=0;
+  /* S/F line */
+  ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);ctx.lineTo(pts[1][0],pts[1][1]);ctx.strokeStyle='#ef5350';ctx.lineWidth=3;ctx.shadowColor='#ef5350';ctx.shadowBlur=8;ctx.stroke();ctx.shadowBlur=0;
+  /* track name badge */
+  ctx.font='bold 9px sans-serif';ctx.fillStyle='rgba(226,35,26,0.9)';ctx.textAlign='right';ctx.textBaseline='top';ctx.fillText('KGV',W-6,4);
+  /* karts da equipe animados */
+  FK.cfg.myKarts.slice(0,6).forEach(function(k,ki){
+    var ks=FK.state.kronoState&&FK.state.kronoState[k];
+    var lt=ks?ks.lapTime:52;var ph=ks?ks.phase:ki*8;
+    var t=((FK.state.elapsed+ph)%lt)/(lt)*(pts.length-1);
+    var seg=Math.floor(t);var frac=t-seg;if(seg>=pts.length-1)seg=pts.length-2;
+    var x=pts[seg][0]+(pts[seg+1][0]-pts[seg][0])*frac;
+    var y=pts[seg][1]+(pts[seg+1][1]-pts[seg][1])*frac;
+    var colors=['#E2231A','#FFFFFF','#4fc3f7','#81c784','#ce93d8','#ef9a9a'];
+    var col=colors[ki%colors.length];
+    ctx.beginPath();ctx.arc(x,y,9,0,Math.PI*2);ctx.fillStyle=col;ctx.shadowColor=col;ctx.shadowBlur=10;ctx.fill();ctx.shadowBlur=0;
+    ctx.font='bold 7px sans-serif';ctx.fillStyle='#000';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(k,x,y);
+  });
+},
+drawWxChart:function(){
+  var cv=document.getElementById('wx-hourly-canvas');if(!cv)return;
+  var data=FK.state.wxHourly||[];
+  if(!data.length){cv.style.display='none';return;}
+  cv.style.display='inline-block';
+  var W=160;var H=28;
+  cv.width=W*2;cv.height=H*2;cv.style.width=W+'px';cv.style.height=H+'px';
+  var ctx=cv.getContext('2d');ctx.scale(2,2);
+  ctx.fillStyle='rgba(10,12,16,0.8)';ctx.fillRect(0,0,W,H);
+  var bw=Math.max(4,Math.floor(W/data.length)-1);
+  data.forEach(function(item,i){
+    var x=i*(bw+1);var ph=Math.max(2,(item.p/100)*(H-10));var y=H-ph-8;
+    var color=item.p<30?'#66bb6a':item.p<60?'#ffa726':'#ef5350';
+    ctx.fillStyle=color+'55';ctx.fillRect(x,y,bw,ph);
+    ctx.fillStyle=color;ctx.fillRect(x,y,bw,2);
+    ctx.font='bold 6px sans-serif';ctx.fillStyle=color;
+    ctx.textAlign='center';ctx.fillText(item.p+'%',x+bw/2,H-1);
+    ctx.fillStyle='#444';ctx.font='6px sans-serif';ctx.fillText(item.h+'h',x+bw/2,7);
+  });
+},
+/* ── Gráfico de chuva no dashboard ── */
+drawDashRainChart:function(){
+  var wrap=document.getElementById('dash-rain-wrap');
+  var cv=document.getElementById('dash-rain-chart');
+  if(!cv||!wrap)return;
+  var data=FK.state.wxHourly||[];
+  if(!data.length){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  var W=cv.parentElement.offsetWidth||280;var H=56;
+  cv.width=W*2;cv.height=H*2;cv.style.height=H+'px';
+  var ctx=cv.getContext('2d');ctx.scale(2,2);
+  /* bg */
+  ctx.fillStyle='#070910';ctx.fillRect(0,0,W,H);
+  var n=data.length;if(!n)return;
+  var lpad=4,rpad=4;
+  var bw=Math.floor((W-lpad-rpad)/n)-1;
+  /* 50% guideline */
+  var y50=H-10-Math.round(0.5*(H-20));
+  ctx.setLineDash([3,3]);ctx.beginPath();ctx.moveTo(lpad,y50);ctx.lineTo(W-rpad,y50);
+  ctx.strokeStyle='rgba(255,255,255,0.12)';ctx.lineWidth=1;ctx.stroke();ctx.setLineDash([]);
+  ctx.font='6px sans-serif';ctx.fillStyle='rgba(255,255,255,0.2)';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText('50%',lpad,y50);
+  data.forEach(function(item,i){
+    var x=lpad+i*(bw+1);
+    var ph=Math.max(3,Math.round((item.p/100)*(H-20)));
+    var y=H-10-ph;
+    var color=item.p<30?'#66bb6a':item.p<60?'#ffa726':'#ef5350';
+    /* bar fill */
+    ctx.fillStyle=color+'2a';ctx.fillRect(x,y,bw,ph);
+    /* bar cap */
+    ctx.fillStyle=color;ctx.fillRect(x,y,bw,2);
+    /* % label */
+    ctx.font='bold 7px sans-serif';ctx.fillStyle=color;
+    ctx.textAlign='center';ctx.textBaseline='bottom';
+    ctx.fillText(item.p+'%',x+bw/2,H-1);
+    /* hour label */
+    ctx.font='6px sans-serif';ctx.fillStyle='rgba(255,255,255,0.38)';
+    ctx.textBaseline='top';ctx.fillText(item.h+'h',x+bw/2,2);
+  });
+},
+/* ── render completo do dashboard ── */
+rDash:function(){
+  FK.rDashRanking();
+  FK.rDashCrono();
+  FK.rDashBoxIntel();
+  FK.rDashPitRanking();
+  FK.rDashPaceComp();
+  FK.drawMapDash();
+  FK.drawWxChart();
+  FK.drawDashRainChart();
+},
 render:function(){
 FK.loadConfig();FK.cfg.myKarts=FK.cfg.myKarts||[];
-if(FK.cfg.myKarts.length===0)FK.cfg.myKarts=['064','037'];
-FK.state.elapsed=FK.cfg.raceTotal>10800?0:2730;
+if(FK.cfg.myKarts.length===0)FK.cfg.myKarts=['058','059','060','061','062','063'];
+FK.state.elapsed=FK.cfg.raceTotal>21600?0:10800;
+/* Demo: pit stops pré-populados */
+if(!FK.state.pitStops){
+  FK.state.pitStops=[
+    {kart:'032',equipe:'NE RACING MUNDOS DO PHONE',entrada:1180,saida:1542,duracao:362.134},
+    {kart:'062',equipe:'ACADEMIA FKR HYSPEX / MITRE',entrada:1350,saida:1720,duracao:370.000},
+    {kart:'060',equipe:'FKART 060 RACING',entrada:1450,saida:1816,duracao:366.271},
+    {kart:'066',equipe:'FORÇA G RACING 2',entrada:1600,saida:1975,duracao:375.893},
+    {kart:'058',equipe:'FKART ROSS PERFORMACE CAR',entrada:1820,saida:2197,duracao:377.445},
+    {kart:'063',equipe:'ACADEMIA FKR HYSPEX / MITRE 2',entrada:1950,saida:2330,duracao:380.000},
+    {kart:'061',equipe:'FKART 061 RACING',entrada:2050,saida:2461,duracao:410.612},
+    {kart:'059',equipe:'FKART RACE TEAM',entrada:2200,saida:2618,duracao:418.330}
+  ];
+}
+/* Demo: karts no box */
+if(!FK.state.kartsInBox)FK.state.kartsInBox=['060','059'];
+/* Demo weather — substituído quando API responder */
+if(!FK.state.wxHourly){
+  var now=new Date();var h=now.getHours();
+  FK.state.wxHourly=[{h:h,p:10},{h:(h+1)%24,p:15},{h:(h+2)%24,p:20},{h:(h+3)%24,p:35},{h:(h+4)%24,p:45},{h:(h+5)%24,p:40},{h:(h+6)%24,p:30},{h:(h+7)%24,p:20}];
+  var wxEl=document.getElementById('wxbar');
+  if(wxEl)wxEl.innerHTML=(FK.cfg.wxLabel||'—')+' | ⛅ Nublado parcial | <span style="color:#90caf9">12km/h NE</span> | <span style="color:var(--acc)">21°C</span> | <span style="color:#80deea">68% UR</span> | <strong style="color:#66bb6a">Sem chuva</strong>';
+}
+FK.initKrono();
 FK.updateTopbar();FK.updateSrcBadge();FK.rPlacar();FK.rComp();
-FK.rTracados('all');FK.rPilotos();FK.rBox();FK.rProjecao();FK.loadWx();FK.startClock();
+FK.rTracados();FK.rPilotos();FK.rBox();FK.rProjecao();FK.rEstrategia();
+FK.loadWxHourly();FK.loadWx();FK.startClock();FK.startKronoInterval();
+FK.rDash();setTimeout(function(){FK.drawWxChart();FK.drawMapDash();FK.drawDashRainChart();},100);
 }
 };
 document.querySelectorAll('.tab').forEach(function(t){
