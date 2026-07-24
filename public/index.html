@@ -676,7 +676,7 @@ raceName:'KGV Endurance',
 raceId:26021,
 raceTotal:10800,
 apiToken:'',
-myKarts:[],
+myKarts:['36'],
 source:'demo',
 tracado:'500_milhas',
 laptimeUrl:'',
@@ -684,11 +684,60 @@ minPitStops:5,
 minPitDurationSec:360,
 maxPitStops:6,
 pitCloseMin:220,
-myCategory:'',
+myCategory:'LIGHT',
 wxLat:-22.778938,
 wxLon:-47.229576,
 wxLabel:'KNO Nova Odessa',
-roster:{}
+/* Roster oficial da etapa KNO (placa=numero do kart, correlaciona com o LapTimer) */
+roster:{
+'1':{equipe:'ACADEMIA DO KART 1',cat:'PRO'},
+'2':{equipe:'ACADEMIA DO KART 2',cat:'PRO'},
+'3':{equipe:'ACADEMIA DO KART 3',cat:'PRO'},
+'4':{equipe:'ACADEMIA DO KART 5',cat:'PRO'},
+'5':{equipe:'IMPACTO RACING / AK 6',cat:'PRO'},
+'6':{equipe:'ACADEMIA DO KART 7',cat:'PRO'},
+'7':{equipe:'DKR / KART LOKO',cat:'PRO'},
+'8':{equipe:'CORSAVELOCE - AK 8',cat:'LIGHT'},
+'9':{equipe:'JUNQUEIRA',cat:'LIGHT'},
+'10':{equipe:'EB KART RACING',cat:'LIGHT'},
+'11':{equipe:'KART STIVE / MOV CONFECCOES 1',cat:'LIGHT'},
+'12':{equipe:'KART STIVE / MOV CONFECCOES 2',cat:'LIGHT'},
+'13':{equipe:'KART STIVE / INSTITUTO DI CASTRO 3',cat:'LIGHT'},
+'14':{equipe:'KART STIVE / INSTITUTO DI CASTRO 4',cat:'LIGHT'},
+'15':{equipe:'KART STIVE / VAREJAO REAL 5',cat:'LIGHT'},
+'16':{equipe:'KART STIVE / VAREJAO REAL 6',cat:'LIGHT'},
+'17':{equipe:'KART MILE 1 / AK',cat:'LIGHT'},
+'18':{equipe:'KART MILE 2 / AK',cat:'LIGHT'},
+'19':{equipe:'KART MILE 3 / AK',cat:'LIGHT'},
+'20':{equipe:'KART MILE 4 / AK',cat:'LIGHT'},
+'21':{equipe:'KART MILE 5 / AK',cat:'LIGHT'},
+'22':{equipe:'KART MILE 6 / AK',cat:'LIGHT'},
+'23':{equipe:'LEGENDS 1',cat:'PRO'},
+'24':{equipe:'LEGENDS 2',cat:'PRO'},
+'25':{equipe:'LEGENDS 3',cat:'PRO'},
+'26':{equipe:'LEGENDS 4',cat:'PRO'},
+'27':{equipe:'NITTA KART 1',cat:'PRO'},
+'28':{equipe:'NITTA KART 2',cat:'PRO'},
+'29':{equipe:'NITTA KART 3',cat:'PRO'},
+'30':{equipe:'NITTA KART 7',cat:'PRO'},
+'31':{equipe:'NITTA KART 4',cat:'LIGHT'},
+'32':{equipe:'NITTA KART 5',cat:'LIGHT'},
+'33':{equipe:'NITTA KART 6',cat:'LIGHT'},
+'34':{equipe:'PBK SANSEI JAMPAC',cat:'LIGHT'},
+'35':{equipe:'PBK MAORI TRANSPORTES',cat:'LIGHT'},
+'36':{equipe:'SEM BOX',cat:'LIGHT'},
+'37':{equipe:'WOW RACING KALUNGA',cat:'LIGHT'},
+'38':{equipe:'WOW RACING ROCHA POMBO',cat:'LIGHT'},
+'39':{equipe:'Z19 SQUADRA - MIELLI TECNOLOGIA 1',cat:'PRO'},
+'40':{equipe:'Z19 SQUADRA - MIELLI TECNOLOGIA 2',cat:'PRO'},
+'41':{equipe:'Z19 SQUADRA - MIELLI TECNOLOGIA 3',cat:'PRO'},
+'42':{equipe:'Z19 SQUADRA - MIELLI TECNOLOGIA 4',cat:'PRO'},
+'43':{equipe:'Z19 SQUADRA - MIELLI TECNOLOGIA 5',cat:'PRO'},
+'44':{equipe:'Z19 SQUADRA - MIELLI TECNOLOGIA 6',cat:'PRO'},
+'45':{equipe:'Z19 CUIUDOS DA SAROBA',cat:'PRO'},
+'46':{equipe:'REDFIVE',cat:'LIGHT'},
+'47':{equipe:'GOSHEN LAND',cat:'LIGHT'}
+}
 },
 /* === ESTADO DA CORRIDA === */
 state:{
@@ -757,7 +806,13 @@ demo_data:[
 {pos:19,kart:'046',t:'LEMANS 1',cat:'ELITE',laps:39,last:'01:02.150',best:'01:01.747',diff:'+0.599',gap:'+5 voltas',pit6:1,pit10:0,equipe:'LEMANS 1'},
 {pos:20,kart:'001',t:'KARTRAK 1',cat:'ELITE',laps:38,last:'01:02.200',best:'01:01.987',diff:'+0.839',gap:'+6 voltas',pit6:1,pit10:0,equipe:'KARTRAK 1'}
 ],
-isMy:function(k){return FK.cfg.myKarts.indexOf(String(k))>=0;},
+isMy:function(k){
+  var ks=String(k);
+  if(FK.cfg.myKarts.indexOf(ks)>=0)return true;
+  var kn=parseInt(ks,10);
+  if(isNaN(kn))return false;
+  return FK.cfg.myKarts.some(function(m){return parseInt(m,10)===kn;});
+},
 getData:function(){
 if(FK.cfg.source!=='demo'&&FK.state.liveData&&FK.state.liveData.length)return FK.state.liveData;
 return FK.demo_data;
@@ -1334,7 +1389,7 @@ rEstCatTable:function(){
     var my=FK.isMy(d.kart);
     var pc='';if(i===0)pc='p1';else if(i===1)pc='p2';else if(i===2)pc='p3';
     var star=my?'&#11088;':'';
-    var rEntry=roster[d.kart];
+    var rEntry=roster[d.kart]||roster[String(parseInt(d.kart,10))];
     var nomeEquipe=rEntry?rEntry.equipe:(d.equipe||d.t||'');
     var gapCat;
     if(i===0)gapCat='Lider cat.';
@@ -1476,7 +1531,7 @@ rEstrategia:function(){
     }
     var cardCls=paceStatus==='pending'?'':paceStatus;
     html+='<div class="est-card '+cardCls+'">'+
-    '<div class="est-top"><div class="est-pos">P'+cur.pos+'</div><div class="est-kart">#'+cur.kart+'<small>'+(cur.t||'')+'</small></div><div class="est-trend">'+trendArrow+'</div></div>'+
+    '<div class="est-top"><div class="est-pos">P'+cur.pos+'</div><div class="est-kart">#'+cur.kart+'<small>'+((FK.cfg.roster&&(FK.cfg.roster[cur.kart]||FK.cfg.roster[String(parseInt(cur.kart,10))])?(FK.cfg.roster[cur.kart]||FK.cfg.roster[String(parseInt(cur.kart,10))]).equipe:cur.t)||'')+'</small></div><div class="est-trend">'+trendArrow+'</div></div>'+
     '<div class="est-gaps">'+
       '<div class="est-gap-box"><div class="lbl">Frente'+(ahead?' · #'+ahead.kart:'')+'</div><div class="val">'+gapFrente+'</div></div>'+
       '<div class="est-gap-box"><div class="lbl">Atras'+(behind?' · #'+behind.kart:'')+'</div><div class="val">'+gapAtras+'</div></div>'+
