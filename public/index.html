@@ -1122,7 +1122,7 @@ FK.recordHistory(rows);
 try{localStorage.setItem('fkart_cfg',JSON.stringify(FK.cfg));}catch(e){}
 FK.updateSrcBadge();FK.rPlacar();FK.rComp();FK.rProjecao();
 if(typeof FK.rEstrategia==='function')FK.rEstrategia();
-if(typeof FK.rDash==='function')FK.rDash();
+if(typeof FK.rDash==='function'){try{FK.rDash();}catch(e){}}
 var st=document.getElementById('config-status');if(st)st.style.display='block';
 var sb=document.getElementById('config-status-body');
 if(sb)sb.innerHTML='<span style="color:#66bb6a">&#10003; '+rows.length+' karts lidos do LapTime as '+new Date().toLocaleTimeString('pt-BR')+'</span>';
@@ -2102,6 +2102,7 @@ drawMapDash:function(){
   var el_mn=document.getElementById('d-map-track-name');if(el_mn)el_mn.textContent='— '+trackName;
   var pts=FK._pts(W,H);
   var n=pts.length;
+  if(!n)return;
   /* draw track shadow/glow */
   ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
   for(var i=1;i<n;i++)ctx.lineTo(pts[i][0],pts[i][1]);
