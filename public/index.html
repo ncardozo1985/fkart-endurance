@@ -482,6 +482,15 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 </div>
 <div class="card">
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px">
+    <h3 style="margin:0" id="est-cat-title">&#127937; Classificacao da Categoria</h3>
+    <span style="font-size:11px;color:var(--mut)" id="est-cat-updated"></span>
+  </div>
+  <div style="overflow-x:auto"><table><thead><tr>
+    <th>Pos</th><th>Kart</th><th>Piloto/Equipe</th><th>Voltas</th><th>Melhor</th><th>Ultima</th><th>Gap (cat.)</th>
+  </tr></thead><tbody id="est-cat-body"></tbody></table></div>
+</div>
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px">
     <h3 style="margin:0">&#127919; Estrategia (Solo Endurance)</h3>
     <span style="font-size:11px;color:var(--mut)" id="estrategia-updated">Aguardando leitura...</span>
   </div>
@@ -676,7 +685,8 @@ pitCloseMin:220,
 myCategory:'',
 wxLat:-22.778938,
 wxLon:-47.229576,
-wxLabel:'KNO Nova Odessa'
+wxLabel:'KNO Nova Odessa',
+roster:{}
 },
 /* === ESTADO DA CORRIDA === */
 state:{
@@ -1299,7 +1309,52 @@ rEstWeather:function(){
   var elUpd=document.getElementById('est-wx-updated');
   if(elUpd)elUpd.textContent='Atualizado '+new Date().toLocaleTimeString('pt-BR');
 },
+rEstCatTable:function(){
+  var el=document.getElementById('est-cat-body');if(!el)return;
+  var titleEl=document.getElementById('est-cat-title');
+  var updEl=document.getElementById('est-cat-updated');
+  var myCat=(FK.cfg.myCategory||'').trim().toUpperCase();
+  if(titleEl)titleEl.innerHTML='&#127937; Classificacao'+(myCat?' — Categoria '+myCat:'');
+  if(!myCat){
+    el.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--mut);padding:16px">Configure "Minha Categoria" em Config para ver a classificacao filtrada.</td></tr>';
+    return;
+  }
+  var data=FK.getData();
+  var catData=data.filter(function(d){return (d.cat||'').trim().toUpperCase()===myCat;});
+  if(!catData.length){
+    el.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--mut);padding:16px">Nenhum kart encontrado na categoria "'+myCat+'" na leitura atual.</td></tr>';
+    return;
+  }
+  var roster=FK.cfg.roster||{};
+  var leaderGapSec=FK.parseGapSec(catData[0].gap);
+  var html='';
+  catData.forEach(function(d,i){
+    var my=FK.isMy(d.kart);
+    var pc='';if(i===0)pc='p1';else if(i===1)pc='p2';else if(i===2)pc='p3';
+    var star=my?'&#11088;':'';
+    var rEntry=roster[d.kart];
+    var nomeEquipe=rEntry?rEntry.equipe:(d.equipe||d.t||'');
+    var gapCat;
+    if(i===0)gapCat='Lider cat.';
+    else{
+      var gSec=FK.parseGapSec(d.gap);
+      gapCat=(gSec!=null&&leaderGapSec!=null)?'+'+Math.abs(gSec-leaderGapSec).toFixed(3)+'s':(d.gap||'-');
+    }
+    html+='<tr class="'+(my?'my-kart':'')+'">'+
+    '<td><span class="pos-badge '+pc+'">'+(i+1)+'</span></td>'+
+    '<td><span class="kart-num'+(my?' my':'')+'">'+d.kart+'</span></td>'+
+    '<td style="font-weight:'+(my?700:400)+'"><div class="pilot-cell"><span class="pilot-name">'+(d.t||'')+star+'</span><span class="pilot-team">'+nomeEquipe+'</span></div></td>'+
+    '<td style="color:var(--acc)">'+d.laps+'</td>'+
+    '<td style="color:'+(my?'var(--acc)':'var(--txt)')+'">'+d.best+'</td>'+
+    '<td>'+d.last+'</td>'+
+    '<td class="gap-badge">'+gapCat+'</td>'+
+    '</tr>';
+  });
+  el.innerHTML=html;
+  if(updEl)updEl.textContent=catData.length+' karts na categoria · atualizado '+new Date().toLocaleTimeString('pt-BR');
+},
 rEstrategia:function(){
+  FK.rEstCatTable();
   var el=document.getElementById('estrategia-body');if(!el)return;
   var data=FK.getData();
   var rem=Math.max(0,(FK.cfg.raceTotal||0)-(FK.state.elapsed||0));
