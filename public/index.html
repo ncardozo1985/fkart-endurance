@@ -329,14 +329,8 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 </div>
 <div class="tabs" id="tabs">
 <div class="tab on" data-tab="dash">&#127931; Dashboard</div>
-<div class="tab" data-tab="ranking">&#127937; Ranking</div>
-<div class="tab" data-tab="comp">&#128200; Comparativo</div>
-<div class="tab" data-tab="crono">&#9201; Crono</div>
-<div class="tab" data-tab="mapa">&#128506; Mapa</div>
-<div class="tab" data-tab="tracados">&#128194; Tracados</div>
 <div class="tab" data-tab="pilotos">&#128100; Pilotos</div>
 <div class="tab" data-tab="box">&#127955; Box</div>
-<div class="tab" data-tab="projecao">&#128200; Projecao</div>
 <div class="tab" data-tab="estrategia">&#127919; Estrategia</div>
 <div class="tab" data-tab="config">&#9881; Config</div>
 </div>
@@ -403,7 +397,7 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
       <div class="dash-card">
         <div class="dash-card-hdr">
           <h3>&#9201; Ranking Melhor Parada</h3>
-          <span style="font-size:9px;color:var(--mut)">Alvo: 6:00 exatos</span>
+          <span style="font-size:9px;color:var(--mut)" id="d-pit-target-label">Alvo: 5:00 exatos</span>
         </div>
         <div class="pit-rank-list" id="d-pit-rank-body"></div>
       </div>
@@ -411,26 +405,6 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
   </div>
 </div>
 </div>
-<div class="pane" id="pane-ranking">
-<div class="card"><h3>&#127937; Classificacao Geral</h3>
-<table><thead><tr><th>Pos</th><th>Kart</th><th>Piloto / Equipe</th><th>Cat / Pos</th><th>Voltas</th><th>Melhor</th><th>Ultima</th><th>Gap</th><th>Diff</th><th title="Paradas 6min">P6'</th><th title="Paradas 10min">P10'</th></tr></thead>
-<tbody id="placar-body"></tbody></table></div></div>
-<div class="pane" id="pane-comp">
-<div class="card"><h3>&#128200; Comparativo de Performance</h3><div id="comp-body"></div></div></div>
-<div class="pane" id="pane-crono">
-<div class="card"><h3>&#9201; Cronometro - Meus Karts</h3><div id="crono-body"><div class="ph">&#9201;<br><small>Aguardando dados ao vivo...</small></div></div></div></div>
-<div class="pane" id="pane-mapa">
-<div class="card"><h3>&#128506; Mapa Virtual — <span id="mapa-track-name">500 Milhas</span></h3>
-<canvas id="mapa-canvas" width="800" height="500"></canvas>
-<div class="mapa-stats">
-<div class="stat-box"><div class="val">1015m</div><div class="lbl">Distancia</div></div>
-<div class="stat-box"><div class="val">~43s</div><div class="lbl">Por volta</div></div>
-<div class="stat-box"><div class="val">~83</div><div class="lbl">Voltas/h</div></div>
-<div class="stat-box"><div class="val">INICIANTE</div><div class="lbl">Dificuldade</div></div>
-</div></div></div>
-<div class="pane" id="pane-tracados">
-<div class="card"><h3>&#128194; Traçados KGV — Granja Viana <span style="font-size:10px;color:var(--mut);font-weight:400">Clique para selecionar no dashboard</span></h3>
-<div class="tr-grid" id="tr-grid"></div></div></div>
 <div class="pane" id="pane-pilotos">
 <div class="card">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
@@ -457,18 +431,6 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
     <span style="font-size:12px;color:var(--mut)">Status em tempo real dos karts da equipe</span>
   </div>
   <div id="box-body" class="box-grid"></div>
-</div>
-</div>
-<div class="pane" id="pane-projecao">
-<div class="card">
-  <h3>&#128200; Projecao Fim de Corrida</h3>
-  <p style="color:var(--mut);font-size:13px;margin-bottom:16px">Posicao projetada ao fim da corrida com base no melhor tempo de cada kart e tempo restante.</p>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Proj</th><th>Kart</th><th>Piloto / Equipe</th><th>Cat</th><th>Voltas Atual</th><th>Voltas Proj</th><th>Tendencia</th></tr></thead>
-      <tbody id="proj-body"></tbody>
-    </table>
-  </div>
 </div>
 </div>
 <div class="pane" id="pane-estrategia">
@@ -532,11 +494,11 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 </select>
 </div>
 <div class="cfg-field">
-<label>API Token Race Monitor</label>
-<input type="password" id="cfg-api-token" placeholder="Cole o token aqui (quando tiver)">
+<label>API Token Race Monitor (nao usado mais aqui)</label>
+<input type="password" id="cfg-api-token" placeholder="Token agora fica so no servidor (Cloud Function)" disabled>
 </div>
 <div class="cfg-field">
-<label>Traçado KGV</label>
+<label>Traçado da Pista</label>
 <select id="cfg-tracado">
 <option value="500_milhas">500 Milhas</option>
 <option value="endurance_1">Endurance 1</option>
@@ -634,7 +596,7 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 <input type="text" id="cfg-my-category" placeholder="Ex: LIGHT" oninput="this.value=this.value.toUpperCase()">
 </div>
 </div>
-<small style="color:var(--mut);font-size:11px;display:block">Defaults conforme o regulamento KNO 2026: minimo 5 paradas de 6min, maximo 6 paradas (a 7&#170; desclassifica), box aberto da 2&#170; volta at&eacute; 220min de prova. As paradas cumpridas sao contadas a partir do registro manual na aba Box (entrada/saida). A categoria precisa bater com o texto da coluna CATEGORIA da fonte de dados.</small>
+<small style="color:var(--mut);font-size:11px;display:block">Defaults conforme o regulamento da corrida: minimo 5 paradas obrigatorias (3 de 5min + 2 de 6min — contam a partir de 5min cravados; parada abaixo disso e permitida mas gera advertencia/Stop&amp;Go), maximo 6 paradas (a 7&#170; desclassifica), box aberto da 2&#170; volta at&eacute; 220min de prova. As paradas cumpridas sao contadas a partir do registro manual na aba Box (entrada/saida). A categoria precisa bater com o texto da coluna CATEGORIA da fonte de dados.</small>
 </div>
 <div class="cfg-panel">
 <h3>&#127777; Localizacao do Clima</h3>
@@ -646,11 +608,11 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 </div>
 <div class="cfg-field">
 <label>Latitude</label>
-<input type="number" id="cfg-wx-lat" step="0.000001" placeholder="-22.778938">
+<input type="number" id="cfg-wx-lat" step="0.000001" placeholder="-23.6055018">
 </div>
 <div class="cfg-field">
 <label>Longitude</label>
-<input type="number" id="cfg-wx-lon" step="0.000001" placeholder="-47.229576">
+<input type="number" id="cfg-wx-lon" step="0.000001" placeholder="-46.8357684">
 </div>
 </div>
 </div>
@@ -660,13 +622,6 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 </div>
 </div>
 </div>
-<div id="tr-overlay" class="overlay" onclick="if(event.target===this)FK.closeTr()">
-<div class="modal">
-<button class="modal-close" onclick="FK.closeTr()">&#10005;</button>
-<img id="tr-modal-img" src="" alt="">
-<h3 id="tr-modal-num" style="margin-bottom:8px"></h3>
-<div id="tr-modal-info" style="color:var(--mut);font-size:13px;line-height:1.9"></div>
-</div></div>
 <footer>FORCE KART RACING &middot; SINCE 2004 &middot; TEAM RACE</footer>
 <script>
 var FK={
@@ -681,62 +636,35 @@ source:'demo',
 tracado:'500_milhas',
 laptimeUrl:'',
 minPitStops:5,
-minPitDurationSec:360,
+minPitDurationSec:300,
 maxPitStops:6,
 pitCloseMin:220,
 myCategory:'LIGHT',
-wxLat:-22.778938,
-wxLon:-47.229576,
-wxLabel:'KNO Nova Odessa',
-/* Roster oficial da etapa KNO (placa=numero do kart, correlaciona com o LapTimer) */
+wxLat:-23.6055018,
+wxLon:-46.8357684,
+wxLabel:'KGV Granja Viana',
+/* Roster oficial da corrida atual - KGV Endurance Dia dos Pais (Treino + Classificacao), placa=numero do kart */
 roster:{
-'1':{equipe:'ACADEMIA DO KART 1',cat:'PRO'},
-'2':{equipe:'ACADEMIA DO KART 2',cat:'PRO'},
-'3':{equipe:'ACADEMIA DO KART 3',cat:'PRO'},
-'4':{equipe:'ACADEMIA DO KART 5',cat:'PRO'},
-'5':{equipe:'IMPACTO RACING / AK 6',cat:'PRO'},
-'6':{equipe:'ACADEMIA DO KART 7',cat:'PRO'},
-'7':{equipe:'DKR / KART LOKO',cat:'PRO'},
-'8':{equipe:'CORSAVELOCE - AK 8',cat:'LIGHT'},
-'9':{equipe:'JUNQUEIRA',cat:'LIGHT'},
-'10':{equipe:'EB KART RACING',cat:'LIGHT'},
-'11':{equipe:'KART STIVE / MOV CONFECCOES 1',cat:'LIGHT'},
-'12':{equipe:'KART STIVE / MOV CONFECCOES 2',cat:'LIGHT'},
-'13':{equipe:'KART STIVE / INSTITUTO DI CASTRO 3',cat:'LIGHT'},
-'14':{equipe:'KART STIVE / INSTITUTO DI CASTRO 4',cat:'LIGHT'},
-'15':{equipe:'KART STIVE / VAREJAO REAL 5',cat:'LIGHT'},
-'16':{equipe:'KART STIVE / VAREJAO REAL 6',cat:'LIGHT'},
-'17':{equipe:'KART MILE 1 / AK',cat:'LIGHT'},
-'18':{equipe:'KART MILE 2 / AK',cat:'LIGHT'},
-'19':{equipe:'KART MILE 3 / AK',cat:'LIGHT'},
-'20':{equipe:'KART MILE 4 / AK',cat:'LIGHT'},
-'21':{equipe:'KART MILE 5 / AK',cat:'LIGHT'},
-'22':{equipe:'KART MILE 6 / AK',cat:'LIGHT'},
-'23':{equipe:'LEGENDS 1',cat:'PRO'},
-'24':{equipe:'LEGENDS 2',cat:'PRO'},
-'25':{equipe:'LEGENDS 3',cat:'PRO'},
-'26':{equipe:'LEGENDS 4',cat:'PRO'},
-'27':{equipe:'NITTA KART 1',cat:'PRO'},
-'28':{equipe:'NITTA KART 2',cat:'PRO'},
-'29':{equipe:'NITTA KART 3',cat:'PRO'},
-'30':{equipe:'NITTA KART 7',cat:'PRO'},
-'31':{equipe:'NITTA KART 4',cat:'LIGHT'},
-'32':{equipe:'NITTA KART 5',cat:'LIGHT'},
-'33':{equipe:'NITTA KART 6',cat:'LIGHT'},
-'34':{equipe:'PBK SANSEI JAMPAC',cat:'LIGHT'},
-'35':{equipe:'PBK MAORI TRANSPORTES',cat:'LIGHT'},
-'36':{equipe:'SEM BOX',cat:'LIGHT'},
-'37':{equipe:'WOW RACING KALUNGA',cat:'LIGHT'},
-'38':{equipe:'WOW RACING ROCHA POMBO',cat:'LIGHT'},
-'39':{equipe:'Z19 SQUADRA - MIELLI TECNOLOGIA 1',cat:'PRO'},
-'40':{equipe:'Z19 SQUADRA - MIELLI TECNOLOGIA 2',cat:'PRO'},
-'41':{equipe:'Z19 SQUADRA - MIELLI TECNOLOGIA 3',cat:'PRO'},
-'42':{equipe:'Z19 SQUADRA - MIELLI TECNOLOGIA 4',cat:'PRO'},
-'43':{equipe:'Z19 SQUADRA - MIELLI TECNOLOGIA 5',cat:'PRO'},
-'44':{equipe:'Z19 SQUADRA - MIELLI TECNOLOGIA 6',cat:'PRO'},
-'45':{equipe:'Z19 CUIUDOS DA SAROBA',cat:'PRO'},
-'46':{equipe:'REDFIVE',cat:'LIGHT'},
-'47':{equipe:'GOSHEN LAND',cat:'LIGHT'}
+'032':{equipe:'NE RACING MUNDOS DO PHONE',cat:'ELITE'},
+'066':{equipe:'FORÇA G RACING 2',cat:'ELITE'},
+'028':{equipe:'KARTEIROS DKR',cat:'ELITE'},
+'054':{equipe:'LIGA DO KART FG4',cat:'ELITE'},
+'055':{equipe:'LIGA DO KART FG5',cat:'ELITE'},
+'033':{equipe:'NE RACING ESQUADRÃO DO KART',cat:'ELITE'},
+'062':{equipe:'ACADEMIA FKR HYSPEX / MITRE',cat:'ELITE'},
+'027':{equipe:'KARTEIROS WE CONSORCIOS',cat:'ELITE'},
+'013':{equipe:'TR 3',cat:'CHALLENGE'},
+'058':{equipe:'FKART ROSS PERFORMACE CAR',cat:'ELITE'},
+'063':{equipe:'ACADEMIA FKR HYSPEX / MITRE 2',cat:'ELITE'},
+'060':{equipe:'FKART 060 RACING',cat:'CHALLENGE'},
+'061':{equipe:'FKART 061 RACING',cat:'ELITE'},
+'059':{equipe:'FKART RACE TEAM',cat:'CHALLENGE'},
+'048':{equipe:'LEMANS 3',cat:'ELITE'},
+'080':{equipe:'KDM ENDURANCE',cat:'ELITE'},
+'083':{equipe:'ROCKETS KART RACING',cat:'ELITE'},
+'079':{equipe:'PAPA-LÉGUAS/EDAG 3',cat:'ELITE'},
+'046':{equipe:'LEMANS 1',cat:'ELITE'},
+'001':{equipe:'KARTRAK 1',cat:'ELITE'}
 }
 },
 /* === ESTADO DA CORRIDA === */
@@ -839,11 +767,7 @@ var p=document.getElementById('pane-'+name);
 if(t)t.classList.add('on');
 if(p)p.classList.add('on');
 if(name==='dash'){FK.rDash();setTimeout(function(){FK.drawWxChart();FK.drawMapDash();},50);}
-if(name==='mapa')FK.drawMap101();
-if(name==='tracados')FK.rTracados();
 if(name==='pilotos')FK.rPilotos();
-if(name==='comp')FK.rComp();
-if(name==='projecao')FK.rProjecao();
 if(name==='estrategia')FK.rEstrategia();
 if(name==='config')FK.renderConfig();
 },
@@ -871,8 +795,8 @@ var ewlon=document.getElementById('cfg-wx-lon');if(ewlon&&ewlon.value!=='')FK.cf
 try{localStorage.setItem('fkart_cfg',JSON.stringify(FK.cfg));}catch(e){}
 FK.updateTopbar();
 FK.rPlacar();
-FK.rComp();
 FK.rPilotos();
+FK.rDashPitRanking&&FK.rDashPitRanking();
 FK.loadWx();FK.loadWxHourly();
 var el=document.getElementById('cfg-race-name');
 if(el)el.style.borderColor='#66bb6a';
@@ -888,13 +812,13 @@ var eat=document.getElementById('cfg-api-token');if(eat)eat.value=FK.cfg.apiToke
 var elt=document.getElementById('cfg-laptime-url');if(elt)elt.value=FK.cfg.laptimeUrl||'';
 var eld=document.getElementById('cfg-laptime-duration');if(eld&&FK.cfg.source==='mylaptime')eld.value=FK.cfg.raceTotal;
 var epc=document.getElementById('cfg-pit-min-count');if(epc)epc.value=FK.cfg.minPitStops!=null?FK.cfg.minPitStops:5;
-var epd=document.getElementById('cfg-pit-min-dur');if(epd)epd.value=FK.cfg.minPitDurationSec!=null?(FK.cfg.minPitDurationSec/60):6;
+var epd=document.getElementById('cfg-pit-min-dur');if(epd)epd.value=FK.cfg.minPitDurationSec!=null?(FK.cfg.minPitDurationSec/60):5;
 var epx=document.getElementById('cfg-pit-max-count');if(epx)epx.value=FK.cfg.maxPitStops!=null?FK.cfg.maxPitStops:6;
 var epcl=document.getElementById('cfg-pit-close-min');if(epcl)epcl.value=FK.cfg.pitCloseMin!=null?FK.cfg.pitCloseMin:220;
 var emc=document.getElementById('cfg-my-category');if(emc)emc.value=FK.cfg.myCategory||'';
 var ewl=document.getElementById('cfg-wx-label');if(ewl)ewl.value=FK.cfg.wxLabel||'';
-var ewlat=document.getElementById('cfg-wx-lat');if(ewlat)ewlat.value=FK.cfg.wxLat!=null?FK.cfg.wxLat:-22.778938;
-var ewlon=document.getElementById('cfg-wx-lon');if(ewlon)ewlon.value=FK.cfg.wxLon!=null?FK.cfg.wxLon:-47.229576;
+var ewlat=document.getElementById('cfg-wx-lat');if(ewlat)ewlat.value=FK.cfg.wxLat!=null?FK.cfg.wxLat:-23.6055018;
+var ewlon=document.getElementById('cfg-wx-lon');if(ewlon)ewlon.value=FK.cfg.wxLon!=null?FK.cfg.wxLon:-46.8357684;
 FK.renderKartTags();
 },
 renderKartTags:function(){
@@ -1000,31 +924,7 @@ var el=document.getElementById('placar-body');if(el)el.innerHTML=html;
 var l=data[0];if(l){var li=document.getElementById('leader-info');if(li)li.textContent=l.kart+' - '+l.t+' ('+l.laps+'v)';}
 var fl=document.getElementById('flag-status');if(fl)fl.textContent=FK.cfg.source!=='demo'&&FK.state.flagStatus?FK.state.flagStatus:'Verde';
 },
-rComp:function(){
-var data=FK.getData().slice(0,10);
-if(!data.length)return;
-var parseT=function(t){var p=t.replace('00:','').split(':');return p.length===2?parseFloat(p[0])*60+parseFloat(p[1]):parseFloat(p[0]);};
-var best=parseT(data[0].best);
-var html='';
-data.forEach(function(d){
-var my=FK.isMy(d.kart);
-var t=parseT(d.best);
-var pct=Math.min(100,Math.round((best/t)*100));
-var color=my?'#E2231A':'#4fc3f7';
-html+='<div style="margin-bottom:10px">'+
-'<div style="display:flex;justify-content:space-between;margin-bottom:3px">'+
-'<span style="font-weight:'+(my?700:400)+';color:'+(my?'var(--acc)':'var(--txt)')+'">'+
-'#'+d.pos+' '+d.kart+' - '+d.t+(my?' &#11088;':'')+'</span>'+
-'<span class="gap-badge">'+d.best+'</span></div>'+
-'<div class="comp-bar-wrap"><div class="comp-bar" style="width:'+pct+'%;background:'+color+'">'+pct+'%</div></div>'+
-'</div>';
-});
-var el=document.getElementById('comp-body');if(el)el.innerHTML=html;
-},
 startLive:function(){
-if(!FK.cfg.apiToken){
-alert('Configure o API Token primeiro na aba Config!');FK.tab('config');return;
-}
 FK.cfg.source='live';FK.state.elapsed=0;
 FK.updateSrcBadge();FK.fetchLive();
 if(FK.state.liveInterval)clearInterval(FK.state.liveInterval);
@@ -1032,28 +932,39 @@ FK.state.liveInterval=setInterval(FK.fetchLive,15000);
 var st=document.getElementById('config-status');
 if(st)st.style.display='block';
 var sb=document.getElementById('config-status-body');
-if(sb)sb.innerHTML='<span style="color:#66bb6a">&#10003; Conectado - atualizando a cada 15s</span>';
+if(sb)sb.innerHTML='<span style="color:#ffb300">&#8987; Conectando...</span>';
 },
+/* Chama nosso proxy (Cloud Function /api/live) em vez da API do Race Monitor direto,
+   pois a api.race-monitor.com nao aceita chamadas via browser (sem CORS) e o token
+   fica guardado so no servidor, nunca no client. */
 fetchLive:function(){
-var url='https://api.race-monitor.com/v2/Live/GetSession';
-var body='apiToken='+encodeURIComponent(FK.cfg.apiToken)+'&raceID='+FK.cfg.raceId;
+var url='/api/live?raceId='+encodeURIComponent(FK.cfg.raceId);
 var xhr=new XMLHttpRequest();
-xhr.open('POST',url);
-xhr.setRequestHeader('Content-Type','application/x-www-form-urlencoded');
+xhr.open('GET',url);
 xhr.onload=function(){
+var sb=document.getElementById('config-status-body');
 try{
 var r=JSON.parse(xhr.responseText);
 if(r.Successful&&r.Session){
 FK.parseSession(r.Session);
-FK.rPlacar();FK.rComp();FK.rProjecao();
+FK.rPlacar();
 if(typeof FK.rEstrategia==='function')FK.rEstrategia();
+if(sb)sb.innerHTML='<span style="color:#66bb6a">&#10003; Conectado - atualizando a cada 15s</span>';
 }else{
-console.warn('FKART Live: '+r.Message);
+console.warn('FKART Live: '+(r.Message||xhr.status));
+if(sb)sb.innerHTML='<span style="color:#ff5252">&#10007; Race Monitor: '+(r.Message||'sem sessao ativa para esse raceId')+'</span>';
 }
-}catch(e){console.error('FKART parse error:',e);}
+}catch(e){
+console.error('FKART parse error:',e,xhr.responseText);
+if(sb)sb.innerHTML='<span style="color:#ff5252">&#10007; Erro lendo resposta do proxy (HTTP '+xhr.status+')</span>';
+}
 };
-xhr.onerror=function(){console.warn('FKART: falha na requisicao ao vivo');};
-xhr.send(body);
+xhr.onerror=function(){
+console.warn('FKART: falha na requisicao ao vivo (proxy indisponivel)');
+var sb=document.getElementById('config-status-body');
+if(sb)sb.innerHTML='<span style="color:#ff5252">&#10007; Nao foi possivel falar com /api/live (proxy indisponivel ou nao publicado)</span>';
+};
+xhr.send();
 },
 parseSession:function(s){
 FK.state.flagStatus=s.FlagStatus||'Verde';
@@ -1120,7 +1031,7 @@ FK.cfg.source='mylaptime';
 FK.state.liveData=rows;
 FK.recordHistory(rows);
 try{localStorage.setItem('fkart_cfg',JSON.stringify(FK.cfg));}catch(e){}
-FK.updateSrcBadge();FK.rPlacar();FK.rComp();FK.rProjecao();
+FK.updateSrcBadge();FK.rPlacar();
 if(typeof FK.rEstrategia==='function')FK.rEstrategia();
 if(typeof FK.rDash==='function'){try{FK.rDash();}catch(e){}}
 var st=document.getElementById('config-status');if(st)st.style.display='block';
@@ -1142,74 +1053,6 @@ if(h.length>100)h.shift();
 }
 });
 },
-rTracados:function(){
-var g=document.getElementById('tr-grid');if(!g)return;
-var cur=FK.cfg.tracado||'500_milhas';
-var html='';
-FK._TRORDER.forEach(function(key){
-  var lbl=FK._TRLBL[key]||key;
-  var isCur=cur===key;
-  var cid='trc-'+key.replace(/[^a-z0-9]/gi,'_');
-  html+='<div class="tr-card'+(isCur?' tr-card-active':'')+'" id="'+cid+'" onclick="FK.selectTracado(\''+key+'\')">'+
-  '<canvas class="tr-canvas" id="trcanvas-'+key.replace(/[^a-z0-9]/gi,'_')+'" style="width:100%;height:95px;display:block"></canvas>'+
-  '<div class="tr-info">'+
-  '<div class="tr-num">'+lbl+'</div>'+
-  (isCur?'<span class="tr-dif" style="background:rgba(226,35,26,0.2);color:var(--acc);border:1px solid rgba(226,35,26,0.4);display:inline-block;font-size:10px;padding:2px 6px;border-radius:3px;margin-top:4px;font-weight:700">✓ Ativo</span>':'')+'</div>'+
-  '</div>';
-});
-g.innerHTML=html;
-setTimeout(function(){FK._TRORDER.forEach(function(key){FK.drawTrackCard(key);});},30);
-},
-selectTracado:function(key){
-FK.cfg.tracado=key;
-try{localStorage.setItem('fkart_cfg',JSON.stringify(FK.cfg));}catch(e){}
-FK.rTracados();
-FK.drawMapDash();
-if(document.getElementById('pane-mapa').classList.contains('on'))FK.drawMap101();else FK.drawMap101Static();
-},
-drawTrackCard:function(key){
-var cid='trcanvas-'+key.replace(/[^a-z0-9]/gi,'_');
-var cv=document.getElementById(cid);if(!cv)return;
-var W=cv.offsetWidth||155;var H=95;
-cv.width=W*2;cv.height=H*2;cv.style.height=H+'px';
-var ctx=cv.getContext('2d');ctx.scale(2,2);
-ctx.fillStyle='#060810';ctx.fillRect(0,0,W,H);
-var rawPts=FK._tracks[key];if(!rawPts||!rawPts.length)return;
-/* uniform scaling — preserves aspect ratio so reta principal fica horizontal */
-var minX=1,maxX=0,minY=1,maxY=0;
-rawPts.forEach(function(p){if(p[0]<minX)minX=p[0];if(p[0]>maxX)maxX=p[0];if(p[1]<minY)minY=p[1];if(p[1]>maxY)maxY=p[1];});
-var dxR=maxX-minX||0.1,dyR=maxY-minY||0.1;
-var pad=6;var sc=Math.min((W-pad*2)/dxR,(H-pad*2)/dyR);
-var ox=pad+(W-pad*2-dxR*sc)/2-minX*sc;
-var oy=pad+(H-pad*2-dyR*sc)/2-minY*sc;
-var pts=rawPts.map(function(p){return[p[0]*sc+ox,p[1]*sc+oy];});
-var n=pts.length;var isCur=FK.cfg.tracado===key;
-var isClosed=rawPts[0][0]===rawPts[n-1][0]&&rawPts[0][1]===rawPts[n-1][1];
-/* glow shadow */
-ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
-for(var i=1;i<n;i++)ctx.lineTo(pts[i][0],pts[i][1]);
-if(isClosed)ctx.closePath();
-ctx.strokeStyle='rgba(255,255,255,0.05)';ctx.lineWidth=8;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke();
-/* traçado — cor única */
-var tCol=isCur?'#4fc3f7':'rgba(79,195,247,0.55)';
-ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
-for(var i=1;i<n;i++)ctx.lineTo(pts[i][0],pts[i][1]);
-if(isClosed)ctx.closePath();
-ctx.strokeStyle=tCol;ctx.lineWidth=isCur?3:2;
-ctx.lineCap='round';ctx.lineJoin='round';
-if(isCur){ctx.shadowColor='#4fc3f7';ctx.shadowBlur=5;}ctx.stroke();ctx.shadowBlur=0;
-/* S/F line */
-if(pts.length>1){
-  var dx=pts[1][0]-pts[0][0],dy=pts[1][1]-pts[0][1],len=Math.sqrt(dx*dx+dy*dy)||1;
-  var px=-dy/len*5,py=dx/len*5;
-  ctx.beginPath();ctx.moveTo(pts[0][0]-px,pts[0][1]-py);ctx.lineTo(pts[0][0]+px,pts[0][1]+py);
-  ctx.strokeStyle='#ef5350';ctx.lineWidth=isCur?2.5:1.5;ctx.shadowColor='#ef5350';ctx.shadowBlur=isCur?6:3;ctx.stroke();ctx.shadowBlur=0;
-}
-/* label */
-var lbl=FK._TRLBL[key]||key;
-ctx.font='bold 8px sans-serif';ctx.fillStyle=isCur?'rgba(226,35,26,0.95)':'rgba(255,255,255,0.35)';ctx.textAlign='right';ctx.textBaseline='top';ctx.fillText(lbl,W-4,3);
-},
-closeTr:function(){document.getElementById('tr-overlay').classList.remove('show');},
 rPilotos:function(){
 var el=document.getElementById('pilotos-body');
 if(!el)return;
@@ -1297,38 +1140,6 @@ toggleAttr:function(i,a){
   if(pos>=0)attrs.splice(pos,1);else attrs.push(a);
   arr[i].attrs=attrs;
   FK.savePilotosLS(arr);FK.rPilotos();
-},
-rProjecao:function(){
-  var el=document.getElementById('proj-body');if(!el)return;
-  var data=FK.getData();
-  var elapsed=FK.state.elapsed||10800;
-  var total=FK.cfg.raceTotal||21600;
-  var remaining=Math.max(0,total-elapsed);
-  var parseT=function(t){var p=t.replace('00:','').split(':');return p.length===2?parseFloat(p[0])*60+parseFloat(p[1]):parseFloat(p[0]);};
-  var proj=data.map(function(d){
-    var lapTime=parseT(d.best)||55;
-    var lapsLeft=Math.floor(remaining/lapTime);
-    var projLaps=d.laps+lapsLeft;
-    return {kart:d.kart,t:d.t,cat:d.cat,equipe:d.equipe||'',curLaps:d.laps,projLaps:projLaps,lapTime:lapTime,my:FK.isMy(d.kart),pit6:d.pit6||0,pit10:d.pit10||0};
-  });
-  proj.sort(function(a,b){return b.projLaps-a.projLaps;});
-  var html='';
-  proj.forEach(function(p,i){
-    var cur=data.find(function(d){return d.kart===p.kart;});
-    var curPos=cur?cur.pos:i+1;
-    var delta=i+1-curPos;
-    var arrow=delta<0?'<span style="color:var(--green)">&#9650;</span>':delta>0?'<span style="color:var(--red)">&#9660;</span>':'<span style="color:var(--mut)">&#8212;</span>';
-    html+='<tr class="'+(p.my?'my-kart':'')+'">'+
-    '<td><span class="pos-badge '+(i===0?'p1':i===1?'p2':i===2?'p3':'')+'">'+(i+1)+'</span></td>'+
-    '<td><span class="kart-num'+(p.my?' my':'')+'">'+p.kart+'</span></td>'+
-    '<td style="font-weight:'+(p.my?700:400)+'"><div class="pilot-cell"><span>'+p.t+'</span><span class="pilot-team">'+p.equipe+'</span></div></td>'+
-    '<td><span class="gap-badge">'+p.cat+'</span></td>'+
-    '<td>'+p.curLaps+'</td>'+
-    '<td style="color:var(--acc);font-weight:700">'+p.projLaps+'</td>'+
-    '<td>'+arrow+'</td>'+
-    '</tr>';
-  });
-  el.innerHTML=html;
 },
 /* gap-para-lider em segundos (null se estiver a X volta(s), ai mostramos o texto crua) */
 parseGapSec:function(s){
@@ -1658,7 +1469,7 @@ setBoxStatus:function(knum,status){
   FK.rDashPitRanking&&FK.rDashPitRanking();
 },
 loadWx:function(){
-var url='https://api.open-meteo.com/v1/forecast?latitude='+(FK.cfg.wxLat!=null?FK.cfg.wxLat:-22.778938)+'&longitude='+(FK.cfg.wxLon!=null?FK.cfg.wxLon:-47.229576)+'&current=temperature_2m,weathercode,windspeed_10m,winddirection_10m,windgusts_10m,precipitation_probability,relativehumidity_2m&timezone=America/Sao_Paulo';
+var url='https://api.open-meteo.com/v1/forecast?latitude='+(FK.cfg.wxLat!=null?FK.cfg.wxLat:-23.6055018)+'&longitude='+(FK.cfg.wxLon!=null?FK.cfg.wxLon:-46.8357684)+'&current=temperature_2m,weathercode,windspeed_10m,winddirection_10m,windgusts_10m,precipitation_probability,relativehumidity_2m&timezone=America/Sao_Paulo';
 var xhr=new XMLHttpRequest();xhr.open('GET',url);
 xhr.onload=function(){try{
 var d=JSON.parse(xhr.responseText).current;
@@ -1716,44 +1527,6 @@ _tracks:{
 _pts:function(W,H){
   var raw=FK._tracks[FK.cfg.tracado]||FK._tracks['500_milhas']||[];
   return raw.map(function(p){return[p[0]*(W||800),p[1]*(H||500)];});
-},
-drawMap101Static:function(){
-var cv=document.getElementById('mapa-canvas');if(!cv)return;
-var mtn=document.getElementById('mapa-track-name');if(mtn)mtn.textContent=FK._TRLBL[FK.cfg.tracado]||FK.cfg.tracado||'KGV';
-var ctx=cv.getContext('2d');var W=FK.state.mapW,H=FK.state.mapH;
-cv.width=W*2;cv.height=H*2;cv.style.width=W+'px';cv.style.height=H+'px';ctx.scale(2,2);
-ctx.fillStyle='#0a0c10';ctx.fillRect(0,0,W,H);
-ctx.fillStyle='rgba(0,40,0,0.3)';ctx.beginPath();ctx.ellipse(W*0.5,H*0.5,W*0.44,H*0.38,0,0,Math.PI*2);ctx.fill();
-var pts=FK._pts(W,H);
-var n=pts.length;
-/* shadow glow */
-ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
-for(var i=1;i<n;i++)ctx.lineTo(pts[i][0],pts[i][1]);
-ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=14;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke();
-/* traçado — cor única */
-ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
-for(var i=1;i<n;i++)ctx.lineTo(pts[i][0],pts[i][1]);
-ctx.strokeStyle='#4fc3f7';ctx.lineWidth=7;ctx.lineCap='round';ctx.lineJoin='round';ctx.shadowColor='#4fc3f7';ctx.shadowBlur=10;ctx.stroke();ctx.shadowBlur=0;
-/* S/F line */
-ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);ctx.lineTo(pts[1][0],pts[1][1]);ctx.strokeStyle='#ef5350';ctx.lineWidth=4;ctx.shadowColor='#ef5350';ctx.shadowBlur=10;ctx.stroke();ctx.shadowBlur=0;
-[0,4,8,11,15,20,25,30].forEach(function(ci,i){if(ci>=pts.length)return;ctx.beginPath();ctx.arc(pts[ci][0],pts[ci][1],7,0,Math.PI*2);ctx.fillStyle='rgba(255,255,255,0.12)';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();ctx.font='bold 9px sans-serif';ctx.fillStyle='#fff';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('C'+(i+1),pts[ci][0],pts[ci][1]);});
-ctx.beginPath();ctx.arc(W*0.47,H*0.47,38,0,Math.PI*2);ctx.fillStyle='rgba(13,15,20,0.85)';ctx.fill();ctx.strokeStyle='#2e3348';ctx.lineWidth=1.5;ctx.stroke();var trLabel=(FK._TRLBL[FK.cfg.tracado]||FK.cfg.tracado||'KGV').toUpperCase();ctx.font='bold '+(trLabel.length>5?'12':'16')+'px sans-serif';ctx.fillStyle='#E2231A';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(trLabel,W*0.47,H*0.47);
-[{c:'#4fc3f7',l:'Traçado'},{c:'#ef5350',l:'S/F'}].forEach(function(item,i){var lx=14,ly=H-32+(i*15);ctx.fillStyle=item.c;ctx.fillRect(lx,ly,15,8);ctx.font='10px sans-serif';ctx.fillStyle='#aaa';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(item.l,lx+19,ly+4);});
-},
-drawMap101:function(){FK.drawMap101Static();if(FK.state.mapAnim)cancelAnimationFrame(FK.state.mapAnim);FK.state.kartT=0;FK.animateKart();},
-animateKart:function(){
-var pts=FK._pts(FK.state.mapW,FK.state.mapH);if(!pts||pts.length<2)return;
-FK.state.kartT+=0.008;if(FK.state.kartT>=pts.length-1)FK.state.kartT=0;
-var seg=Math.floor(FK.state.kartT);var frac=FK.state.kartT-seg;if(seg>=pts.length-1)seg=pts.length-2;
-var x=pts[seg][0]+(pts[seg+1][0]-pts[seg][0])*frac;
-var y=pts[seg][1]+(pts[seg+1][1]-pts[seg][1])*frac;
-FK.drawMap101Static();
-var cv=document.getElementById('mapa-canvas');if(!cv)return;
-var ctx=cv.getContext('2d');ctx.save();ctx.scale(2,2);
-var label=FK.cfg.myKarts[0]||'?';
-ctx.beginPath();ctx.ellipse(x,y,14,10,0,0,Math.PI*2);ctx.fillStyle='#E2231A';ctx.shadowColor='#E2231A';ctx.shadowBlur=14;ctx.fill();ctx.shadowBlur=0;
-ctx.font='bold 8px sans-serif';ctx.fillStyle='#000';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label,x,y);ctx.restore();
-FK.state.mapAnim=requestAnimationFrame(FK.animateKart);
 },
 /* ══════════ DASHBOARD ══════════ */
 parseT:function(t){
@@ -1851,6 +1624,7 @@ initKrono:function(){
     FK.state.kronoState[k]={
       lapStartTs:now-phase,
       lapTime:lapTime,
+      phase:phase/1000,
       stintLaps:kd?Math.max(3,Math.floor(kd.laps*0.22)):5,
       best:kd?kd.best:'--:--',
       last:kd?kd.last:'--:--',
@@ -1941,7 +1715,7 @@ rDashPaceComp:function(){
 },
 /* ── Clima horário ── */
 loadWxHourly:function(){
-  var url='https://api.open-meteo.com/v1/forecast?latitude='+(FK.cfg.wxLat!=null?FK.cfg.wxLat:-22.778938)+'&longitude='+(FK.cfg.wxLon!=null?FK.cfg.wxLon:-47.229576)+
+  var url='https://api.open-meteo.com/v1/forecast?latitude='+(FK.cfg.wxLat!=null?FK.cfg.wxLat:-23.6055018)+'&longitude='+(FK.cfg.wxLon!=null?FK.cfg.wxLon:-46.8357684)+
     '&hourly=precipitation_probability,precipitation,temperature_2m,weathercode&current=temperature_2m,weathercode,windspeed_10m,winddirection_10m,precipitation_probability,relativehumidity_2m'+
     '&timezone=America/Sao_Paulo&forecast_days=2';
   var xhr=new XMLHttpRequest();xhr.open('GET',url);
@@ -2050,23 +1824,33 @@ rDashPitRanking:function(){
   var el=document.getElementById('d-pit-rank-body');if(!el)return;
   var pit_el2=document.getElementById('d-pit-chips');
   var stops=FK.state.pitStops||[];
-  /* apenas paradas válidas (>= 360s) ordenadas por delta */
-  var valid=stops.filter(function(p){return p.duracao>=360;});
-  valid.sort(function(a,b){return(a.duracao-360)-(b.duracao-360);});
+  var target=FK.cfg.minPitDurationSec||300;
+  var lbl=document.getElementById('d-pit-target-label');
+  if(lbl){var tm=Math.floor(target/60);var ts=target%60;lbl.textContent='Alvo: '+tm+':'+(ts<10?'0'+ts:ts)+' cravados';}
+  /* toda parada registrada entra no ranking — mesmo abaixo do minimo (regulamento permite,
+     equipe leva advertencia/Stop&Go, mas a parada aconteceu). Ordenado por proximidade do
+     alvo (pra cima ou pra baixo), nao so por quem passou do minimo. */
+  var valid=stops.slice();
+  valid.sort(function(a,b){return Math.abs(a.duracao-target)-Math.abs(b.duracao-target);});
+  var fmtDelta=function(sec){
+    var neg=sec<0;var ad=Math.abs(sec);
+    var m=Math.floor(ad/60);var s=Math.floor(ad%60);
+    return (neg?'-':'+')+m+':'+(s<10?'0'+s:s);
+  };
   /* chips no header */
   if(pit_el2){
     if(!valid.length){pit_el2.innerHTML='<span style="color:var(--mut);font-size:11px">Nenhuma parada registrada</span>';}
     else{
       var medals=['🥇','🥈','🥉'];
       pit_el2.innerHTML=valid.slice(0,3).map(function(p,i){
-        var delta=p.duracao-360;
-        var dStr='+'+Math.floor(delta/60)+':'+(delta%60<10?'0'+delta%60:delta%60);
+        var delta=p.duracao-target;
+        var cls=p.duracao>=target?'ok':'warn';
         return '<div class="pit-chip">'+
         '<span class="pc-medal">'+medals[i]+'</span>'+
         '<span class="pc-kart">#'+p.kart+'</span>'+
         '<span class="pc-equipe">'+p.equipe+'</span>'+
         '<span class="pc-dur">'+FK.fmtMs(p.duracao)+'</span>'+
-        '<span class="pc-delta ok">'+dStr+'</span>'+
+        '<span class="pc-delta '+cls+'">'+fmtDelta(delta)+'</span>'+
         '</div>';
       }).join('');
     }
@@ -2076,8 +1860,8 @@ rDashPitRanking:function(){
   var medals2=['🥇','🥈','🥉','4','5','6','7','8'];
   el.innerHTML=valid.slice(0,8).map(function(p,i){
     var my=FK.isMy(p.kart);
-    var delta=p.duracao-360;
-    var dStr='+'+FK.fmtMs(delta);
+    var delta=p.duracao-target;
+    var cls=p.duracao>=target?'ok':'warn';
     return '<div class="pr-row">'+
     '<span class="pr-medal">'+(i<3?medals2[i]:(i+1)+'º')+'</span>'+
     '<div class="pr-kart'+(my?' my':'')+'">'+p.kart+'</div>'+
@@ -2085,7 +1869,7 @@ rDashPitRanking:function(){
     '<div class="pr-dur">'+FK.fmtMs(p.duracao)+'</div>'+
     '<div class="pr-sub">#'+p.kart+' · '+p.equipe+'</div>'+
     '</div>'+
-    '<span class="pr-delta ok">'+dStr+'</span>'+
+    '<span class="pr-delta '+cls+'">'+fmtDelta(delta)+'</span>'+
     '</div>';
   }).join('');
 },
@@ -2118,9 +1902,10 @@ drawMapDash:function(){
   /* karts da equipe animados */
   FK.cfg.myKarts.slice(0,6).forEach(function(k,ki){
     var ks=FK.state.kronoState&&FK.state.kronoState[k];
-    var lt=ks?ks.lapTime:52;var ph=ks?ks.phase:ki*8;
+    var lt=(ks&&ks.lapTime)||52;var ph=(ks&&typeof ks.phase==='number')?ks.phase:ki*8;
     var t=((FK.state.elapsed+ph)%lt)/(lt)*(pts.length-1);
-    var seg=Math.floor(t);var frac=t-seg;if(seg>=pts.length-1)seg=pts.length-2;
+    if(isNaN(t))t=0;
+    var seg=Math.floor(t);var frac=t-seg;if(seg>=pts.length-1)seg=pts.length-2;if(seg<0)seg=0;
     var x=pts[seg][0]+(pts[seg+1][0]-pts[seg][0])*frac;
     var y=pts[seg][1]+(pts[seg+1][1]-pts[seg][1])*frac;
     var colors=['#E2231A','#FFFFFF','#4fc3f7','#81c784','#ce93d8','#ef9a9a'];
@@ -2226,8 +2011,8 @@ if(!FK.state.wxHourly){
   if(wxEl)wxEl.innerHTML=(FK.cfg.wxLabel||'—')+' | ⛅ Nublado parcial | <span style="color:#90caf9">12km/h NE</span> | <span style="color:var(--acc)">21°C</span> | <span style="color:#80deea">68% UR</span> | <strong style="color:#66bb6a">Sem chuva</strong>';
 }
 FK.initKrono();
-FK.updateTopbar();FK.updateSrcBadge();FK.rPlacar();FK.rComp();
-FK.rTracados();FK.rPilotos();FK.rBox();FK.rProjecao();FK.rEstrategia();
+FK.updateTopbar();FK.updateSrcBadge();FK.rPlacar();
+FK.rPilotos();FK.rBox();FK.rEstrategia();
 FK.loadWxHourly();FK.loadWx();FK.startClock();FK.startKronoInterval();
 FK.rDash();setTimeout(function(){FK.drawWxChart();FK.drawMapDash();FK.drawDashRainChart();},100);
 }
