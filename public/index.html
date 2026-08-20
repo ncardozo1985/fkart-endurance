@@ -218,6 +218,12 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .wx-temp{font-size:30px;font-weight:900;color:var(--acc);line-height:1}
 .wx-details{font-size:11px;color:var(--mut);line-height:1.7}
 .wx-forecast-lbl{font-size:9px;color:var(--mut);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+/* Faixa superior: volta + cronômetros regressivos */
+.dash-hdr-strip{display:flex;gap:8px;flex-wrap:wrap}
+/* Faixa fixa "Meus Karts" no card de classificação — sempre visível */
+.dr-mykarts-strip{display:flex;gap:5px;flex-wrap:wrap;padding:5px 10px;border-bottom:1px solid var(--border)}
+.mk-chip{background:rgba(226,35,26,0.08);border:1px solid rgba(226,35,26,0.3);border-radius:5px;padding:2px 8px;font-size:10px;color:var(--txt);white-space:nowrap}
+.mk-chip b{color:var(--acc)}
 /* Colunas principais */
 .dash-cols{display:grid;grid-template-columns:1.8fr 1.1fr 1fr;gap:10px;min-height:0;overflow:hidden}
 .dash-col{overflow-y:auto;display:flex;flex-direction:column;gap:8px}
@@ -240,19 +246,19 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .d-kart.my{background:var(--acc);color:#fff;border-color:var(--acc);box-shadow:0 0 8px rgba(226,35,26,0.3)}
 .proj-arrow{font-size:10px}.proj-up{color:#66bb6a}.proj-dn{color:var(--red)}.proj-eq{color:var(--mut)}
 /* Cronômetros */
-.krono-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;padding:8px}
-.krono-card{background:var(--bg);border:1px solid rgba(226,35,26,0.3);border-radius:8px;padding:8px 10px}
-.krono-top{display:flex;align-items:center;gap:7px;margin-bottom:6px}
-.krono-badge{width:32px;height:32px;border-radius:50%;background:var(--acc);color:#fff;font-weight:900;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.krono-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:5px;padding:6px}
+.krono-card{background:var(--bg);border:1px solid rgba(226,35,26,0.3);border-radius:7px;padding:6px 8px}
+.krono-top{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.krono-badge{width:26px;height:26px;border-radius:50%;background:var(--acc);color:#fff;font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .krono-pos-info{font-size:10px;color:var(--mut)}
-.krono-timer{font-size:24px;font-weight:900;font-family:'Courier New',monospace;color:var(--acc);letter-spacing:-1px;line-height:1;text-align:center;padding:4px 0}
+.krono-timer{font-size:19px;font-weight:900;font-family:'Courier New',monospace;color:var(--acc);letter-spacing:-1px;line-height:1;text-align:center;padding:2px 0}
 .krono-timer.late{color:var(--red);animation:blink 0.8s infinite}
-.krono-row{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px}
+.krono-row{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:2px}
 .kr-cell{display:flex;flex-direction:column;gap:1px}
 .kr-cell .kl{font-size:8px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
 .kr-cell .kv{font-size:11px;font-weight:700;color:var(--txt)}
 .kr-cell .kv.acc{color:var(--acc)}
-.krono-stint-bar{display:flex;justify-content:space-between;align-items:center;margin-top:5px;padding-top:5px;border-top:1px solid var(--border);font-size:9px}
+.krono-stint-bar{display:flex;justify-content:space-between;align-items:center;margin-top:3px;padding-top:3px;border-top:1px solid var(--border);font-size:9px}
 .krono-stint-bar .ks-lbl{color:var(--mut)}
 .krono-stint-bar .ks-val{font-weight:700;color:var(--txt)}
 /* Box Intelligence */
@@ -337,15 +343,22 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 <div class="content">
 <div class="pane on" id="pane-dash">
 <div class="dash-root">
+  <!-- FAIXA SUPERIOR: volta atual + cronômetros regressivos -->
+  <div class="dash-hdr-strip">
+    <div class="race-chip sm"><span class="rc-lbl">Volta (líder)</span><span class="rc-val" id="d-lap-num">--</span></div>
+    <div class="race-chip sm"><span class="rc-lbl">Fim da prova</span><span class="rc-val" id="d-cd-race">--:--:--</span></div>
+    <div class="race-chip sm"><span class="rc-lbl">Fecha o box</span><span class="rc-val" id="d-cd-pitclose">--:--:--</span></div>
+  </div>
   <!-- COLUNAS PRINCIPAIS -->
   <div class="dash-cols">
     <!-- COL 1: RANKING -->
     <div class="dash-col">
       <div class="dash-card">
         <div class="dash-card-hdr">
-          <h3>&#127937; Classificação — Top 10 + Equipe</h3>
+          <h3>&#127937; Classificação — Top 20 + Equipe</h3>
           <span style="font-size:10px;color:var(--mut)" id="d-rank-updated"></span>
         </div>
+        <div class="dr-mykarts-strip" id="d-rank-mykarts"></div>
         <table class="dr-table" id="d-rank-table">
           <thead><tr>
             <th>Pos</th><th>Kart</th><th>Piloto / Equipe</th><th>Cat</th>
@@ -396,10 +409,10 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
       </div>
       <div class="dash-card">
         <div class="dash-card-hdr">
-          <h3>&#9201; Ranking Melhor Parada</h3>
-          <span style="font-size:9px;color:var(--mut)" id="d-pit-target-label">Alvo: 5:00 exatos</span>
+          <h3>&#127955; Karts no Box</h3>
+          <span style="font-size:9px;color:var(--mut)" id="d-inbox-count"></span>
         </div>
-        <div class="pit-rank-list" id="d-pit-rank-body"></div>
+        <div class="pit-rank-list" id="d-inbox-body"></div>
       </div>
     </div>
   </div>
@@ -772,6 +785,15 @@ getData:function(){
 if(FK.cfg.source!=='demo'&&FK.state.liveData&&FK.state.liveData.length)return FK.state.liveData;
 return FK.demo_data;
 },
+/* busca um kart nos dados tolerando zero-padding (ex: '36' vs '036'), igual FK.isMy */
+findKartData:function(data,k){
+var ks=String(k);
+var found=data.find(function(d){return String(d.kart)===ks;});
+if(found)return found;
+var kn=parseInt(ks,10);
+if(isNaN(kn))return null;
+return data.find(function(d){return parseInt(d.kart,10)===kn;})||null;
+},
 parseT:function(t){
 if(!t)return null;
 var p=String(t).replace('00:','').split(':');
@@ -823,7 +845,7 @@ try{localStorage.setItem('fkart_cfg',JSON.stringify(FK.cfg));}catch(e){}
 FK.updateTopbar();
 FK.rPlacar();
 FK.rPilotos();
-FK.rDashPitRanking&&FK.rDashPitRanking();
+FK.rDashKartsBox&&FK.rDashKartsBox();
 FK.loadWx();FK.loadWxHourly();
 var el=document.getElementById('cfg-race-name');
 if(el)el.style.borderColor='#66bb6a';
@@ -911,9 +933,9 @@ var elEl=document.getElementById('elapsed');
 var remEl=document.getElementById('remaining');
 if(elEl)elEl.textContent=FK.fmtTime(e);
 if(remEl)remEl.textContent=rem>0?FK.fmtTime(rem):'ENCERRADA';
-/* atualiza dashboard se visível (só ranking + mapa, krono via kronoFast) */
+/* atualiza dashboard se visível (ranking + mapa + posição + faixa superior; krono/stint via kronoFast) */
 var dashPane=document.getElementById('pane-dash');
-if(dashPane&&dashPane.classList.contains('on')){FK.rDashRanking();FK.drawMapDash();}
+if(dashPane&&dashPane.classList.contains('on')){FK.rDashRanking();FK.updateKronoPos();FK.rDashHdrStrip();FK.drawMapDash();}
 },1000);
 },
 rPlacar:function(){
@@ -1391,7 +1413,7 @@ rBox:function(){
   var html='';
 
   myKarts.forEach(function(knum){
-    var live=data.find(function(d){return d.kart===knum;});
+    var live=FK.findKartData(data,knum);
     var laps=live?live.laps:0;
     var best=live?live.best:'--:--';
     var lastT=live?live.last:'--:--';
@@ -1484,16 +1506,18 @@ setBoxStatus:function(knum,status){
       if(!FK.state.pitStops)FK.state.pitStops=[];
       var pilot=FK.state.boxState[knum].piloto||'—';
       var data2=FK.getData();
-      var kd2=data2.find(function(d){return d.kart===knum;});
+      var kd2=FK.findKartData(data2,knum);
       FK.state.pitStops.push({kart:knum,piloto:pilot,equipe:kd2?kd2.equipe||'FORCE KART':'FORCE KART',entrada:entry,saida:FK.state.elapsed,duracao:dur});
     }
     /* remove da lista Box Intelligence */
     if(FK.state.kartsInBox)FK.state.kartsInBox=FK.state.kartsInBox.filter(function(k){return k!==knum;});
+    /* reinicia o cronômetro de "tempo em pista" do stint */
+    if(FK.state.kronoState&&FK.state.kronoState[knum])FK.state.kronoState[knum].stintStartTs=Date.now();
   }
   FK.state.boxState[knum].status=status;
   FK.rBox();
   FK.rDashBoxIntel&&FK.rDashBoxIntel();
-  FK.rDashPitRanking&&FK.rDashPitRanking();
+  FK.rDashKartsBox&&FK.rDashKartsBox();
 },
 loadWx:function(){
 var url='https://api.open-meteo.com/v1/forecast?latitude='+(FK.cfg.wxLat!=null?FK.cfg.wxLat:-23.6055018)+'&longitude='+(FK.cfg.wxLon!=null?FK.cfg.wxLon:-46.8357684)+'&current=temperature_2m,weathercode,windspeed_10m,winddirection_10m,windgusts_10m,precipitation_probability,relativehumidity_2m&timezone=America/Sao_Paulo';
@@ -1609,9 +1633,20 @@ rDashRanking:function(){
   });
   proj.sort(function(a,b){return b.projLaps-a.projLaps;});
   var projPos={};proj.forEach(function(p,i){projPos[p.kart]=i+1;});
-  /* top 10 */
-  var top10=data.slice(0,10);
-  var teamExtra=data.filter(function(d){return FK.isMy(d.kart)&&d.pos>10;});
+  /* top N (ampliado a pedido da equipe pra caber mais karts sem precisar trocar de tela) */
+  var topN=20;
+  var top10=data.slice(0,topN);
+  var teamExtra=data.filter(function(d){return FK.isMy(d.kart)&&d.pos>topN;});
+  /* faixa fixa "Meus Karts" — sempre visível, não some quando o kart entra/sai do top N */
+  var mkEl=document.getElementById('d-rank-mykarts');
+  if(mkEl){
+    var mkHtml=FK.cfg.myKarts.map(function(k){
+      var kd=FK.findKartData(data,k);
+      if(!kd)return '<span class="mk-chip">#'+k+' <b>—</b></span>';
+      return '<span class="mk-chip">#'+k+' <b>P'+kd.pos+'</b> · '+(kd.last||'--:--')+'</span>';
+    }).join('');
+    mkEl.innerHTML=mkHtml||'<span style="color:var(--mut);font-size:10px">Nenhum kart configurado</span>';
+  }
   var html='';
   function rowHtml(d,sep){
     var my=FK.isMy(d.kart);
@@ -1632,7 +1667,7 @@ rDashRanking:function(){
   }
   top10.forEach(function(d){html+=rowHtml(d,false);});
   if(teamExtra.length){
-    html+='<tr class="dr-sep"><td colspan="9" style="background:rgba(226,35,26,0.05);color:var(--acc);font-size:9px;text-transform:uppercase;letter-spacing:2px;padding:3px 8px;font-weight:700">— Equipe fora do top 10 —</td></tr>';
+    html+='<tr class="dr-sep"><td colspan="9" style="background:rgba(226,35,26,0.05);color:var(--acc);font-size:9px;text-transform:uppercase;letter-spacing:2px;padding:3px 8px;font-weight:700">— Equipe fora do top '+topN+' —</td></tr>';
     teamExtra.forEach(function(d){html+=rowHtml(d,false);});
   }
   tbody.innerHTML=html;
@@ -1643,10 +1678,14 @@ rDashRanking:function(){
 initKrono:function(){
   if(!FK.state.kronoState)FK.state.kronoState={};
   var now=Date.now();
+  var data=FK.getData();
   FK.cfg.myKarts.forEach(function(k){
     if(FK.state.kronoState[k]&&FK.state.kronoState[k].lapStartTs)return;
-    var kd=FK.demo_data.find(function(d){return d.kart===k;});
-    var lapTime=kd?FK.parseT(kd.best):52;
+    var kd=FK.findKartData(data,k);
+    /* FK.parseT devolve o sentinela 999 quando não há tempo registrado (ex: kart ainda não bateu
+       volta) — sem esse cuidado o cronômetro assumiria uma volta de 999s (quase 17min). */
+    var kdLap=kd?FK.parseT(kd.best):null;
+    var lapTime=(kdLap&&kdLap<999)?kdLap:52;
     var phase=Math.random()*lapTime*1000;
     FK.state.kronoState[k]={
       lapStartTs:now-phase,
@@ -1655,7 +1694,8 @@ initKrono:function(){
       stintLaps:kd?Math.max(3,Math.floor(kd.laps*0.22)):5,
       best:kd?kd.best:'--:--',
       last:kd?kd.last:'--:--',
-      pos:kd?kd.pos:'?'
+      pos:kd?kd.pos:'?',
+      stintStartTs:now
     };
   });
 },
@@ -1667,6 +1707,10 @@ startKronoInterval:function(){
     FK.cfg.myKarts.forEach(function(k){
       var ks=FK.state.kronoState&&FK.state.kronoState[k];
       if(!ks||!ks.lapStartTs)return;
+      /* guarda de segurança: se por algum motivo lapTime ficar zerado/NaN/negativo,
+         o while abaixo travaria a aba num loop infinito (foi a causa mais provável
+         do "travou" relatado — kart com melhor volta ainda não registrada). */
+      if(!ks.lapTime||!isFinite(ks.lapTime)||ks.lapTime<=0||ks.lapTime>=999)ks.lapTime=52;
       var elapsed=(Date.now()-ks.lapStartTs)/1000;
       /* avança volta quando completa */
       while(elapsed>=ks.lapTime){
@@ -1682,7 +1726,12 @@ startKronoInterval:function(){
       var tel=document.getElementById('kt-'+k);
       if(tel){tel.textContent=timerStr;tel.className='krono-timer'+(elapsed>ks.lapTime*0.96?' late':'');}
       var sel=document.getElementById('ks-'+k);
-      if(sel)sel.textContent=(ks.stintLaps||0)+' voltas';
+      if(sel){
+        var onTrack=(Date.now()-(ks.stintStartTs||Date.now()))/1000;
+        var otm=Math.floor(onTrack/60);var ots=Math.floor(onTrack%60);
+        var otStr=(otm<10?'0'+otm:otm)+':'+(ots<10?'0'+ots:ots);
+        sel.textContent=(ks.stintLaps||0)+'v · '+otStr+' em pista';
+      }
     });
   },50);
 },
@@ -1693,37 +1742,47 @@ rDashCrono:function(){
   var kartKey=FK.cfg.myKarts.join(',');
   if(el.dataset.kartKey===kartKey)return;
   el.dataset.kartKey=kartKey;
+  var data=FK.getData();
   var html='';
   FK.cfg.myKarts.forEach(function(k){
     var ks=FK.state.kronoState&&FK.state.kronoState[k];
-    var kd=FK.demo_data.find(function(d){return d.kart===k;});
-    var pos=kd?kd.pos:'?';
+    var kd=FK.findKartData(data,k);
+    var pos=kd?kd.pos:(ks?ks.pos:'?');
     var best=ks?ks.best:'--:--';
     var last=ks?ks.last:'--:--';
     html+='<div class="krono-card">'+
-    '<div class="krono-top"><div class="krono-badge">'+k+'</div><div class="krono-pos-info">P'+pos+'</div></div>'+
+    '<div class="krono-top"><div class="krono-badge">'+k+'</div><div class="krono-pos-info" id="kp-'+k+'">P'+pos+'</div></div>'+
     '<div class="krono-timer" id="kt-'+k+'">00:00.000</div>'+
     '<div class="krono-row">'+
     '<div class="kr-cell"><span class="kl">Melhor</span><span class="kv acc">'+best+'</span></div>'+
     '<div class="kr-cell"><span class="kl">Última</span><span class="kv">'+last+'</span></div>'+
     '</div>'+
-    '<div class="krono-stint-bar"><span class="ks-lbl">Stint</span><span class="ks-val" id="ks-'+k+'">0 voltas</span></div>'+
+    '<div class="krono-stint-bar"><span class="ks-lbl">Stint</span><span class="ks-val" id="ks-'+k+'">0v · 00:00</span></div>'+
     '</div>';
   });
   el.innerHTML=html;
+},
+/* atualiza só a posição nos cards de cronômetro (a estrutura só é reconstruída quando os karts mudam) */
+updateKronoPos:function(){
+  var data=FK.getData();
+  FK.cfg.myKarts.forEach(function(k){
+    var kd=FK.findKartData(data,k);
+    var el=document.getElementById('kp-'+k);
+    if(el)el.textContent='P'+(kd?kd.pos:'?');
+  });
 },
 /* ── Pace Equipe vs Top 10 ── */
 rDashPaceComp:function(){
   var el=document.getElementById('d-pace-comp');if(!el)return;
   var data=FK.getData();
-  var myKarts=FK.cfg.myKarts.filter(function(k){return data.find(function(d){return d.kart===k;});});
+  var myKarts=FK.cfg.myKarts.filter(function(k){return FK.findKartData(data,k);});
   if(!myKarts.length){el.innerHTML='<p style="color:var(--mut);font-size:11px;padding:4px">Configure seus karts para ver o comparativo.</p>';return;}
   var top10=data.slice(0,10);
   var html='<table class="pace-table"><thead><tr><th style="text-align:left">Kart</th>';
   top10.forEach(function(d){html+='<th>#'+d.kart+'</th>';});
   html+='</tr></thead><tbody>';
   myKarts.forEach(function(k){
-    var my=data.find(function(d){return d.kart===k;});
+    var my=FK.findKartData(data,k);
     if(!my)return;
     var myT=FK.parseT(my.best);
     html+='<tr><td class="row-kart">#'+k+'<br><span style="font-size:8px;color:var(--mut);font-weight:400">'+my.best+'</span></td>';
@@ -1786,7 +1845,7 @@ rDashBoxIntel:function(){
   /* melhor tempo dos karts da equipe em pista */
   var myBest=999;
   FK.cfg.myKarts.forEach(function(k){
-    var kd=data.find(function(d){return d.kart===k;});
+    var kd=FK.findKartData(data,k);
     if(kd){var t=FK.parseT(kd.best);if(t<myBest)myBest=t;}
   });
   /* pool: todos karts registrados no box + karts do campo (simulação) */
@@ -1846,65 +1905,55 @@ rDashBoxIntel:function(){
   }
   el.innerHTML=matrixHtml+reco;
 },
-/* ── Pit Stop Ranking ── */
-rDashPitRanking:function(){
-  var el=document.getElementById('d-pit-rank-body');if(!el)return;
-  var pit_el2=document.getElementById('d-pit-chips');
-  var stops=FK.state.pitStops||[];
-  var target=FK.cfg.minPitDurationSec||300;
-  var lbl=document.getElementById('d-pit-target-label');
-  if(lbl){var tm=Math.floor(target/60);var ts=target%60;lbl.textContent='Alvo: '+tm+':'+(ts<10?'0'+ts:ts)+' cravados';}
-  /* toda parada registrada entra no ranking — mesmo abaixo do minimo (regulamento permite,
-     equipe leva advertencia/Stop&Go, mas a parada aconteceu). Ordenado por proximidade do
-     alvo (pra cima ou pra baixo), nao so por quem passou do minimo. */
-  var valid=stops.slice();
-  valid.sort(function(a,b){return Math.abs(a.duracao-target)-Math.abs(b.duracao-target);});
-  var fmtDelta=function(sec){
-    var neg=sec<0;var ad=Math.abs(sec);
-    var m=Math.floor(ad/60);var s=Math.floor(ad%60);
-    return (neg?'-':'+')+m+':'+(s<10?'0'+s:s);
-  };
-  /* chips no header */
-  if(pit_el2){
-    if(!valid.length){pit_el2.innerHTML='<span style="color:var(--mut);font-size:11px">Nenhuma parada registrada</span>';}
-    else{
-      var medals=['🥇','🥈','🥉'];
-      pit_el2.innerHTML=valid.slice(0,3).map(function(p,i){
-        var delta=p.duracao-target;
-        var cls=p.duracao>=target?'ok':'warn';
-        return '<div class="pit-chip">'+
-        '<span class="pc-medal">'+medals[i]+'</span>'+
-        '<span class="pc-kart">#'+p.kart+'</span>'+
-        '<span class="pc-equipe">'+p.equipe+'</span>'+
-        '<span class="pc-dur">'+FK.fmtMs(p.duracao)+'</span>'+
-        '<span class="pc-delta '+cls+'">'+fmtDelta(delta)+'</span>'+
-        '</div>';
-      }).join('');
-    }
-  }
-  /* ranking completo */
-  if(!valid.length){el.innerHTML='<div class="pr-empty">Nenhuma parada registrada ainda<br><small style="color:#2a2d38">Use o Controle de Box para registrar entradas e saídas</small></div>';return;}
-  var medals2=['🥇','🥈','🥉','4','5','6','7','8'];
-  el.innerHTML=valid.slice(0,8).map(function(p,i){
-    var my=FK.isMy(p.kart);
-    var delta=p.duracao-target;
-    var cls=p.duracao>=target?'ok':'warn';
+/* ── Karts no Box (equipe) ── */
+/* Substituiu o antigo "Ranking Melhor Parada": a equipe pediu a remoção porque o ranking
+   incentivava paradas arriscadas só pra aparecer bem colocado. Este card mostra, de forma
+   simples, quais karts DA EQUIPE estão no box agora e há quanto tempo. */
+rDashKartsBox:function(){
+  var el=document.getElementById('d-inbox-body');if(!el)return;
+  var cntEl=document.getElementById('d-inbox-count');
+  var bs=FK.state.boxState||{};
+  var inBox=FK.cfg.myKarts.filter(function(k){return bs[k]&&bs[k].status==='box';});
+  if(cntEl)cntEl.textContent=inBox.length+' no box';
+  if(!inBox.length){el.innerHTML='<div class="pr-empty">Nenhum kart da equipe no box no momento</div>';return;}
+  el.innerHTML=inBox.map(function(k){
+    var entry=bs[k].entryElapsed!=null?bs[k].entryElapsed:FK.state.elapsed;
+    var dur=Math.max(0,(FK.state.elapsed||0)-entry);
+    var piloto=bs[k].piloto||'—';
     return '<div class="pr-row">'+
-    '<span class="pr-medal">'+(i<3?medals2[i]:(i+1)+'º')+'</span>'+
-    '<div class="pr-kart'+(my?' my':'')+'">'+p.kart+'</div>'+
+    '<div class="pr-kart my">'+k+'</div>'+
     '<div class="pr-info">'+
-    '<div class="pr-dur">'+FK.fmtMs(p.duracao)+'</div>'+
-    '<div class="pr-sub">#'+p.kart+' · '+p.equipe+'</div>'+
+    '<div class="pr-dur">'+FK.fmtMs(dur)+'</div>'+
+    '<div class="pr-sub">'+piloto+'</div>'+
     '</div>'+
-    '<span class="pr-delta '+cls+'">'+fmtDelta(delta)+'</span>'+
     '</div>';
   }).join('');
+},
+/* ── Faixa superior: volta atual + cronômetros regressivos ── */
+rDashHdrStrip:function(){
+  var data=FK.getData();
+  var lapEl=document.getElementById('d-lap-num');
+  if(lapEl)lapEl.textContent=(data[0]&&data[0].laps!=null)?data[0].laps:'--';
+  var e=FK.state.elapsed||0;
+  var raceEl=document.getElementById('d-cd-race');
+  if(raceEl){
+    var remRace=Math.max(0,(FK.cfg.raceTotal||0)-e);
+    raceEl.textContent=remRace>0?FK.fmtTime(remRace):'ENCERRADA';
+  }
+  var pitEl=document.getElementById('d-cd-pitclose');
+  if(pitEl){
+    var pitCloseSec=(FK.cfg.pitCloseMin||0)*60;
+    var remPit=pitCloseSec-e;
+    if(pitCloseSec<=0){pitEl.textContent='—';}
+    else if(remPit>0){pitEl.textContent=FK.fmtTime(remPit);pitEl.style.color='';}
+    else{pitEl.textContent='FECHADO';pitEl.style.color='var(--red)';}
+  }
 },
 /* ── Mapa mini no dashboard ── */
 drawMapDash:function(){
   var cv=document.getElementById('mapa-canvas-dash');if(!cv)return;
-  var W=cv.offsetWidth||300;var H=Math.round(W*0.65);
-  if(H<120)H=120;
+  var W=cv.offsetWidth||300;var H=Math.round(W*0.55);
+  if(H<110)H=110;
   cv.width=W*2;cv.height=H*2;cv.style.height=H+'px';
   var ctx=cv.getContext('2d');ctx.scale(2,2);
   ctx.fillStyle='#060810';ctx.fillRect(0,0,W,H);
@@ -2004,9 +2053,11 @@ drawDashRainChart:function(){
 rDash:function(){
   FK.rDashRanking();
   FK.rDashCrono();
+  FK.updateKronoPos();
   FK.rDashBoxIntel();
-  FK.rDashPitRanking();
+  FK.rDashKartsBox();
   FK.rDashPaceComp();
+  FK.rDashHdrStrip();
   FK.drawMapDash();
   FK.drawWxChart();
   FK.drawDashRainChart();
