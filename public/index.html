@@ -1028,9 +1028,21 @@ if(elEl)elEl.textContent=FK.fmtTime(e);
 if(remEl)remEl.textContent=rem>0?FK.fmtTime(rem):'ENCERRADA';
 /* faixa superior (volta do líder + fecha o box) fica no topbar, visível em qualquer aba */
 FK.rDashHdrStrip();
-/* atualiza dashboard se visível (ranking + mapa + posição; krono/stint via kronoFast) */
+/* Atualiza TODOS os widgets do dashboard visível a cada segundo — antes só ranking/krono/mapa
+   atualizavam sozinhos; Box Inteligente, Karts no Box e Pace ficavam parados até algum clique
+   (troca de aba, salvar config, registrar troca), obrigando a dar refresh na página pra ver
+   dado novo. Dashboard Geral nem o ranking atualizava sozinho — foi a causa do "não atualiza
+   continuamente" relatado ao vivo em Betim. krono/stint continuam via o interval kronoFast (50ms). */
 var dashPane=document.getElementById('pane-dash');
-if(dashPane&&dashPane.classList.contains('on')){FK.rDashRanking();FK.updateKronoPos();FK.drawMapDash();}
+var dashGeralPane=document.getElementById('pane-dashgeral');
+if(dashPane&&dashPane.classList.contains('on')){
+  FK.rDashRanking();FK.updateKronoPos();FK.drawMapDash();
+  FK.rDashBoxIntel();FK.rDashKartsBox();FK.rDashPaceComp();
+}else if(dashGeralPane&&dashGeralPane.classList.contains('on')){
+  FK.rDashRanking('dg');FK.updateKronoPos();
+  FK.rDashBoxIntel('dg');FK.rDashKartsBox('dg');FK.rDashPaceComp('dg');
+  if(FK.rPilotQueue)FK.rPilotQueue();
+}
 },1000);
 },
 rPlacar:function(){
