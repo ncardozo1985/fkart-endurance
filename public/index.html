@@ -546,6 +546,17 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
   </tr></thead><tbody id="est-cat-body"></tbody></table></div>
 </div>
 </div>
+<div class="card" id="stint-plan-card">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px">
+    <h3 style="margin:0">&#128202; Planejamento de Stints</h3>
+    <span style="font-size:11px;color:var(--mut)" id="stint-plan-summary"></span>
+  </div>
+  <p style="color:var(--mut);font-size:12px;margin-bottom:10px">Divide o tempo de prova igualmente pelas paradas obrigatorias (config &#8594; Regras da Prova) e marca as janelas especiais da corrida. Ajuste os campos em Config se o regulamento mudar.</p>
+  <div id="stint-plan-timeline" style="margin-bottom:10px"></div>
+  <div style="overflow-x:auto"><table><thead><tr>
+    <th>Stint</th><th>Inicio</th><th>Fim</th><th>Duracao</th><th>Parada apos</th><th>Alerta</th>
+  </tr></thead><tbody id="stint-plan-body"></tbody></table></div>
+</div>
 <div class="card">
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px">
     <h3 style="margin:0">&#127919; Estrategia (Solo Endurance)</h3>
@@ -700,6 +711,32 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 <small style="color:var(--mut);font-size:11px;display:block">Ajuste estes campos conforme o regulamento de cada corrida. Para a Endurance Itu 6h (23/08/2026, Art.14&#186;): 5 paradas obrigatorias de 5min + 1 parada longa de 7min = 32min de paradas no total. As "Paradas Longas" contam separado das paradas minimas normais e entram na Proje&ccedil;&atilde;o como tempo obrigat&oacute;rio adicional descontado do tempo total de prova. As paradas cumpridas sao contadas a partir do registro manual na aba Box (entrada/saida). A categoria precisa bater com o texto da coluna CATEGORIA da fonte de dados.</small>
 </div>
 <div class="cfg-panel">
+<h3>&#128679; Janelas Especiais da Prova</h3>
+<div class="cfg-grid">
+<div class="cfg-field">
+<label>Heavy Window - Inicio (min de prova)</label>
+<input type="number" id="cfg-heavy-start" min="0" value="0">
+</div>
+<div class="cfg-field">
+<label>Heavy Window - Fim (min de prova)</label>
+<input type="number" id="cfg-heavy-end" min="0" value="0">
+</div>
+<div class="cfg-field">
+<label>Safety Kart Virtual - Momento (min de prova)</label>
+<input type="number" id="cfg-svc-time" min="0" value="0">
+</div>
+<div class="cfg-field">
+<label>Box Fechado (Safety Kart) - Inicio (min de prova)</label>
+<input type="number" id="cfg-boxfechado-start" min="0" value="0">
+</div>
+<div class="cfg-field">
+<label>Corte p/ abrir parada obrigatoria (min de prova)</label>
+<input type="number" id="cfg-mandatory-cutoff" min="0" step="0.01" value="0">
+</div>
+</div>
+<small style="color:var(--mut);font-size:11px;display:block">Para a Endurance Itu 6h (Art.10&#186; e 16&#186;): Heavy Window das 03h30 as 05h00 (kart deve sair do box 20kg acima do peso da categoria); Safety Kart Virtual aos 03h00 de prova (bandeira quadriculada verde/amarela, sem ultrapassagem); Box Fechado a partir das 02h50 ate a relargada (duracao real da relargada e definida pela organizacao na hora, nao da pra prever); corte para abrir a volta cronometrada obrigatoria (5 ou 7min) as 05h44min59s de prova. Esses campos alimentam o Planejamento de Stints na aba Estrategia.</small>
+</div>
+<div class="cfg-panel">
 <h3>&#128100; Setup — Pilotos por Kart</h3>
 <p style="color:var(--mut);font-size:12px;margin-bottom:14px">Marque quais pilotos cadastrados (aba Pilotos) podem pilotar cada kart. Essa lista alimenta os menus da "Fila de Pilotos" no Dashboard Geral — se nenhum piloto for marcado para um kart, todos os cadastrados aparecem como opção.</p>
 <div id="kp-setup-body"></div>
@@ -710,15 +747,15 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 <div class="cfg-grid">
 <div class="cfg-field">
 <label>Nome/Local (rotulo)</label>
-<input type="text" id="cfg-wx-label" placeholder="Ex: KNO Nova Odessa">
+<input type="text" id="cfg-wx-label" placeholder="Ex: KGV Arena Itu">
 </div>
 <div class="cfg-field">
 <label>Latitude</label>
-<input type="number" id="cfg-wx-lat" step="0.000001" placeholder="-23.6055018">
+<input type="number" id="cfg-wx-lat" step="0.000001" placeholder="-23.249038">
 </div>
 <div class="cfg-field">
 <label>Longitude</label>
-<input type="number" id="cfg-wx-lon" step="0.000001" placeholder="-46.8357684">
+<input type="number" id="cfg-wx-lon" step="0.000001" placeholder="-47.339491">
 </div>
 </div>
 </div>
@@ -747,10 +784,15 @@ maxPitStops:6,
 longPitStops:0,
 longPitDurationSec:0,
 pitCloseMin:220,
+heavyWindowStartSec:0,
+heavyWindowEndSec:0,
+svcTimeSec:0,
+boxFechadoStartSec:0,
+mandatoryStopCutoffSec:0,
 myCategory:'LIGHT',
-wxLat:-22.778938,
-wxLon:-47.229576,
-wxLabel:'KNO Nova Odessa',
+wxLat:-23.249038,
+wxLon:-47.339491,
+wxLabel:'KGV Arena Itu',
 /* Roster da Etapa 3 KNO (25/07/2026) - reconstruido a partir da classificacao real capturada durante a corrida (3:17:55 decorridos), placa=numero do kart */
 roster:{
 '41':{equipe:'Z19 SQUADRA - MIELLI TECNOLOGIA 3',cat:'PRO'},
@@ -895,6 +937,19 @@ var p=String(t).replace('00:','').split(':');
 var v=p.length===2?parseFloat(p[0])*60+parseFloat(p[1]):parseFloat(p[0]);
 return isNaN(v)?null:v;
 },
+/* parser generico de tempo hh:mm:ss.mmm (ou mm:ss, ou so segundos) -> segundos totais.
+   usado pro campo TotalTime do Race Monitor, que vem com horas (ex: "08:49:08.415"). */
+parseHMS:function(t){
+if(t==null||t==='')return null;
+var parts=String(t).split(':');
+var sec=0;
+for(var i=0;i<parts.length;i++){
+var v=parseFloat(parts[i]);
+if(isNaN(v))return null;
+sec=sec*60+v;
+}
+return sec;
+},
 fmtTime:function(sec){
 sec=Math.max(0,Math.floor(sec));
 var h=Math.floor(sec/3600);
@@ -913,7 +968,7 @@ if(p)p.classList.add('on');
 if(name==='dash'){FK.rDash();setTimeout(function(){FK.drawWxChart();FK.drawMapDash();},50);}
 if(name==='dashgeral'){FK.rDashGeral();}
 if(name==='pilotos')FK.rPilotos();
-if(name==='estrategia')FK.rEstrategia();
+if(name==='estrategia'){FK.rEstrategia();FK.rStintPlan&&FK.rStintPlan();}
 if(name==='config'){FK.renderConfig();FK.renderKartPilotsSetup();}
 },
 loadConfig:function(){
@@ -935,6 +990,11 @@ var epx=document.getElementById('cfg-pit-max-count');if(epx)FK.cfg.maxPitStops=p
 var eplc=document.getElementById('cfg-pit-long-count');if(eplc)FK.cfg.longPitStops=parseInt(eplc.value)||0;
 var epld=document.getElementById('cfg-pit-long-dur');if(epld)FK.cfg.longPitDurationSec=Math.round((parseFloat(epld.value)||0)*60);
 var epcl=document.getElementById('cfg-pit-close-min');if(epcl)FK.cfg.pitCloseMin=parseInt(epcl.value)||0;
+var ehws=document.getElementById('cfg-heavy-start');if(ehws)FK.cfg.heavyWindowStartSec=Math.round((parseFloat(ehws.value)||0)*60);
+var ehwe=document.getElementById('cfg-heavy-end');if(ehwe)FK.cfg.heavyWindowEndSec=Math.round((parseFloat(ehwe.value)||0)*60);
+var esvc=document.getElementById('cfg-svc-time');if(esvc)FK.cfg.svcTimeSec=Math.round((parseFloat(esvc.value)||0)*60);
+var ebfs=document.getElementById('cfg-boxfechado-start');if(ebfs)FK.cfg.boxFechadoStartSec=Math.round((parseFloat(ebfs.value)||0)*60);
+var emco=document.getElementById('cfg-mandatory-cutoff');if(emco)FK.cfg.mandatoryStopCutoffSec=Math.round((parseFloat(emco.value)||0)*60);
 var emc=document.getElementById('cfg-my-category');if(emc)FK.cfg.myCategory=(emc.value||'').trim().toUpperCase();
 var ewl=document.getElementById('cfg-wx-label');if(ewl)FK.cfg.wxLabel=(ewl.value||'').trim();
 var ewlat=document.getElementById('cfg-wx-lat');if(ewlat&&ewlat.value!=='')FK.cfg.wxLat=parseFloat(ewlat.value);
@@ -947,6 +1007,7 @@ FK.rDashKartsBox&&FK.rDashKartsBox();
 FK.rDashKartsBox&&FK.rDashKartsBox('dg');
 FK.rPilotQueue&&FK.rPilotQueue();
 FK.renderKartPilotsSetup&&FK.renderKartPilotsSetup();
+FK.rStintPlan&&FK.rStintPlan();
 FK.loadWx();FK.loadWxHourly();
 var el=document.getElementById('cfg-race-name');
 if(el)el.style.borderColor='#66bb6a';
@@ -967,10 +1028,15 @@ var epx=document.getElementById('cfg-pit-max-count');if(epx)epx.value=FK.cfg.max
 var eplc=document.getElementById('cfg-pit-long-count');if(eplc)eplc.value=FK.cfg.longPitStops!=null?FK.cfg.longPitStops:0;
 var epld=document.getElementById('cfg-pit-long-dur');if(epld)epld.value=FK.cfg.longPitDurationSec!=null?(FK.cfg.longPitDurationSec/60):0;
 var epcl=document.getElementById('cfg-pit-close-min');if(epcl)epcl.value=FK.cfg.pitCloseMin!=null?FK.cfg.pitCloseMin:220;
+var ehws=document.getElementById('cfg-heavy-start');if(ehws)ehws.value=FK.cfg.heavyWindowStartSec?(FK.cfg.heavyWindowStartSec/60):210;
+var ehwe=document.getElementById('cfg-heavy-end');if(ehwe)ehwe.value=FK.cfg.heavyWindowEndSec?(FK.cfg.heavyWindowEndSec/60):300;
+var esvc=document.getElementById('cfg-svc-time');if(esvc)esvc.value=FK.cfg.svcTimeSec?(FK.cfg.svcTimeSec/60):180;
+var ebfs=document.getElementById('cfg-boxfechado-start');if(ebfs)ebfs.value=FK.cfg.boxFechadoStartSec?(FK.cfg.boxFechadoStartSec/60):170;
+var emco=document.getElementById('cfg-mandatory-cutoff');if(emco)emco.value=FK.cfg.mandatoryStopCutoffSec?(FK.cfg.mandatoryStopCutoffSec/60):344.98;
 var emc=document.getElementById('cfg-my-category');if(emc)emc.value=FK.cfg.myCategory||'';
 var ewl=document.getElementById('cfg-wx-label');if(ewl)ewl.value=FK.cfg.wxLabel||'';
-var ewlat=document.getElementById('cfg-wx-lat');if(ewlat)ewlat.value=FK.cfg.wxLat!=null?FK.cfg.wxLat:-23.6055018;
-var ewlon=document.getElementById('cfg-wx-lon');if(ewlon)ewlon.value=FK.cfg.wxLon!=null?FK.cfg.wxLon:-46.8357684;
+var ewlat=document.getElementById('cfg-wx-lat');if(ewlat)ewlat.value=FK.cfg.wxLat!=null?FK.cfg.wxLat:-23.249038;
+var ewlon=document.getElementById('cfg-wx-lon');if(ewlon)ewlon.value=FK.cfg.wxLon!=null?FK.cfg.wxLon:-47.339491;
 FK.renderKartTags();
 FK.renderKartPilotsSetup();
 },
@@ -1155,10 +1221,26 @@ cat:(s.Classes&&s.Classes[c.ClassID])?s.Classes[c.ClassID].Description:'',
 laps:parseInt(c.Laps)||0,
 best:c.BestLapTime||'--:--.---',
 last:c.LastLapTime||'--:--.---',
+totalTimeSec:FK.parseHMS(c.TotalTime),
 gap:'',diff:''
 });
 });
 comps.sort(function(a,b){return a.pos-b.pos;});
+/* API do Race Monitor nao manda um campo de gap pronto (so Position/Laps/TotalTime por kart) —
+   calcula aqui: se o kart esta na mesma volta do lider, gap = diferenca de TotalTime; se esta
+   voltas atras, mostra "+N volta(s)" (igual ao formato ja usado nos dados demo/colados). */
+if(comps.length){
+var leader=comps[0];
+comps.forEach(function(c){
+if(c===leader){c.gap='';return;}
+var lapDiff=(leader.laps||0)-(c.laps||0);
+if(lapDiff>0){
+c.gap='+'+lapDiff+' volta'+(lapDiff>1?'s':'');
+}else if(leader.totalTimeSec!=null&&c.totalTimeSec!=null){
+c.gap='+'+(c.totalTimeSec-leader.totalTimeSec).toFixed(3);
+}
+});
+}
 if(s.SessionTime){
 var parts=s.SessionTime.split(':');
 if(parts.length>=2){
@@ -1414,6 +1496,129 @@ rEstCatTable:function(){
   el.innerHTML=html;
   if(updEl)updEl.textContent=catData.length+' karts na categoria · atualizado '+new Date().toLocaleTimeString('pt-BR');
 },
+/* Planejamento de Stints — divide o tempo de prova igualmente entre as paradas obrigatorias
+   (config -> Regras da Prova) e marca as janelas especiais (Heavy Window, Safety Kart Virtual /
+   Box Fechado, corte pra abrir parada cronometrada) por cima de uma linha do tempo da corrida.
+   Assume as paradas curtas primeiro e a(s) longa(s) por ultimo -- e so uma referencia de
+   planejamento, a ordem real das paradas fica a criterio da equipe no dia. */
+rStintPlan:function(){
+  var body=document.getElementById('stint-plan-body');
+  var tl=document.getElementById('stint-plan-timeline');
+  var summ=document.getElementById('stint-plan-summary');
+  if(!body||!tl)return;
+  var raceTotal=FK.cfg.raceTotal||0;
+  var minStops=FK.cfg.minPitStops||0;
+  var minDur=FK.cfg.minPitDurationSec||0;
+  var longStops=FK.cfg.longPitStops||0;
+  var longDur=FK.cfg.longPitDurationSec||0;
+  var pits=minStops+longStops;
+  var numStints=pits+1;
+  var totalStopSec=minStops*minDur+longStops*longDur;
+  var drivingSec=Math.max(0,raceTotal-totalStopSec);
+  function mmss(sec){
+    sec=Math.max(0,Math.round(sec));
+    var m=Math.floor(sec/60),s=sec%60;
+    return m+'min'+(s>0?s+'s':'');
+  }
+  if(raceTotal<=0||numStints<1){
+    tl.innerHTML='<div style="color:var(--mut);font-size:12px;padding:8px">Configure a duracao da prova e as paradas obrigatorias em Config &#8594; Regras da Prova pra ver o planejamento de stints.</div>';
+    body.innerHTML='';
+    if(summ)summ.textContent='';
+    return;
+  }
+  var stintSec=drivingSec/numStints;
+  var heavyStart=FK.cfg.heavyWindowStartSec||0;
+  var heavyEnd=FK.cfg.heavyWindowEndSec||0;
+  var svcTime=FK.cfg.svcTimeSec||0;
+  var boxFechadoStart=FK.cfg.boxFechadoStartSec||0;
+  var mandatoryCutoff=FK.cfg.mandatoryStopCutoffSec||0;
+  /* a relargada real do safety kart e definida pela organizacao na hora -- +5min e so uma
+     margem de visualizacao, nao um dado oficial do regulamento */
+  var svcApproxEnd=svcTime>0?svcTime+300:0;
+
+  var stints=[],pitsArr=[],cursor=0;
+  for(var i=0;i<numStints;i++){
+    var stStart=cursor,stEnd=stStart+stintSec;
+    stints.push({idx:i+1,start:stStart,end:stEnd});
+    cursor=stEnd;
+    if(i<pits){
+      var isLong=(i>=minStops);
+      var dur=isLong?longDur:minDur;
+      var pStart=cursor,pEnd=pStart+dur;
+      var warnings=[];
+      if(heavyEnd>heavyStart&&pStart<heavyEnd&&pEnd>heavyStart){
+        warnings.push('Heavy Window — sair do box 20kg acima do peso da categoria');
+      }
+      if(boxFechadoStart>0&&svcApproxEnd>boxFechadoStart&&pStart<svcApproxEnd&&pEnd>boxFechadoStart){
+        warnings.push('Perto/dentro do Box Fechado (Safety Kart) — confirme com a organizacao');
+      }
+      if(mandatoryCutoff>0&&pStart>mandatoryCutoff){
+        warnings.push('Depois do corte de '+FK.fmtTime(mandatoryCutoff)+' — volta cronometrada obrigatoria nao abre mais');
+      }
+      pitsArr.push({idx:i+1,start:pStart,end:pEnd,dur:dur,isLong:isLong,warnings:warnings});
+      cursor=pEnd;
+    }
+  }
+
+  if(summ){
+    summ.textContent=numStints+' stints de ~'+mmss(stintSec)+' cada · '+pits+' paradas ('+minStops+'x'+(minDur/60)+'min'+(longStops>0?' + '+longStops+'x'+(longDur/60)+'min':'')+') = '+mmss(totalStopSec)+' de box';
+  }
+
+  /* timeline SVG: faixa superior com as janelas especiais, faixa principal com stints/paradas */
+  var W=1000,H=70,scale=W/raceTotal;
+  function x(sec){return Math.max(0,Math.min(W,sec*scale));}
+  var svg='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block" preserveAspectRatio="none">';
+  svg+='<rect x="0" y="0" width="'+W+'" height="'+H+'" fill="transparent"/>';
+  if(heavyEnd>heavyStart){
+    svg+='<rect x="'+x(heavyStart)+'" y="2" width="'+(x(heavyEnd)-x(heavyStart))+'" height="10" fill="#ffc107" opacity="0.55"><title>Heavy Window</title></rect>';
+  }
+  if(boxFechadoStart>0&&svcApproxEnd>boxFechadoStart){
+    svg+='<rect x="'+x(boxFechadoStart)+'" y="14" width="'+(x(svcApproxEnd)-x(boxFechadoStart))+'" height="10" fill="#ab47bc" opacity="0.55"><title>Box Fechado / Safety Kart Virtual</title></rect>';
+  }
+  if(mandatoryCutoff>0){
+    svg+='<line x1="'+x(mandatoryCutoff)+'" y1="0" x2="'+x(mandatoryCutoff)+'" y2="'+(H-14)+'" stroke="var(--red)" stroke-width="1.5" stroke-dasharray="4,3"/>';
+  }
+  var barY=28,barH=20;
+  stints.forEach(function(st){
+    var sx=x(st.start),sw=Math.max(1,x(st.end)-x(st.start));
+    svg+='<rect x="'+sx+'" y="'+barY+'" width="'+sw+'" height="'+barH+'" fill="var(--acc2)" opacity="0.85" rx="2"><title>Stint '+st.idx+': '+FK.fmtTime(st.start)+' - '+FK.fmtTime(st.end)+'</title></rect>';
+    if(sw>34){
+      svg+='<text x="'+(sx+sw/2)+'" y="'+(barY+barH/2+4)+'" font-size="10" fill="#fff" text-anchor="middle" font-weight="700">S'+st.idx+'</text>';
+    }
+  });
+  pitsArr.forEach(function(p){
+    var px=x(p.start),pw=Math.max(1,x(p.end)-x(p.start));
+    var color=p.warnings.length?'var(--red)':(p.isLong?'#ff9800':'#8d6e63');
+    svg+='<rect x="'+px+'" y="'+barY+'" width="'+pw+'" height="'+barH+'" fill="'+color+'"><title>Parada '+p.idx+' ('+(p.dur/60)+'min): '+FK.fmtTime(p.start)+'</title></rect>';
+  });
+  /* marcas de hora */
+  var hours=Math.ceil(raceTotal/3600);
+  for(var h=0;h<=hours;h++){
+    var hs=h*3600;if(hs>raceTotal)break;
+    svg+='<line x1="'+x(hs)+'" y1="'+barY+'" x2="'+x(hs)+'" y2="'+(barY+barH+4)+'" stroke="var(--border)" stroke-width="1"/>';
+    svg+='<text x="'+x(hs)+'" y="'+(barY+barH+16)+'" font-size="9" fill="var(--mut)" text-anchor="middle">'+h+'h</text>';
+  }
+  svg+='</svg>';
+  svg+='<div style="display:flex;flex-wrap:wrap;gap:10px;font-size:9px;color:var(--mut);margin-top:2px">'+
+    '<span><span style="display:inline-block;width:8px;height:8px;background:#ffc107;opacity:0.7;margin-right:3px;vertical-align:middle"></span>Heavy Window</span>'+
+    '<span><span style="display:inline-block;width:8px;height:8px;background:#ab47bc;opacity:0.7;margin-right:3px;vertical-align:middle"></span>Box Fechado / Safety Kart</span>'+
+    '<span><span style="display:inline-block;width:8px;height:8px;background:var(--acc2);margin-right:3px;vertical-align:middle"></span>Stint</span>'+
+    '<span><span style="display:inline-block;width:8px;height:8px;background:#8d6e63;margin-right:3px;vertical-align:middle"></span>Parada curta</span>'+
+    '<span><span style="display:inline-block;width:8px;height:8px;background:#ff9800;margin-right:3px;vertical-align:middle"></span>Parada longa</span>'+
+    '<span><span style="display:inline-block;width:8px;height:8px;background:var(--red);margin-right:3px;vertical-align:middle"></span>Parada com alerta</span>'+
+    '<span style="border-left:1px dashed var(--red);padding-left:4px">corte pra abrir parada obrigatoria</span>'+
+    '</div>';
+  tl.innerHTML=svg;
+
+  var rows='';
+  stints.forEach(function(st){
+    var pit=pitsArr[st.idx-1];
+    var pitTxt=pit?(pit.isLong?'Longa ('+(pit.dur/60)+'min)':'Curta ('+(pit.dur/60)+'min)'):'—';
+    var warnTxt=pit&&pit.warnings.length?('<span style="color:var(--red);font-size:10px">&#9888; '+pit.warnings.join(' · ')+'</span>'):'<span style="color:var(--mut);font-size:10px">—</span>';
+    rows+='<tr><td>S'+st.idx+'</td><td>'+FK.fmtTime(st.start)+'</td><td>'+FK.fmtTime(st.end)+'</td><td>'+mmss(st.end-st.start)+'</td><td>'+pitTxt+'</td><td>'+warnTxt+'</td></tr>';
+  });
+  body.innerHTML=rows;
+},
 rEstrategia:function(){
   FK.rEstCatTable();
   var el=document.getElementById('estrategia-body');if(!el)return;
@@ -1668,7 +1873,7 @@ setBoxStatus:function(knum,status){
   FK.updatePilotQueueCurrent&&FK.updatePilotQueueCurrent();
 },
 loadWx:function(){
-var url='https://api.open-meteo.com/v1/forecast?latitude='+(FK.cfg.wxLat!=null?FK.cfg.wxLat:-23.6055018)+'&longitude='+(FK.cfg.wxLon!=null?FK.cfg.wxLon:-46.8357684)+'&current=temperature_2m,weathercode,windspeed_10m,winddirection_10m,windgusts_10m,precipitation_probability,relativehumidity_2m&timezone=America/Sao_Paulo';
+var url='https://api.open-meteo.com/v1/forecast?latitude='+(FK.cfg.wxLat!=null?FK.cfg.wxLat:-23.249038)+'&longitude='+(FK.cfg.wxLon!=null?FK.cfg.wxLon:-47.339491)+'&current=temperature_2m,weathercode,windspeed_10m,winddirection_10m,windgusts_10m,precipitation_probability,relativehumidity_2m&timezone=America/Sao_Paulo';
 var xhr=new XMLHttpRequest();xhr.open('GET',url);
 xhr.onload=function(){try{
 var d=JSON.parse(xhr.responseText).current;
@@ -2007,7 +2212,7 @@ rDashPaceComp:function(prefix){
 },
 /* ── Clima horário ── */
 loadWxHourly:function(){
-  var url='https://api.open-meteo.com/v1/forecast?latitude='+(FK.cfg.wxLat!=null?FK.cfg.wxLat:-23.6055018)+'&longitude='+(FK.cfg.wxLon!=null?FK.cfg.wxLon:-46.8357684)+
+  var url='https://api.open-meteo.com/v1/forecast?latitude='+(FK.cfg.wxLat!=null?FK.cfg.wxLat:-23.249038)+'&longitude='+(FK.cfg.wxLon!=null?FK.cfg.wxLon:-47.339491)+
     '&hourly=precipitation_probability,precipitation,temperature_2m,weathercode&current=temperature_2m,weathercode,windspeed_10m,winddirection_10m,precipitation_probability,relativehumidity_2m'+
     '&timezone=America/Sao_Paulo&forecast_days=2';
   var xhr=new XMLHttpRequest();xhr.open('GET',url);
