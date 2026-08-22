@@ -2043,8 +2043,13 @@ rDashBoxIntel:function(prefix){
   }).filter(function(k){return k.probablyInBox;});
   /* ordenar por ordem de chegada: parado há mais tempo = chegou primeiro = sai primeiro */
   pool.sort(function(a,b){return b.idleSec-a.idleSec;});
-  var n=pool.length;
-  pool.forEach(function(k,i){
+  /* cor = velocidade (melhor volta), independente da ordem de exibição — pedido explícito:
+     mais verde = kart mais rápido, mais vermelho = kart mais lento. Calcula o percentil
+     num array separado ordenado por tempo, e aplica o grade de volta nos mesmos objetos
+     (mesma referência) que estão em "pool", já ordenado por chegada. */
+  var byPace=pool.slice().sort(function(a,b){return a.best-b.best;});
+  var n=byPace.length;
+  byPace.forEach(function(k,i){
     var pct=i/Math.max(n-1,1);
     if(pct<0.20)k.grade='q5';
     else if(pct<0.40)k.grade='q4';
@@ -2054,7 +2059,7 @@ rDashBoxIntel:function(prefix){
   });
   var cntEl=document.getElementById(prefix+'-bxi-count');
   if(cntEl)cntEl.textContent=pool.length+' kart'+(pool.length===1?'':'s')+' no box agora';
-  /* MATRIZ — 1ª posição = próximo a sair (chegou primeiro) */
+  /* MATRIZ — ordem = chegada (1º a chegar = próximo a sair); cor = velocidade (verde=rápido, vermelho=lento) */
   var matrixHtml='<div class="bxi-matrix">';
   pool.forEach(function(bk,i){
     var isTeam=FK.isMy(bk.kart);
@@ -2066,14 +2071,14 @@ rDashBoxIntel:function(prefix){
     '</div>';
   });
   matrixHtml+='</div>';
-  /* Legenda — agora reflete posição na fila de saída, não velocidade */
+  /* Legenda — cor = velocidade; a posição na fila e o tempo parado aparecem no texto de cada célula */
   matrixHtml+='<div class="bxi-legend">'+
-  '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#4caf50"></span>Sai logo</span>'+
-  '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#8bc34a"></span>Quase lá</span>'+
-  '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#ffc107"></span>Meio da fila</span>'+
-  '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#ff5722"></span>Recém chegado</span>'+
-  '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#ef5350"></span>Acabou de parar</span>'+
-  '<span class="bxi-leg-item" style="margin-left:8px"><span style="color:var(--acc)">★</span> = Nosso</span>'+
+  '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#4caf50"></span>Top 20% mais rápidos</span>'+
+  '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#8bc34a"></span>Bom ritmo</span>'+
+  '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#ffc107"></span>Ritmo médio</span>'+
+  '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#ff5722"></span>Ritmo fraco</span>'+
+  '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#ef5350"></span>Mais lentos</span>'+
+  '<span class="bxi-leg-item" style="margin-left:8px">nº = posição na fila de saída · ★ = Nosso</span>'+
   '</div>';
   /* Recomendação — agora fala de congestionamento, não de troca por velocidade */
   var reco='';
