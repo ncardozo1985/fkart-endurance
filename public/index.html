@@ -1028,6 +1028,8 @@ if(elEl)elEl.textContent=FK.fmtTime(e);
 if(remEl)remEl.textContent=rem>0?FK.fmtTime(rem):'ENCERRADA';
 /* faixa superior (volta do líder + fecha o box) fica no topbar, visível em qualquer aba */
 FK.rDashHdrStrip();
+/* mantém o ritmo do cronômetro da equipe sincronizado com a volta real mais recente */
+if(FK.syncKronoLapTimes)FK.syncKronoLapTimes();
 /* Atualiza TODOS os widgets do dashboard visível a cada segundo — antes só ranking/krono/mapa
    atualizavam sozinhos; Box Inteligente, Karts no Box e Pace ficavam parados até algum clique
    (troca de aba, salvar config, registrar troca), obrigando a dar refresh na página pra ver
@@ -1084,7 +1086,10 @@ startLive:function(){
 FK.cfg.source='live';FK.state.elapsed=0;
 FK.updateSrcBadge();FK.fetchLive();
 if(FK.state.liveInterval)clearInterval(FK.state.liveInterval);
-FK.state.liveInterval=setInterval(FK.fetchLive,15000);
+/* 3s (era 15s) — a pedido da equipe pra sentir a corrida mais "ao vivo".
+   Folga enorme na cota da API (plano Low Volume: 200k req/mês; a 3s isso é
+   ~1200 req/hora, ~7.2k numa prova de 6h — bem abaixo do limite). */
+FK.state.liveInterval=setInterval(FK.fetchLive,3000);
 var st=document.getElementById('config-status');
 if(st)st.style.display='block';
 var sb=document.getElementById('config-status-body');
@@ -1105,7 +1110,7 @@ if(r.Successful&&r.Session){
 FK.parseSession(r.Session);
 FK.rPlacar();
 if(typeof FK.rEstrategia==='function')FK.rEstrategia();
-if(sb)sb.innerHTML='<span style="color:#66bb6a">&#10003; Conectado - atualizando a cada 15s</span>';
+if(sb)sb.innerHTML='<span style="color:#66bb6a">&#10003; Conectado - atualizando a cada 3s</span>';
 }else{
 console.warn('FKART Live: '+(r.Message||xhr.status));
 if(sb)sb.innerHTML='<span style="color:#ff5252">&#10007; Race Monitor: '+(r.Message||'sem sessao ativa para esse raceId')+'</span>';
@@ -1828,6 +1833,30 @@ initKrono:function(){
     };
   });
 },
+/* Mantém ks.lapTime (o ritmo que o cronômetro usa pra contar a volta) sincronizado com o
+   dado real mais recente. Antes ks.lapTime era fixado uma única vez em initKrono e nunca
+   mais tocado — por isso todos os karts pareciam fechar volta sempre em ~52s (o fallback),
+   mesmo com ritmos reais bem diferentes chegando via fetchLive/paste. Roda a cada 1s
+   (junto do tick de startClock), usando a ÚLTIMA volta como referência de ritmo atual
+   (mais fiel ao que está rolando agora do que a melhor volta, que fica parada). */
+syncKronoLapTimes:function(){
+  var data=FK.getData();
+  FK.cfg.myKarts.forEach(function(k){
+    var ks=FK.state.kronoState&&FK.state.kronoState[k];
+    if(!ks)return;
+    var kd=FK.findKartData(data,k);
+    if(!kd)return;
+    var lastT=FK.parseT(kd.last);
+    var bestT=FK.parseT(kd.best);
+    var fresh=(lastT&&lastT<999&&lastT>0)?lastT:((bestT&&bestT<999&&bestT>0)?bestT:null);
+    if(fresh)ks.lapTime=fresh;
+    ks.best=kd.best;ks.last=kd.last;ks.pos=kd.pos;
+    /* "Melhor"/"Última" no card só eram escritos na criação do card (nunca mais depois) —
+       atualiza aqui também pra não ficarem parados durante a corrida */
+    ['kbest-'+k,'kbest-'+k+'-dg'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=kd.best||'--:--';});
+    ['klast-'+k,'klast-'+k+'-dg'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=kd.last||'--:--';});
+  });
+},
 startKronoInterval:function(){
   if(FK.state.kronoFast)clearInterval(FK.state.kronoFast);
   FK.state.kronoFast=setInterval(function(){
@@ -1891,8 +1920,8 @@ rDashCrono:function(gridId,idSuffix){
     '<div class="krono-top"><div class="krono-badge">'+k+'</div><div class="krono-pos-info" id="kp-'+k+idSuffix+'">P'+pos+'</div></div>'+
     '<div class="krono-timer" id="kt-'+k+idSuffix+'">00:00.000</div>'+
     '<div class="krono-row">'+
-    '<div class="kr-cell"><span class="kl">Melhor</span><span class="kv acc">'+best+'</span></div>'+
-    '<div class="kr-cell"><span class="kl">Última</span><span class="kv">'+last+'</span></div>'+
+    '<div class="kr-cell"><span class="kl">Melhor</span><span class="kv acc" id="kbest-'+k+idSuffix+'">'+best+'</span></div>'+
+    '<div class="kr-cell"><span class="kl">Última</span><span class="kv" id="klast-'+k+idSuffix+'">'+last+'</span></div>'+
     '</div>'+
     '<div class="krono-stint-bar"><span class="ks-lbl">Stint</span><span class="ks-val" id="ks-'+k+idSuffix+'">0v · 00:00</span></div>'+
     '</div>';
