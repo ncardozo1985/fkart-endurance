@@ -1314,12 +1314,16 @@ recentAvgLapTime:function(kart,n){
 n=n||5;
 var h=(FK.state.history&&FK.state.history[kart])||[];
 var lapTimes=[];
+/* voltas de parada obrigatoria (>= duracao minima de parada configurada, ex: 5min) nao sao
+   ritmo de pista -- sao descartadas do calculo, e a busca continua mais pra tras no historico
+   ate achar N voltas de corrida de verdade, em vez de simplesmente parar ou usar a volta lenta. */
+var pitThreshold=(FK.cfg.minPitDurationSec>0)?FK.cfg.minPitDurationSec:300;
 for(var i=1;i<h.length&&lapTimes.length<n;i++){
 var cur=h[h.length-i],prev=h[h.length-i-1];
 if(!prev)break;
 if(cur.laps>prev.laps){
 var t=FK.parseT(cur.last);
-if(t&&t>0&&t<999)lapTimes.push(t);
+if(t&&t>0&&t<pitThreshold)lapTimes.push(t);
 }
 }
 if(!lapTimes.length)return 0;
