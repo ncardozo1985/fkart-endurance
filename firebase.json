@@ -13,8 +13,8 @@
     ],
     "rewrites": [
       {
-        "source": "/api/timing",
-        "function": "timing"
+        "source": "/api/live",
+        "function": "liveProxy"
       }
     ]
   }
