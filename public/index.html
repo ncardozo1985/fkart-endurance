@@ -681,6 +681,14 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 <input type="number" id="cfg-pit-max-count" min="0" value="6">
 </div>
 <div class="cfg-field">
+<label>Paradas Longas Obrigatorias (quantidade)</label>
+<input type="number" id="cfg-pit-long-count" min="0" value="0">
+</div>
+<div class="cfg-field">
+<label>Duracao da Parada Longa (min)</label>
+<input type="number" id="cfg-pit-long-dur" min="0" step="0.5" value="0">
+</div>
+<div class="cfg-field">
 <label>Box Fecha em (min de prova)</label>
 <input type="number" id="cfg-pit-close-min" min="0" value="220">
 </div>
@@ -689,7 +697,7 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 <input type="text" id="cfg-my-category" placeholder="Ex: LIGHT" oninput="this.value=this.value.toUpperCase()">
 </div>
 </div>
-<small style="color:var(--mut);font-size:11px;display:block">Defaults conforme o regulamento da corrida: minimo 5 paradas obrigatorias (3 de 5min + 2 de 6min — contam a partir de 5min cravados; parada abaixo disso e permitida mas gera advertencia/Stop&amp;Go), maximo 6 paradas (a 7&#170; desclassifica), box aberto da 2&#170; volta at&eacute; 220min de prova. As paradas cumpridas sao contadas a partir do registro manual na aba Box (entrada/saida). A categoria precisa bater com o texto da coluna CATEGORIA da fonte de dados.</small>
+<small style="color:var(--mut);font-size:11px;display:block">Ajuste estes campos conforme o regulamento de cada corrida. Para a Endurance Itu 6h (23/08/2026, Art.14&#186;): 5 paradas obrigatorias de 5min + 1 parada longa de 7min = 32min de paradas no total. As "Paradas Longas" contam separado das paradas minimas normais e entram na Proje&ccedil;&atilde;o como tempo obrigat&oacute;rio adicional descontado do tempo total de prova. As paradas cumpridas sao contadas a partir do registro manual na aba Box (entrada/saida). A categoria precisa bater com o texto da coluna CATEGORIA da fonte de dados.</small>
 </div>
 <div class="cfg-panel">
 <h3>&#128100; Setup — Pilotos por Kart</h3>
@@ -736,6 +744,8 @@ laptimeUrl:'',
 minPitStops:5,
 minPitDurationSec:300,
 maxPitStops:6,
+longPitStops:0,
+longPitDurationSec:0,
 pitCloseMin:220,
 myCategory:'LIGHT',
 wxLat:-22.778938,
@@ -922,6 +932,8 @@ var elt=document.getElementById('cfg-laptime-url');if(elt&&elt.value)FK.cfg.lapt
 var epc=document.getElementById('cfg-pit-min-count');if(epc)FK.cfg.minPitStops=parseInt(epc.value)||0;
 var epd=document.getElementById('cfg-pit-min-dur');if(epd)FK.cfg.minPitDurationSec=Math.round((parseFloat(epd.value)||0)*60);
 var epx=document.getElementById('cfg-pit-max-count');if(epx)FK.cfg.maxPitStops=parseInt(epx.value)||0;
+var eplc=document.getElementById('cfg-pit-long-count');if(eplc)FK.cfg.longPitStops=parseInt(eplc.value)||0;
+var epld=document.getElementById('cfg-pit-long-dur');if(epld)FK.cfg.longPitDurationSec=Math.round((parseFloat(epld.value)||0)*60);
 var epcl=document.getElementById('cfg-pit-close-min');if(epcl)FK.cfg.pitCloseMin=parseInt(epcl.value)||0;
 var emc=document.getElementById('cfg-my-category');if(emc)FK.cfg.myCategory=(emc.value||'').trim().toUpperCase();
 var ewl=document.getElementById('cfg-wx-label');if(ewl)FK.cfg.wxLabel=(ewl.value||'').trim();
@@ -952,6 +964,8 @@ var eld=document.getElementById('cfg-laptime-duration');if(eld&&FK.cfg.source===
 var epc=document.getElementById('cfg-pit-min-count');if(epc)epc.value=FK.cfg.minPitStops!=null?FK.cfg.minPitStops:5;
 var epd=document.getElementById('cfg-pit-min-dur');if(epd)epd.value=FK.cfg.minPitDurationSec!=null?(FK.cfg.minPitDurationSec/60):5;
 var epx=document.getElementById('cfg-pit-max-count');if(epx)epx.value=FK.cfg.maxPitStops!=null?FK.cfg.maxPitStops:6;
+var eplc=document.getElementById('cfg-pit-long-count');if(eplc)eplc.value=FK.cfg.longPitStops!=null?FK.cfg.longPitStops:0;
+var epld=document.getElementById('cfg-pit-long-dur');if(epld)epld.value=FK.cfg.longPitDurationSec!=null?(FK.cfg.longPitDurationSec/60):0;
 var epcl=document.getElementById('cfg-pit-close-min');if(epcl)epcl.value=FK.cfg.pitCloseMin!=null?FK.cfg.pitCloseMin:220;
 var emc=document.getElementById('cfg-my-category');if(emc)emc.value=FK.cfg.myCategory||'';
 var ewl=document.getElementById('cfg-wx-label');if(ewl)ewl.value=FK.cfg.wxLabel||'';
@@ -1210,9 +1224,25 @@ var h=FK.state.history[d.kart];
 var prev=h[h.length-1];
 if(!prev||prev.ts!==t){
 h.push({ts:t,pos:d.pos,laps:d.laps,best:d.best,last:d.last,gap:d.gap});
-if(h.length>100)h.shift();
+if(h.length>400)h.shift();
 }
 });
+},
+recentAvgLapTime:function(kart,n){
+n=n||5;
+var h=(FK.state.history&&FK.state.history[kart])||[];
+var lapTimes=[];
+for(var i=1;i<h.length&&lapTimes.length<n;i++){
+var cur=h[h.length-i],prev=h[h.length-i-1];
+if(!prev)break;
+if(cur.laps>prev.laps){
+var t=FK.parseT(cur.last);
+if(t&&t>0&&t<999)lapTimes.push(t);
+}
+}
+if(!lapTimes.length)return 0;
+var sum=0;for(var j=0;j<lapTimes.length;j++)sum+=lapTimes[j];
+return sum/lapTimes.length;
 },
 rPilotos:function(){
 var el=document.getElementById('pilotos-body');
@@ -1746,21 +1776,27 @@ rDashRanking:function(prefix){
   var catPos={};
   data.forEach(function(d){if(!catPos[d.cat])catPos[d.cat]=0;catPos[d.cat]++;d.catPos=catPos[d.cat];});
   /* projeção — posição provável de chegada (não "posições ganhas/perdidas").
-     Parte do ritmo atual (posição + melhor volta) pra projetar voltas até o fim da prova.
-     Para os karts DA EQUIPE, desconta também o tempo das paradas obrigatórias que ainda
-     faltam (paradas mínimas do regulamento menos as já feitas) — isso é o que "associado
-     ao número de paradas dele" pedia. Não temos esse dado para os adversários (a API do
-     Race Monitor não informa paradas), então a projeção deles fica só no ritmo. */
+     A pedido do Rapha: não desconta parada por kart individualmente — parte do princípio
+     que toda equipe que briga pela vitória vai cumprir as paradas obrigatórias direitinho.
+     Em vez disso, calcula UM desconto único e igual pra todo mundo: soma o tempo total de
+     paradas obrigatórias do regulamento (paradas mínimas + paradas longas) e subtrai isso
+     do tempo total de prova, gerando um "tempo de prova efetivo" — é esse tempo (menos o
+     decorrido) que entra na conta de voltas restantes, igual pra todos os karts.
+     Ex. Itu 6h: 5 paradas de 5min + 1 parada de 7min = 32min → 6h-32min = 5h28min efetivos.
+     Ritmo de referência: em vez da melhor volta (que fica otimista demais numa prova longa
+     com a pista esquentando e o ritmo caindo), usa a média das últimas voltas reais do kart
+     (FK.recentAvgLapTime, construído a partir do próprio histórico de polling), caindo pra
+     melhor volta e depois um fallback fixo só se ainda não tiver voltas suficientes registradas. */
   var minStops=FK.cfg.minPitStops||0;
   var minDurSec=FK.cfg.minPitDurationSec||0;
+  var longStops=FK.cfg.longPitStops||0;
+  var longDurSec=FK.cfg.longPitDurationSec||0;
+  var totalMandatoryStopSec=(minStops*minDurSec)+(longStops*longDurSec);
+  var effectiveTotal=Math.max(0,total-totalMandatoryStopSec);
+  var remainingForPace=Math.max(0,effectiveTotal-elapsed);
   var proj=data.map(function(d){
-    var lt=FK.parseT(d.best)||55;
-    var projLaps=d.laps+Math.floor(remaining/lt);
-    if(FK.isMy(d.kart)&&minStops>0&&minDurSec>0){
-      var done=(FK.state.pitStops||[]).filter(function(p){return p.kart===d.kart;}).length;
-      var owed=Math.max(0,minStops-done);
-      if(owed>0)projLaps=Math.max(0,projLaps-Math.floor((owed*minDurSec)/lt));
-    }
+    var lt=FK.recentAvgLapTime(d.kart,5)||FK.parseT(d.best)||55;
+    var projLaps=d.laps+Math.floor(remainingForPace/lt);
     return {kart:d.kart,projLaps:projLaps};
   });
   proj.sort(function(a,b){return b.projLaps-a.projLaps;});
