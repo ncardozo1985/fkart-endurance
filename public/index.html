@@ -345,7 +345,8 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 <div class="info-badge">Corrida: <span id="race-name">KGV Endurance</span></div>
 <div class="info-badge">Decorrido: <span id="elapsed">00:00:00</span></div>
 <div class="info-badge">Restante: <span id="remaining">--:--:--</span></div>
-<div class="info-badge">Flag: <span id="flag-status">-</span></div>
+<div class="info-badge">Volta (líder): <span id="hdr-lap-num">--</span></div>
+<div class="info-badge">Fecha o box: <span id="hdr-cd-pitclose">--:--:--</span></div>
 <div class="info-badge">Lider: <span id="leader-info">-</span></div>
 <div class="wx-bar" id="wxbar">Carregando...</div>
 <div id="wx-topbar-forecast" style="display:flex;align-items:center;gap:4px;margin-left:8px"></div>
@@ -363,12 +364,6 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 <div class="content">
 <div class="pane on" id="pane-dash">
 <div class="dash-root">
-  <!-- FAIXA SUPERIOR: volta atual + cronômetros regressivos -->
-  <div class="dash-hdr-strip">
-    <div class="race-chip sm"><span class="rc-lbl">Volta (líder)</span><span class="rc-val" id="d-lap-num">--</span></div>
-    <div class="race-chip sm"><span class="rc-lbl">Fim da prova</span><span class="rc-val" id="d-cd-race">--:--:--</span></div>
-    <div class="race-chip sm"><span class="rc-lbl">Fecha o box</span><span class="rc-val" id="d-cd-pitclose">--:--:--</span></div>
-  </div>
   <!-- COLUNAS PRINCIPAIS -->
   <div class="dash-cols">
     <!-- COL 1: RANKING -->
@@ -440,12 +435,6 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 </div>
 <div class="pane" id="pane-dashgeral">
 <div class="dash-root">
-  <!-- FAIXA SUPERIOR: volta atual + cronômetros regressivos -->
-  <div class="dash-hdr-strip">
-    <div class="race-chip sm"><span class="rc-lbl">Volta (líder)</span><span class="rc-val" id="dg-lap-num">--</span></div>
-    <div class="race-chip sm"><span class="rc-lbl">Fim da prova</span><span class="rc-val" id="dg-cd-race">--:--:--</span></div>
-    <div class="race-chip sm"><span class="rc-lbl">Fecha o box</span><span class="rc-val" id="dg-cd-pitclose">--:--:--</span></div>
-  </div>
   <!-- COLUNAS PRINCIPAIS -->
   <div class="dash-cols">
     <!-- COL 1: RANKING -->
@@ -1037,9 +1026,11 @@ var elEl=document.getElementById('elapsed');
 var remEl=document.getElementById('remaining');
 if(elEl)elEl.textContent=FK.fmtTime(e);
 if(remEl)remEl.textContent=rem>0?FK.fmtTime(rem):'ENCERRADA';
-/* atualiza dashboard se visível (ranking + mapa + posição + faixa superior; krono/stint via kronoFast) */
+/* faixa superior (volta do líder + fecha o box) fica no topbar, visível em qualquer aba */
+FK.rDashHdrStrip();
+/* atualiza dashboard se visível (ranking + mapa + posição; krono/stint via kronoFast) */
 var dashPane=document.getElementById('pane-dash');
-if(dashPane&&dashPane.classList.contains('on')){FK.rDashRanking();FK.updateKronoPos();FK.rDashHdrStrip();FK.drawMapDash();}
+if(dashPane&&dashPane.classList.contains('on')){FK.rDashRanking();FK.updateKronoPos();FK.drawMapDash();}
 },1000);
 },
 rPlacar:function(){
@@ -1737,10 +1728,23 @@ rDashRanking:function(prefix){
   var remaining=Math.max(0,total-elapsed);
   var catPos={};
   data.forEach(function(d){if(!catPos[d.cat])catPos[d.cat]=0;catPos[d.cat]++;d.catPos=catPos[d.cat];});
-  /* projeção */
+  /* projeção — posição provável de chegada (não "posições ganhas/perdidas").
+     Parte do ritmo atual (posição + melhor volta) pra projetar voltas até o fim da prova.
+     Para os karts DA EQUIPE, desconta também o tempo das paradas obrigatórias que ainda
+     faltam (paradas mínimas do regulamento menos as já feitas) — isso é o que "associado
+     ao número de paradas dele" pedia. Não temos esse dado para os adversários (a API do
+     Race Monitor não informa paradas), então a projeção deles fica só no ritmo. */
+  var minStops=FK.cfg.minPitStops||0;
+  var minDurSec=FK.cfg.minPitDurationSec||0;
   var proj=data.map(function(d){
     var lt=FK.parseT(d.best)||55;
-    return {kart:d.kart,projLaps:d.laps+Math.floor(remaining/lt)};
+    var projLaps=d.laps+Math.floor(remaining/lt);
+    if(FK.isMy(d.kart)&&minStops>0&&minDurSec>0){
+      var done=(FK.state.pitStops||[]).filter(function(p){return p.kart===d.kart;}).length;
+      var owed=Math.max(0,minStops-done);
+      if(owed>0)projLaps=Math.max(0,projLaps-Math.floor((owed*minDurSec)/lt));
+    }
+    return {kart:d.kart,projLaps:projLaps};
   });
   proj.sort(function(a,b){return b.projLaps-a.projLaps;});
   var projPos={};proj.forEach(function(p,i){projPos[p.kart]=i+1;});
@@ -1762,8 +1766,10 @@ rDashRanking:function(prefix){
   function rowHtml(d,sep){
     var my=FK.isMy(d.kart);
     var pc=d.pos===1?'p1':d.pos===2?'p2':d.pos===3?'p3':'';
+    /* mostra a posição final projetada (não o delta) — a cor indica se melhora, piora ou mantém frente à posição atual */
     var pPos=projPos[d.kart]||d.pos;var delta=d.pos-pPos;
-    var arrow=delta>0?'<span class="proj-arrow proj-up">▲'+delta+'</span>':delta<0?'<span class="proj-arrow proj-dn">▼'+Math.abs(delta)+'</span>':'<span class="proj-arrow proj-eq">—</span>';
+    var projCls=delta>0?'proj-up':delta<0?'proj-dn':'proj-eq';
+    var arrow='<span class="proj-arrow '+projCls+'">P'+pPos+'</span>';
     return '<tr class="'+(my?'my-kart':'')+(sep?' dr-sep':'')+'">'+
     '<td><span class="d-pos '+pc+'">'+d.pos+'</span></td>'+
     '<td><span class="d-kart'+(my?' my':'')+'">'+d.kart+'</span></td>'+
@@ -1961,27 +1967,41 @@ loadWxHourly:function(){
   xhr.onerror=function(){};
   xhr.send();
 },
-/* ── Box Intelligence — Matriz Visual ── */
+/* ── Box Intelligence — Matriz Visual ──
+   Antes ordenava por qualidade (melhor volta) usando o campo inteiro como pool simulado
+   (bug: "inBox:...||true" marcava tudo como true, sempre). A equipe pediu pra ordenar por
+   ORDEM DE CHEGADA no box (quem chegou primeiro sai primeiro), pra saber a sequência de
+   disponibilidade antes de decidir parar. A API do Race Monitor não informa entrada/saída
+   de box diretamente, então usamos um proxy real: um kart que não evolui voltas há mais
+   tempo que ~1.8x sua própria melhor volta provavelmente está parado no box agora, e o
+   tempo parado (idleSec) aproxima a ordem de chegada — quem está parado há mais tempo
+   chegou primeiro e deve ficar disponível antes. */
 rDashBoxIntel:function(prefix){
   prefix=prefix||'d';
   var el=document.getElementById(prefix+'-bxi-body');if(!el)return;
   var data=FK.getData();
+  var elapsed=FK.state.elapsed||0;
+  var hist=FK.state.history||{};
   /* melhor tempo dos karts da equipe em pista */
   var myBest=999;
   FK.cfg.myKarts.forEach(function(k){
     var kd=FK.findKartData(data,k);
     if(kd){var t=FK.parseT(kd.best);if(t<myBest)myBest=t;}
   });
-  /* pool: todos karts registrados no box + karts do campo (simulação) */
-  var inBox=FK.state.kartsInBox||[];
-  /* para demo: usar TODOS os karts do campo como pool do box */
   var pool=data.map(function(d){
     var t=FK.parseT(d.best);
-    return {kart:d.kart,best:t,bestStr:d.best,pos:d.pos,inBox:inBox.indexOf(d.kart)>=0||true};
-  });
-  /* ordenar por tempo (melhor primeiro) */
-  pool.sort(function(a,b){return a.best-b.best;});
-  /* calcular rank de qualidade */
+    var lapTime=(t&&t<999)?t:60;
+    var h=hist[d.kart]||[];
+    var lastChangeTs=elapsed;
+    for(var i=h.length-1;i>=1;i--){
+      if(h[i].laps!==h[i-1].laps){lastChangeTs=h[i].ts;break;}
+      if(i===1)lastChangeTs=h[0].ts;
+    }
+    var idleSec=Math.max(0,elapsed-lastChangeTs);
+    return {kart:d.kart,best:t,bestStr:d.best,pos:d.pos,idleSec:idleSec,probablyInBox:h.length>1&&idleSec>lapTime*1.8};
+  }).filter(function(k){return k.probablyInBox;});
+  /* ordenar por ordem de chegada: parado há mais tempo = chegou primeiro = sai primeiro */
+  pool.sort(function(a,b){return b.idleSec-a.idleSec;});
   var n=pool.length;
   pool.forEach(function(k,i){
     var pct=i/Math.max(n-1,1);
@@ -1992,40 +2012,38 @@ rDashBoxIntel:function(prefix){
     else k.grade='q1';
   });
   var cntEl=document.getElementById(prefix+'-bxi-count');
-  if(cntEl)cntEl.textContent=pool.length+' karts disponíveis';
-  /* MATRIZ */
+  if(cntEl)cntEl.textContent=pool.length+' kart'+(pool.length===1?'':'s')+' no box agora';
+  /* MATRIZ — 1ª posição = próximo a sair (chegou primeiro) */
   var matrixHtml='<div class="bxi-matrix">';
-  pool.forEach(function(bk){
+  pool.forEach(function(bk,i){
     var isTeam=FK.isMy(bk.kart);
     var style=isTeam?' style="box-shadow:0 0 0 2px #E2231A,0 0 10px rgba(226,35,26,0.4)"':'';
-    matrixHtml+='<div class="bxi-cell '+bk.grade+'"'+style+' title="Kart #'+bk.kart+' | '+bk.bestStr+'">'+
+    matrixHtml+='<div class="bxi-cell '+bk.grade+'"'+style+' title="Kart #'+bk.kart+' | melhor '+bk.bestStr+' | '+(i+1)+'º na fila">'+
     '<span class="bxi-cell-num">'+(isTeam?'★':'')+bk.kart+'</span>'+
-    '<span class="bxi-cell-time">'+bk.bestStr+'</span>'+
+    '<span class="bxi-cell-time">'+(i+1)+'º · '+FK.fmtMs(bk.idleSec)+'</span>'+
     '<span class="bxi-cell-dot"></span>'+
     '</div>';
   });
   matrixHtml+='</div>';
-  /* Legenda */
+  /* Legenda — agora reflete posição na fila de saída, não velocidade */
   matrixHtml+='<div class="bxi-legend">'+
-  '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#4caf50"></span>Top 20%</span>'+
-  '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#8bc34a"></span>Bom</span>'+
-  '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#ffc107"></span>Médio</span>'+
-  '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#ff5722"></span>Fraco</span>'+
-  '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#ef5350"></span>Ruim</span>'+
+  '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#4caf50"></span>Sai logo</span>'+
+  '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#8bc34a"></span>Quase lá</span>'+
+  '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#ffc107"></span>Meio da fila</span>'+
+  '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#ff5722"></span>Recém chegado</span>'+
+  '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#ef5350"></span>Acabou de parar</span>'+
   '<span class="bxi-leg-item" style="margin-left:8px"><span style="color:var(--acc)">★</span> = Nosso</span>'+
   '</div>';
-  /* Recomendação */
-  var bestInPool=pool[0];
-  var diffBest=myBest-(bestInPool?bestInPool.best:999);
+  /* Recomendação — agora fala de congestionamento, não de troca por velocidade */
   var reco='';
   if(!pool.length){
-    reco='<div class="bxi-reco hold">📊 Aguardando karts no box</div>';
-  }else if(diffBest<-0.4){
-    reco='<div class="bxi-reco go">⚡ TROQUE! Kart #'+bestInPool.kart+' é '+Math.abs(diffBest).toFixed(2)+'s mais rápido</div>';
-  }else if(diffBest>0.4){
-    reco='<div class="bxi-reco wait">✋ Aguarde — seus karts estão mais rápidos</div>';
+    reco='<div class="bxi-reco go">✅ Box livre agora — bom momento para parar</div>';
+  }else if(pool.length<=2){
+    reco='<div class="bxi-reco go">🅿️ Box com pouco movimento ('+pool.length+' kart'+(pool.length===1?'':'s')+') — bom momento para parar</div>';
+  }else if(pool.length>=5){
+    reco='<div class="bxi-reco wait">⚠️ Box congestionado — '+pool.length+' karts na fila agora</div>';
   }else{
-    reco='<div class="bxi-reco hold">⚖️ Ritmo similar — prefira kart mais conservado</div>';
+    reco='<div class="bxi-reco hold">⚖️ Movimento moderado no box ('+pool.length+' karts)</div>';
   }
   el.innerHTML=matrixHtml+reco;
 },
@@ -2054,19 +2072,16 @@ rDashKartsBox:function(prefix){
     '</div>';
   }).join('');
 },
-/* ── Faixa superior: volta atual + cronômetros regressivos ── */
-rDashHdrStrip:function(prefix){
-  prefix=prefix||'d';
+/* ── Faixa superior (topbar): volta do líder + cronômetro de fechamento de box ──
+   Antes ficavam duplicados numa faixa própria por aba (dash-hdr-strip) e incluíam
+   "Fim da prova", que é a mesma conta de "Restante" no topbar — redundante.
+   Agora são elementos únicos no topbar, atualizados independente da aba ativa. */
+rDashHdrStrip:function(){
   var data=FK.getData();
-  var lapEl=document.getElementById(prefix+'-lap-num');
+  var lapEl=document.getElementById('hdr-lap-num');
   if(lapEl)lapEl.textContent=(data[0]&&data[0].laps!=null)?data[0].laps:'--';
   var e=FK.state.elapsed||0;
-  var raceEl=document.getElementById(prefix+'-cd-race');
-  if(raceEl){
-    var remRace=Math.max(0,(FK.cfg.raceTotal||0)-e);
-    raceEl.textContent=remRace>0?FK.fmtTime(remRace):'ENCERRADA';
-  }
-  var pitEl=document.getElementById(prefix+'-cd-pitclose');
+  var pitEl=document.getElementById('hdr-cd-pitclose');
   if(pitEl){
     var pitCloseSec=(FK.cfg.pitCloseMin||0)*60;
     var remPit=pitCloseSec-e;
@@ -2196,7 +2211,7 @@ rDashGeral:function(){
   FK.rDashKartsBox('dg');
   FK.rDashBoxIntel('dg');
   FK.rDashPaceComp('dg');
-  FK.rDashHdrStrip('dg');
+  FK.rDashHdrStrip();
   FK.rPilotQueue();
 },
 /* ── Fila de pilotos por kart (Dashboard Geral) ──
