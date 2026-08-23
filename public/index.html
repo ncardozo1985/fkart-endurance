@@ -237,7 +237,7 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .mk-chip{background:rgba(226,35,26,0.08);border:1px solid rgba(226,35,26,0.3);border-radius:5px;padding:2px 8px;font-size:10px;color:var(--txt);white-space:nowrap}
 .mk-chip b{color:var(--acc)}
 /* Colunas principais */
-.dash-cols{display:grid;grid-template-columns:1.8fr 1.1fr 1fr;gap:10px;min-height:0;overflow:hidden}
+.dash-cols{display:grid;grid-template-columns:1fr 1fr;gap:10px;min-height:0;overflow:hidden}
 .dash-col{overflow-y:auto;display:flex;flex-direction:column;gap:8px}
 .dash-col::-webkit-scrollbar{width:3px}.dash-col::-webkit-scrollbar-thumb{background:var(--border)}
 .dash-card{background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden}
@@ -402,7 +402,7 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
         </table>
       </div>
     </div>
-    <!-- COL 2: CRONOS + BOX INTEL -->
+    <!-- COL 2: CRONOS + HISTORICO + PACE + BOX INTEL + MAPA -->
     <div class="dash-col">
       <div class="dash-card">
         <div class="dash-card-hdr">
@@ -413,10 +413,10 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
       </div>
       <div class="dash-card">
         <div class="dash-card-hdr">
-          <h3>&#127955; Box Intelligence — Karts Disponíveis</h3>
-          <span style="font-size:9px;color:var(--acc)" id="d-bxi-count"></span>
+          <h3>&#128220; Histórico de Voltas — Equipe</h3>
+          <span style="font-size:9px;color:var(--mut)">últimas 10 voltas por kart</span>
         </div>
-        <div id="d-bxi-body"></div>
+        <div id="d-laphist-body"></div>
       </div>
       <div class="dash-card">
         <div class="dash-card-hdr">
@@ -427,14 +427,11 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
       </div>
       <div class="dash-card">
         <div class="dash-card-hdr">
-          <h3>&#128220; Histórico de Voltas — Equipe</h3>
-          <span style="font-size:9px;color:var(--mut)">últimas 10 voltas por kart</span>
+          <h3>&#127955; Box Intelligence — Karts Disponíveis</h3>
+          <span style="font-size:9px;color:var(--acc)" id="d-bxi-count"></span>
         </div>
-        <div id="d-laphist-body"></div>
+        <div id="d-bxi-body"></div>
       </div>
-    </div>
-    <!-- COL 3: MAPA + MELHOR PARADA -->
-    <div class="dash-col">
       <div class="dash-card">
         <div class="dash-card-hdr">
           <h3>&#128506; Mapa <span id="d-map-track-name" style="font-weight:400;color:var(--mut);font-size:9px;letter-spacing:0"></span></h3>
@@ -447,13 +444,6 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
         <div class="dash-map-wrap">
           <canvas id="mapa-canvas-dash" style="width:100%;border-radius:6px;display:block"></canvas>
         </div>
-      </div>
-      <div class="dash-card">
-        <div class="dash-card-hdr">
-          <h3>&#127955; Karts no Box</h3>
-          <span style="font-size:9px;color:var(--mut)" id="d-inbox-count"></span>
-        </div>
-        <div class="pit-rank-list" id="d-inbox-body"></div>
       </div>
     </div>
   </div>
@@ -480,7 +470,7 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
         </table>
       </div>
     </div>
-    <!-- COL 2: CRONOS + KARTS NO BOX + FILA DE PILOTOS -->
+    <!-- COL 2: CRONOS + HISTORICO + PACE + BOX INTEL -->
     <div class="dash-col">
       <div class="dash-card">
         <div class="dash-card-hdr">
@@ -491,27 +481,10 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
       </div>
       <div class="dash-card">
         <div class="dash-card-hdr">
-          <h3>&#127955; Karts no Box</h3>
-          <span style="font-size:9px;color:var(--mut)" id="dg-inbox-count"></span>
+          <h3>&#128220; Histórico de Voltas — Equipe</h3>
+          <span style="font-size:9px;color:var(--mut)">últimas 10 voltas por kart</span>
         </div>
-        <div class="pit-rank-list" id="dg-inbox-body"></div>
-      </div>
-      <div class="dash-card">
-        <div class="dash-card-hdr">
-          <h3>&#128100; Fila de Pilotos</h3>
-          <span style="font-size:9px;color:var(--mut)">próximos a entrar, por kart</span>
-        </div>
-        <div id="dg-pq-body" class="pq-body"></div>
-      </div>
-    </div>
-    <!-- COL 3: BOX INTELIGENTE + PACE -->
-    <div class="dash-col">
-      <div class="dash-card">
-        <div class="dash-card-hdr">
-          <h3>&#127955; Box Intelligence — Karts Disponíveis</h3>
-          <span style="font-size:9px;color:var(--acc)" id="dg-bxi-count"></span>
-        </div>
-        <div id="dg-bxi-body"></div>
+        <div id="dg-laphist-body"></div>
       </div>
       <div class="dash-card">
         <div class="dash-card-hdr">
@@ -522,10 +495,10 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
       </div>
       <div class="dash-card">
         <div class="dash-card-hdr">
-          <h3>&#128220; Histórico de Voltas — Equipe</h3>
-          <span style="font-size:9px;color:var(--mut)">últimas 10 voltas por kart</span>
+          <h3>&#127955; Box Intelligence — Karts Disponíveis</h3>
+          <span style="font-size:9px;color:var(--acc)" id="dg-bxi-count"></span>
         </div>
-        <div id="dg-laphist-body"></div>
+        <div id="dg-bxi-body"></div>
       </div>
     </div>
   </div>
