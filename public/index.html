@@ -307,6 +307,12 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .pace-cell.faster{background:rgba(76,175,80,0.25);color:#81c784}
 .pace-cell.slower{background:rgba(239,83,80,0.2);color:#ef9a9a}
 .pace-cell.same{background:rgba(255,255,255,0.05);color:var(--mut)}
+/* Histórico de voltas (equipe) */
+.laphist-table{border-collapse:collapse;font-size:11px;min-width:100%}
+.laphist-table td{padding:3px 4px;vertical-align:middle}
+.lh-kart{font-weight:900;font-size:12px;color:var(--acc);background:rgba(226,35,26,0.06);border-right:1px solid var(--border);padding:3px 8px;white-space:nowrap}
+.lh-chip{display:inline-flex;align-items:center;justify-content:center;min-width:52px;height:22px;padding:0 6px;border-radius:4px;font-size:10px;font-weight:700;background:rgba(255,255,255,0.05);color:var(--txt);white-space:nowrap}
+.lh-chip.pit{background:rgba(255,167,38,0.18);color:#ffa726}
 /* Pit ranking */
 .pit-rank-list{display:flex;flex-direction:column;gap:3px;padding:8px}
 .pr-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px}
@@ -419,6 +425,13 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
         </div>
         <div id="d-pace-comp" style="overflow-x:auto;padding:8px"></div>
       </div>
+      <div class="dash-card">
+        <div class="dash-card-hdr">
+          <h3>&#128220; Histórico de Voltas — Equipe</h3>
+          <span style="font-size:9px;color:var(--mut)">últimas 10 voltas por kart</span>
+        </div>
+        <div id="d-laphist-body"></div>
+      </div>
     </div>
     <!-- COL 3: MAPA + MELHOR PARADA -->
     <div class="dash-col">
@@ -506,6 +519,13 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
           <span style="font-size:9px;color:var(--mut)">verde = mais rápido · vermelho = mais lento</span>
         </div>
         <div id="dg-pace-comp" style="overflow-x:auto;padding:8px"></div>
+      </div>
+      <div class="dash-card">
+        <div class="dash-card-hdr">
+          <h3>&#128220; Histórico de Voltas — Equipe</h3>
+          <span style="font-size:9px;color:var(--mut)">últimas 10 voltas por kart</span>
+        </div>
+        <div id="dg-laphist-body"></div>
       </div>
     </div>
   </div>
@@ -653,6 +673,10 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 <button onclick="FK.addKart()">+ Adicionar</button>
 </div>
 <small style="color:var(--mut);font-size:11px;margin-top:6px;display:block">Os karts adicionados serao destacados em dourado no ranking. Limpe e reconfigure a cada corrida.</small>
+<label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:12px;font-weight:400;cursor:pointer">
+<input type="checkbox" id="cfg-krono-sort-pos" style="width:auto">
+Ordenar cronometros da equipe pela colocacao na corrida (senao, ordem de cadastro acima)
+</label>
 </div>
 <div class="btn-row">
 <button class="btn-primary" onclick="FK.saveConfig()">&#10003; Salvar e Aplicar</button>
@@ -802,6 +826,7 @@ heavyWindowEndSec:0,
 svcTimeSec:0,
 boxFechadoStartSec:0,
 mandatoryStopCutoffSec:0,
+kronoSortByPos:false,
 myCategory:'LIGHT',
 wxLat:-23.249038,
 wxLon:-47.339491,
@@ -1032,12 +1057,15 @@ var emc=document.getElementById('cfg-my-category');if(emc)FK.cfg.myCategory=(emc
 var ewl=document.getElementById('cfg-wx-label');if(ewl)FK.cfg.wxLabel=(ewl.value||'').trim();
 var ewlat=document.getElementById('cfg-wx-lat');if(ewlat&&ewlat.value!=='')FK.cfg.wxLat=parseFloat(ewlat.value);
 var ewlon=document.getElementById('cfg-wx-lon');if(ewlon&&ewlon.value!=='')FK.cfg.wxLon=parseFloat(ewlon.value);
+var eksp=document.getElementById('cfg-krono-sort-pos');if(eksp)FK.cfg.kronoSortByPos=!!eksp.checked;
 try{localStorage.setItem('fkart_cfg',JSON.stringify(FK.cfg));}catch(e){}
 FK.updateTopbar();
 FK.rPlacar();
 FK.rPilotos();
 FK.rDashKartsBox&&FK.rDashKartsBox();
 FK.rDashKartsBox&&FK.rDashKartsBox('dg');
+FK.rDashCrono&&FK.rDashCrono();
+FK.rDashCrono&&FK.rDashCrono('dg-krono-grid','-dg');
 FK.rPilotQueue&&FK.rPilotQueue();
 FK.renderKartPilotsSetup&&FK.renderKartPilotsSetup();
 FK.rStintPlan&&FK.rStintPlan();
@@ -1070,6 +1098,7 @@ var emc=document.getElementById('cfg-my-category');if(emc)emc.value=FK.cfg.myCat
 var ewl=document.getElementById('cfg-wx-label');if(ewl)ewl.value=FK.cfg.wxLabel||'';
 var ewlat=document.getElementById('cfg-wx-lat');if(ewlat)ewlat.value=FK.cfg.wxLat!=null?FK.cfg.wxLat:-23.249038;
 var ewlon=document.getElementById('cfg-wx-lon');if(ewlon)ewlon.value=FK.cfg.wxLon!=null?FK.cfg.wxLon:-47.339491;
+var eksp=document.getElementById('cfg-krono-sort-pos');if(eksp)eksp.checked=!!FK.cfg.kronoSortByPos;
 FK.renderKartTags();
 FK.renderKartPilotsSetup();
 },
@@ -1152,10 +1181,15 @@ var dashPane=document.getElementById('pane-dash');
 var dashGeralPane=document.getElementById('pane-dashgeral');
 if(dashPane&&dashPane.classList.contains('on')){
   FK.rDashRanking();FK.updateKronoPos();FK.drawMapDash();
-  FK.rDashBoxIntel();FK.rDashKartsBox();FK.rDashPaceComp();
+  FK.rDashBoxIntel();FK.rDashKartsBox();FK.rDashPaceComp();FK.rDashLapHistory();
+  /* rDashCrono só reconstrói o DOM quando a chave (karts+ordem) muda -- chamar toda vez
+     é barato e é o que permite a ordenação por colocação (cfg-krono-sort-pos) reagir ao
+     vivo conforme as posições mudam, e não só quando a aba é trocada ou o config é salvo */
+  FK.rDashCrono();
 }else if(dashGeralPane&&dashGeralPane.classList.contains('on')){
   FK.rDashRanking('dg');FK.updateKronoPos();
-  FK.rDashBoxIntel('dg');FK.rDashKartsBox('dg');FK.rDashPaceComp('dg');
+  FK.rDashBoxIntel('dg');FK.rDashKartsBox('dg');FK.rDashPaceComp('dg');FK.rDashLapHistory('dg');
+  FK.rDashCrono('dg-krono-grid','-dg');
   if(FK.rPilotQueue)FK.rPilotQueue();
 }
 },1000);
@@ -1352,6 +1386,17 @@ if(lt&&lt>0&&lt>=minDur){
 if(!FK.state.pitLapCounts[d.kart])FK.state.pitLapCounts[d.kart]={short:0,long:0};
 if(longDur>0&&lt>=longDur)FK.state.pitLapCounts[d.kart].long++;
 else FK.state.pitLapCounts[d.kart].short++;
+}
+/* Pedido em campo (23/08/2026): o cronômetro visual da equipe (kronoState) não deve mais
+   "prever" quando a volta termina -- ele reseta pra 00:00 só quando os dados confirmam de
+   verdade que o kart cruzou a linha (Laps aumentou aqui). kronoState só existe pros karts
+   da equipe (FK.cfg.myKarts, criado em initKrono), então esse "if(ks)" já filtra pra eles. */
+var ks=FK.state.kronoState&&FK.state.kronoState[d.kart];
+if(ks){
+ks.lapStartTs=Date.now();
+ks.stintLaps=(ks.stintLaps||0)+1;
+ks.last=d.last;
+ks.best=d.best;
 }
 }
 h.push({ts:t,pos:d.pos,laps:d.laps,best:d.best,last:d.last,gap:d.gap});
@@ -2167,18 +2212,17 @@ startKronoInterval:function(){
     FK.cfg.myKarts.forEach(function(k){
       var ks=FK.state.kronoState&&FK.state.kronoState[k];
       if(!ks||!ks.lapStartTs)return;
-      /* guarda de segurança: se por algum motivo lapTime ficar zerado/NaN/negativo,
-         o while abaixo travaria a aba num loop infinito (foi a causa mais provável
-         do "travou" relatado — kart com melhor volta ainda não registrada). */
+      /* guarda de segurança: se por algum motivo lapTime ficar zerado/NaN/negativo, o
+         cálculo de "late" abaixo ficaria sem sentido (foi a causa mais provável do
+         "travou" relatado antes — kart com melhor volta ainda não registrada). */
       if(!ks.lapTime||!isFinite(ks.lapTime)||ks.lapTime<=0||ks.lapTime>=999)ks.lapTime=52;
+      /* Pedido em campo (23/08/2026): o cronômetro NÃO deve mais "fechar a volta" sozinho
+         prevendo quando ela vai terminar (o antigo while() avançava assim que o tempo
+         previsto batia, o que gerava resets errados sempre que o kart demorava mais que
+         o ritmo esperado). Agora ele só conta pra cima, continuamente -- o reset pra 00:00
+         só acontece de fato quando o Race Monitor confirma que o kart cruzou a linha
+         (Laps aumentou nos dados reais), lá em recordHistory(). Aqui só exibe o tempo. */
       var elapsed=(Date.now()-ks.lapStartTs)/1000;
-      /* avança volta quando completa */
-      while(elapsed>=ks.lapTime){
-        ks.lapStartTs+=Math.round(ks.lapTime*1000);
-        elapsed-=ks.lapTime;
-        ks.stintLaps=(ks.stintLaps||0)+1;
-        ks.last=ks.best;
-      }
       var m=Math.floor(elapsed/60);
       var s=elapsed%60;
       var ss=s<10?'0'+s.toFixed(3):s.toFixed(3);
@@ -2203,13 +2247,25 @@ rDashCrono:function(gridId,idSuffix){
   gridId=gridId||'d-krono-grid';idSuffix=idSuffix||'';
   var el=document.getElementById(gridId);if(!el)return;
   if(!FK.cfg.myKarts.length){el.innerHTML='<div style="padding:20px;color:var(--mut);text-align:center;font-size:12px">Nenhum kart configurado</div>';return;}
-  /* só reconstrói estrutura se karts mudaram */
-  var kartKey=FK.cfg.myKarts.join(',');
+  var data=FK.getData();
+  /* pedido em campo (23/08/2026): opção de ordenar os cards de cronômetro pela colocação
+     atual na corrida, em vez da ordem fixa de cadastro em Config. Só reordena aqui -- não
+     mexe em FK.cfg.myKarts, que continua sendo a "ordem de cadastro" original. */
+  var karts=FK.cfg.myKarts.slice();
+  if(FK.cfg.kronoSortByPos){
+    karts.sort(function(a,b){
+      var da=FK.findKartData(data,a),db=FK.findKartData(data,b);
+      var pa=da?da.pos:999,pb=db?db.pos:999;
+      return pa-pb;
+    });
+  }
+  /* só reconstrói estrutura se a lista de karts OU a ordem mudou (evita recriar o DOM a
+     cada tick e perder o estado visual dos timers) */
+  var kartKey=karts.join(',')+'|'+(FK.cfg.kronoSortByPos?'pos':'reg');
   if(el.dataset.kartKey===kartKey)return;
   el.dataset.kartKey=kartKey;
-  var data=FK.getData();
   var html='';
-  FK.cfg.myKarts.forEach(function(k){
+  karts.forEach(function(k){
     var ks=FK.state.kronoState&&FK.state.kronoState[k];
     var kd=FK.findKartData(data,k);
     var pos=kd?kd.pos:(ks?ks.pos:'?');
@@ -2266,6 +2322,49 @@ rDashPaceComp:function(prefix){
     html+='</tr>';
   });
   html+='</tbody></table>';
+  el.innerHTML=html;
+},
+/* ── Histórico de últimas voltas (equipe) ──
+   Pedido em campo (23/08/2026): visão rápida da consistência de ritmo dos karts da equipe,
+   volta a volta, abaixo do comparativo de Pace. Reaproveita a mesma técnica de "transição de
+   volta" já usada em recentAvgLapTime (achar onde d.laps aumentou no histórico), mas aqui NÃO
+   exclui as voltas de parada obrigatória -- só marca elas com destaque (classe "pit"), porque
+   o objetivo aqui é o histórico bruto, não uma média de ritmo pra projeção. */
+lastNLaps:function(kart,n){
+  n=n||10;
+  var h=(FK.state.history&&FK.state.history[kart])||[];
+  var laps=[];
+  for(var i=1;i<h.length&&laps.length<n;i++){
+    var cur=h[h.length-i],prev=h[h.length-i-1];
+    if(!prev)break;
+    if(cur.laps>prev.laps){
+      var t=FK.parseT(cur.last);
+      if(t&&t>0&&t<999)laps.push({lapNum:cur.laps,timeStr:cur.last,timeSec:t});
+    }
+  }
+  return laps;
+},
+rDashLapHistory:function(prefix){
+  prefix=prefix||'d';
+  var el=document.getElementById(prefix+'-laphist-body');if(!el)return;
+  if(!FK.cfg.myKarts.length){el.innerHTML='<div style="padding:16px;color:var(--mut);text-align:center;font-size:12px">Nenhum kart configurado</div>';return;}
+  var pitThreshold=FK.cfg.minPitDurationSec>0?FK.cfg.minPitDurationSec:300;
+  var html='<div style="overflow-x:auto"><table class="laphist-table"><tbody>';
+  FK.cfg.myKarts.forEach(function(k){
+    var laps=FK.lastNLaps(k,10);
+    html+='<tr><td class="lh-kart">#'+k+'</td>';
+    if(!laps.length){
+      html+='<td colspan="10" style="color:var(--mut);font-size:11px">sem voltas registradas ainda</td>';
+    }else{
+      laps.forEach(function(lp){
+        var isPit=lp.timeSec>=pitThreshold;
+        html+='<td><span class="lh-chip'+(isPit?' pit':'')+'" title="Volta '+lp.lapNum+(isPit?' (parada)':'')+'">'+lp.timeStr+'</span></td>';
+      });
+    }
+    html+='</tr>';
+  });
+  html+='</tbody></table></div>'+
+  '<div style="font-size:9px;color:var(--mut);padding:4px 6px">mais recente à esquerda &middot; <span style="color:#ffa726">laranja</span> = volta de parada (&ge; '+(pitThreshold/60)+'min)</div>';
   el.innerHTML=html;
 },
 /* ── Clima horário ── */
@@ -2543,6 +2642,7 @@ rDash:function(){
   FK.rDashBoxIntel();
   FK.rDashKartsBox();
   FK.rDashPaceComp();
+  FK.rDashLapHistory();
   FK.rDashHdrStrip();
   FK.drawMapDash();
   FK.drawWxChart();
@@ -2556,6 +2656,7 @@ rDashGeral:function(){
   FK.rDashKartsBox('dg');
   FK.rDashBoxIntel('dg');
   FK.rDashPaceComp('dg');
+  FK.rDashLapHistory('dg');
   FK.rDashHdrStrip();
   FK.rPilotQueue();
 },
