@@ -377,7 +377,7 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
         <table class="dr-table" id="d-rank-table">
           <thead><tr>
             <th>Pos</th><th>Kart</th><th>Piloto / Equipe</th><th>Cat</th>
-            <th>Última</th><th>Gap</th><th>P6'</th><th>P10'</th><th>Proj</th>
+            <th>Última</th><th>Gap</th><th title="Paradas curtas (volta cronometrada a partir da duracao minima configurada)">P.Curta</th><th title="Paradas longas (volta cronometrada a partir da duracao longa configurada)">P.Longa</th><th>Proj</th>
           </tr></thead>
           <tbody id="d-rank-body"></tbody>
         </table>
@@ -448,7 +448,7 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
         <table class="dr-table" id="dg-rank-table">
           <thead><tr>
             <th>Pos</th><th>Kart</th><th>Piloto / Equipe</th><th>Cat</th>
-            <th>Última</th><th>Gap</th><th>P6'</th><th>P10'</th><th>Proj</th>
+            <th>Última</th><th>Gap</th><th title="Paradas curtas (volta cronometrada a partir da duracao minima configurada)">P.Curta</th><th title="Paradas longas (volta cronometrada a partir da duracao longa configurada)">P.Longa</th><th>Proj</th>
           </tr></thead>
           <tbody id="dg-rank-body"></tbody>
         </table>
@@ -1299,12 +1299,28 @@ if(sb)sb.innerHTML='<span style="color:#66bb6a">&#10003; '+rows.length+' karts l
 recordHistory:function(data){
 if(!data||!data.length)return;
 if(!FK.state.history)FK.state.history={};
+if(!FK.state.pitLapCounts)FK.state.pitLapCounts={};
 var t=FK.state.elapsed||0;
+/* volta cronometrada de parada obrigatoria (Race Monitor conta como uma volta normal, so que
+   bem mais longa) -- classifica pela duracao configurada: >= parada longa = "longa" (ex: 7min),
+   >= parada minima = "curta" (ex: 5min). Guarda num contador cumulativo por kart, separado do
+   array de historico (que e limitado a 400 entradas) pra nao perder a contagem de paradas
+   antigas quando o historico recente rotaciona ao longo de uma prova de varias horas. */
+var minDur=FK.cfg.minPitDurationSec>0?FK.cfg.minPitDurationSec:300;
+var longDur=FK.cfg.longPitDurationSec>0?FK.cfg.longPitDurationSec:0;
 data.forEach(function(d){
 if(!FK.state.history[d.kart])FK.state.history[d.kart]=[];
 var h=FK.state.history[d.kart];
 var prev=h[h.length-1];
 if(!prev||prev.ts!==t){
+if(prev&&d.laps>prev.laps){
+var lt=FK.parseT(d.last);
+if(lt&&lt>0&&lt>=minDur){
+if(!FK.state.pitLapCounts[d.kart])FK.state.pitLapCounts[d.kart]={short:0,long:0};
+if(longDur>0&&lt>=longDur)FK.state.pitLapCounts[d.kart].long++;
+else FK.state.pitLapCounts[d.kart].short++;
+}
+}
 h.push({ts:t,pos:d.pos,laps:d.laps,best:d.best,last:d.last,gap:d.gap});
 if(h.length>400)h.shift();
 }
@@ -2028,6 +2044,11 @@ rDashRanking:function(prefix){
   function rowHtml(d,sep){
     var my=FK.isMy(d.kart);
     var pc=d.pos===1?'p1':d.pos===2?'p2':d.pos===3?'p3':'';
+    /* paradas curtas/longas: contador cumulativo real (FK.state.pitLapCounts), detectado a
+       partir das voltas cronometradas de parada no historico ao vivo; se ainda nao houver
+       nenhuma parada detectada (ex: fonte demo, ou corrida ainda nao teve nenhuma parada),
+       cai pros campos estaticos pit6/pit10 do dado (so tem valor real no array demo). */
+    var pc0=(FK.state.pitLapCounts&&FK.state.pitLapCounts[d.kart])||{short:d.pit6||0,long:d.pit10||0};
     /* mostra a posição final projetada (não o delta) — a cor indica se melhora, piora ou mantém frente à posição atual */
     var pPos=projPos[d.kart]||d.pos;var delta=d.pos-pPos;
     var projCls=delta>0?'proj-up':delta<0?'proj-dn':'proj-eq';
@@ -2039,8 +2060,8 @@ rDashRanking:function(prefix){
     '<td><span style="font-size:10px;color:var(--mut)">'+d.cat+'</span><span style="font-size:9px;color:#555;margin-left:3px">'+d.catPos+'º</span></td>'+
     '<td style="color:'+(my?'var(--acc)':'var(--txt)')+'">'+d.last+'</td>'+
     '<td style="font-size:10px;color:var(--mut)">'+d.gap+'</td>'+
-    '<td><span class="pit6-badge">'+( d.pit6||0)+'</span></td>'+
-    '<td><span class="pit10-badge">'+( d.pit10||0)+'</span></td>'+
+    '<td><span class="pit6-badge" title="Paradas curtas (a partir de '+((FK.cfg.minPitDurationSec||300)/60)+'min)">'+(pc0.short)+'</span></td>'+
+    '<td><span class="pit10-badge" title="Paradas longas (a partir de '+((FK.cfg.longPitDurationSec||0)/60)+'min)">'+(pc0.long)+'</span></td>'+
     '<td>'+arrow+'</td>'+
     '</tr>';
   }
@@ -2605,7 +2626,7 @@ if(!FK.state.pitStops){
 if(!FK.state.kartsInBox)FK.state.kartsInBox=['060','059'];
 /* Semente: cadastro de pilotos da Endurance Itu 6h (só entra se ainda não houver pilotos cadastrados) */
 if(!FK.getPilotos().length){
-  var seedNomes=['Takuma','Gian Victor','Zelito','Raphael Cardozo','Vinicius Terada','Alexandre Greco','Vinícius Goulart','Roland','Fernando Goulart','Hudson Camargo','Áureo Fiorita','Theo Garcia','Silas Spartaco'];
+  var seedNomes=['Alexandre Greco','Áureo Fiorita','Duzinho','Fernando Goulart','Gian Victor','Hudson Camargo','Pablo','Raphael Cardozo','Roland','Silas Spartaco','Takuma','Theo Garcia','Vinícius Goulart','Vinicius Terada'];
   FK.savePilotosLS(seedNomes.map(function(n,i){return {nome:n,apelido:'',kart:'',karts:['',''],ordem:i+1,attrs:[]};}));
 }
 /* Demo weather — substituído quando API responder */
