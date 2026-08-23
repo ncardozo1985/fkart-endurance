@@ -2282,11 +2282,14 @@ rDashPaceComp:function(prefix){
   myKarts.forEach(function(k){
     var my=FK.findKartData(data,k);
     if(!my)return;
-    var myT=FK.parseT(my.best);
-    html+='<tr><td class="row-kart">#'+k+'<br><span style="font-size:8px;color:var(--mut);font-weight:400">'+my.best+'</span></td>';
+    /* pedido em campo (23/08/2026): comparativo deve usar a ULTIMA volta de cada kart, nao a
+       melhor -- a melhor volta fica "congelada" e nao reflete o ritmo atual (pneu, trafego,
+       degradacao de pista), enquanto a ultima volta mostra o que esta acontecendo agora. */
+    var myT=FK.parseT(my.last);
+    html+='<tr><td class="row-kart">#'+k+'<br><span style="font-size:8px;color:var(--mut);font-weight:400">'+my.last+'</span></td>';
     top10.forEach(function(d){
       if(d.kart===k){html+='<td><span class="pace-cell same">—</span></td>';return;}
-      var dT=FK.parseT(d.best);
+      var dT=FK.parseT(d.last);
       var diff=myT-dT;
       var cls=diff<-0.05?'faster':diff>0.05?'slower':'same';
       var sign=diff>0?'+':'';
