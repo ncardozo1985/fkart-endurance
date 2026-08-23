@@ -7,6 +7,18 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--acc:#E2231A;--acc2:#4FA9DC;--navy:#16264A;--cream:#FFFFFF;--bg:#070b14;--card:#0f1830;--txt:#e8eaf0;--mut:#7c86a3;--border:#1c2740;--green:#66bb6a;--blue:#4fc3f7;--red:#ef5350}
+/* Tema Claro — pedido em campo (23/08/2026) pra ler a tela contra a claridade do sol no kartodromo.
+   So redefine as variaveis principais (bg/card/txt/mut/border) + os poucos elementos com cor
+   fixa que ficariam ilegiveis (topbar, abas, inputs/textarea/select em #0c0d0f). Os badges e
+   status coloridos (pit6/pit10, box-status, legendas do Box Inteligente) mantem o estilo "chip
+   escuro com texto colorido" de propósito -- continuam legíveis como selos sobre o fundo claro. */
+body.theme-light{--bg:#eef1f7;--card:#ffffff;--txt:#161a24;--mut:#5a6178;--border:#d7dbe6;--acc2:#1f6fb0}
+body.theme-light .topbar{background:linear-gradient(135deg,#ffffff,#eef1f7);border-bottom:2px solid var(--acc2)}
+body.theme-light .tabs{background:#dfe3ee}
+body.theme-light .tab.on{background:var(--card);color:var(--acc)}
+body.theme-light .cfg-field input,body.theme-light .cfg-field select,body.theme-light .kart-input-row input,body.theme-light .pq-slot select,body.theme-light textarea{background:#ffffff;color:var(--txt)}
+body.theme-light .tr-canvas{background:#dfe3ee}
+body.theme-light .wx-bar,body.theme-light .info-badge{color:var(--txt)}
 body{background:var(--bg);color:var(--txt);font-family:'Segoe UI',Arial,sans-serif;font-size:13px;min-height:100vh;display:flex;flex-direction:column}
 .topbar{background:linear-gradient(135deg,#060a13,#0d1428);border-bottom:2px solid var(--acc2);padding:8px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .logo-text{font-style:italic;font-weight:900;font-size:24px;letter-spacing:1px;line-height:1;cursor:pointer}
@@ -348,6 +360,7 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 <div class="info-badge">Volta (líder): <span id="hdr-lap-num">--</span></div>
 <div class="info-badge">Fecha o box: <span id="hdr-cd-pitclose">--:--:--</span></div>
 <div class="info-badge">Lider: <span id="leader-info">-</span></div>
+<button id="theme-toggle-btn" class="info-badge" style="cursor:pointer;font:inherit" onclick="FK.toggleTheme()" title="Alternar entre tema escuro e tema claro (util contra claridade/sol)">&#9788; Tema Claro</button>
 <div class="wx-bar" id="wxbar">Carregando...</div>
 <div id="wx-topbar-forecast" style="display:flex;align-items:center;gap:4px;margin-left:8px"></div>
 <canvas id="wx-hourly-canvas" height="28" style="width:160px;border-radius:3px;display:none;vertical-align:middle;margin-left:4px"></canvas>
@@ -957,6 +970,26 @@ var m=Math.floor((sec%3600)/60);
 var s=sec%60;
 if(h>0) return (h<10?'0'+h:h)+':'+(m<10?'0'+m:m)+':'+(s<10?'0'+s:s);
 return (m<10?'0'+m:m)+':'+(s<10?'0'+s:s);
+},
+/* Tema claro/escuro — pedido em campo pra ler contra o sol. So troca as variaveis de cor
+   (ver CSS ".theme-light"); preferencia salva a parte do resto da config pra sobreviver
+   mesmo se o Config nunca for salvo, e nao se misturar com o reset de "Carregar Demo". */
+initTheme:function(){
+var saved='dark';
+try{saved=localStorage.getItem('fkart_theme')||'dark';}catch(e){}
+FK.setTheme(saved,true);
+},
+toggleTheme:function(){
+var cur=(document.body&&document.body.classList.contains('theme-light'))?'light':'dark';
+FK.setTheme(cur==='light'?'dark':'light');
+},
+setTheme:function(mode,skipSave){
+if(!document.body)return;
+if(mode==='light')document.body.classList.add('theme-light');
+else document.body.classList.remove('theme-light');
+var btn=document.getElementById('theme-toggle-btn');
+if(btn)btn.innerHTML=mode==='light'?'&#9789; Tema Escuro':'&#9788; Tema Claro';
+if(!skipSave){try{localStorage.setItem('fkart_theme',mode);}catch(e){}}
 },
 tab:function(name){
 document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('on');});
@@ -2606,6 +2639,7 @@ toggleKartPilot:function(kart,name){
   if(FK.rPilotQueue){var pqEl=document.getElementById('dg-pq-body');if(pqEl)pqEl.dataset.pqKey='';FK.rPilotQueue();}
 },
 render:function(){
+FK.initTheme();
 FK.loadConfig();FK.cfg.myKarts=FK.cfg.myKarts||[];
 if(FK.cfg.myKarts.length===0)FK.cfg.myKarts=['058','059','060','061','062','063'];
 FK.state.elapsed=FK.cfg.raceTotal>21600?0:10800;
