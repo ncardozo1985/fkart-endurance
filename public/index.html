@@ -361,6 +361,7 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 <div class="infobar">
 <div class="info-badge red-badge"><span class="status-dot status-live" id="src-dot"></span><span id="src-label">DEMO</span></div>
 <div class="info-badge">Corrida: <span id="race-name">KGV Endurance</span></div>
+<div class="info-badge" id="hdr-track-badge" style="display:none">Pista: <span id="hdr-track-name">--</span></div>
 <div class="info-badge">Decorrido: <span id="elapsed">00:00:00</span></div>
 <div class="info-badge">Restante: <span id="remaining">--:--:--</span></div>
 <div class="info-badge">Volta (líder): <span id="hdr-lap-num">--</span></div>
@@ -1108,6 +1109,7 @@ FK.cfg.myKarts=['058','059','060','061','062','063'];
 FK.cfg.raceName='KGV Demo 6h';
 FK.cfg.raceTotal=21600;
 FK.state.elapsed=10800;
+FK.state.trackName='';FK.state.sessionName='';FK.state.timeToGoSec=null;FK.state.lapsToGo=null;
 FK.cfg.source='demo';
 FK.updateSrcBadge();
 FK.renderConfig();
@@ -1136,7 +1138,11 @@ if(FK.state.clockInterval)clearInterval(FK.state.clockInterval);
 FK.state.clockInterval=setInterval(function(){
 if(FK.cfg.source==='demo')FK.state.elapsed++;
 var e=FK.state.elapsed;
-var rem=Math.max(0,FK.cfg.raceTotal-e);
+/* prefere o TimeToGo que o proprio Race Monitor calcula (fonte ao vivo) em vez de so
+   subtrair do total configurado -- mais confiavel se a duracao da prova no Config estiver
+   errada ou desatualizada. Cai pro calculo antigo pra demo/colado do LapTime, que nao tem
+   esse campo. */
+var rem=(FK.cfg.source==='live'&&FK.state.timeToGoSec!=null)?FK.state.timeToGoSec:Math.max(0,FK.cfg.raceTotal-e);
 var elEl=document.getElementById('elapsed');
 var remEl=document.getElementById('remaining');
 if(elEl)elEl.textContent=FK.fmtTime(e);
@@ -1249,6 +1255,20 @@ xhr.send();
 },
 parseSession:function(s){
 FK.state.flagStatus=s.FlagStatus||'Verde';
+/* pedido 24/08/2026: o GetSession gratuito ja manda esses campos e a gente simplesmente
+   ignorava -- TrackName/TrackLength/SessionName/TimeToGo/LapsToGo/SortMode. Sem custo
+   nenhum (mesma chamada que ja fazemos), da pra mostrar pista e fase da sessao detectadas
+   automaticamente, e usar o tempo restante calculado pelo proprio servidor do Race Monitor
+   em vez de so subtrair do total configurado (mais confiavel se a duracao no Config
+   estiver errada). */
+FK.state.trackName=s.TrackName||'';
+FK.state.trackLength=s.TrackLength||'';
+FK.state.sessionName=s.SessionName||'';
+FK.state.sortMode=s.SortMode||'';
+var ttg=FK.parseHMS(s.TimeToGo);
+FK.state.timeToGoSec=(ttg!=null&&ttg<999999)?ttg:null;
+var ltg=parseInt(s.LapsToGo);
+FK.state.lapsToGo=isNaN(ltg)?null:ltg;
 var comps=[];
 var map=s.Competitors||{};
 Object.keys(map).forEach(function(k){
@@ -1324,6 +1344,7 @@ if(!rows.length){alert('Nao consegui reconhecer nenhuma linha de dados nesse tex
 /* tenta achar o relogio da sessao (formato h:mm:ss ou hh:mm:ss, sem casar com voltas mm:ss.mmm) */
 var clockMatch=ta.value.match(/(\d{1,2}):([0-5]\d):([0-5]\d)(?:\.\d+)?/);
 if(clockMatch)FK.state.elapsed=parseInt(clockMatch[1])*3600+parseInt(clockMatch[2])*60+parseInt(clockMatch[3]);
+FK.state.trackName='';FK.state.sessionName='';FK.state.timeToGoSec=null;FK.state.lapsToGo=null;
 FK.cfg.source='mylaptime';
 FK.state.liveData=rows;
 FK.recordHistory(rows);
@@ -2509,6 +2530,17 @@ rDashHdrStrip:function(){
     else if(remPit>0){pitEl.textContent=FK.fmtTime(remPit);pitEl.style.color='';}
     else{pitEl.textContent='FECHADO';pitEl.style.color='var(--red)';}
   }
+  /* pista/sessao detectadas ao vivo pelo GetSession (so aparece quando ha dado real) */
+  var trackBadge=document.getElementById('hdr-track-badge');
+  var trackEl=document.getElementById('hdr-track-name');
+  if(trackBadge&&trackEl){
+    if(FK.state.trackName){
+      trackEl.textContent=FK.state.trackName+(FK.state.sessionName?' · '+FK.state.sessionName:'');
+      trackBadge.style.display='';
+    }else{
+      trackBadge.style.display='none';
+    }
+  }
 },
 /* ── Mapa mini no dashboard ── */
 drawMapDash:function(){
@@ -2518,8 +2550,10 @@ drawMapDash:function(){
   cv.width=W*2;cv.height=H*2;cv.style.height=H+'px';
   var ctx=cv.getContext('2d');ctx.scale(2,2);
   ctx.fillStyle='#060810';ctx.fillRect(0,0,W,H);
-  /* track label */
-  var trackName=(FK._TRLBL[FK.cfg.tracado]||FK.cfg.tracado||'KGV').toUpperCase();
+  /* track label -- prefere o nome detectado ao vivo pelo Race Monitor (GetSession.TrackName)
+     quando disponivel, ja que a lista configurada em Config e so um traçado aproximado pro
+     desenho do mapa, nao necessariamente o nome oficial da pista da corrida atual */
+  var trackName=(FK.state.trackName||FK._TRLBL[FK.cfg.tracado]||FK.cfg.tracado||'KGV').toUpperCase();
   var el_mn=document.getElementById('d-map-track-name');if(el_mn)el_mn.textContent='— '+trackName;
   var pts=FK._pts(W,H);
   var n=pts.length;
