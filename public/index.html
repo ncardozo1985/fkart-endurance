@@ -313,6 +313,7 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .lh-kart{font-weight:900;font-size:12px;color:var(--acc);background:rgba(226,35,26,0.06);border-right:1px solid var(--border);padding:3px 8px;white-space:nowrap}
 .lh-chip{display:inline-flex;align-items:center;justify-content:center;min-width:52px;height:22px;padding:0 6px;border-radius:4px;font-size:10px;font-weight:700;background:rgba(255,255,255,0.05);color:var(--txt);white-space:nowrap}
 .lh-chip.pit{background:rgba(255,167,38,0.18);color:#ffa726}
+.lh-chip.official{box-shadow:inset 0 0 0 1px rgba(102,187,106,0.55)}
 /* Pit ranking */
 .pit-rank-list{display:flex;flex-direction:column;gap:3px;padding:8px}
 .pr-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px}
@@ -862,6 +863,9 @@ elapsed:0,
 isLive:false,
 liveData:null,
 liveInterval:null,
+racerInterval:null,
+racerIdByKart:{},
+officialLaps:{},
 clockInterval:null,
 mapAnim:null,
 kartT:0,
@@ -1216,6 +1220,12 @@ if(FK.state.liveInterval)clearInterval(FK.state.liveInterval);
    Folga enorme na cota da API (plano Low Volume: 200k req/mês; a 3s isso é
    ~1200 req/hora, ~7.2k numa prova de 6h — bem abaixo do limite). */
 FK.state.liveInterval=setInterval(FK.fetchLive,3000);
+if(FK.state.racerInterval)clearInterval(FK.state.racerInterval);
+/* GetRacer (historico oficial de voltas, so pros karts da equipe) -- 20s e mais
+   que suficiente (nao precisa da urgencia do placar geral) e mantem a cota bem
+   folgada mesmo com varios karts na equipe. */
+FK.state.racerInterval=setInterval(FK.pollRacerLaps,20000);
+FK.pollRacerLaps();
 var st=document.getElementById('config-status');
 if(st)st.style.display='block';
 var sb=document.getElementById('config-status-body');
@@ -1271,11 +1281,20 @@ var ltg=parseInt(s.LapsToGo);
 FK.state.lapsToGo=isNaN(ltg)?null:ltg;
 var comps=[];
 var map=s.Competitors||{};
+if(!FK.state.racerIdByKart)FK.state.racerIdByKart={};
 Object.keys(map).forEach(function(k){
 var c=map[k];
+var kartNum=c.Number||k;
+/* a chave do dicionario Competitors (k) e o RacerID interno do Race Monitor pra essa
+   sessao -- ja era usada como fallback do numero do kart quando c.Number vem vazio,
+   entao os dois valores claramente vem de fontes diferentes. Guardamos aqui pra poder
+   chamar GetRacer (historico oficial de voltas) por racerID depois (pedido 27/08/2026,
+   ainda nao validado com dado ao vivo real -- conferir na proxima corrida). */
+FK.state.racerIdByKart[kartNum]=k;
 comps.push({
 pos:parseInt(c.Position)||999,
-kart:c.Number||k,
+kart:kartNum,
+racerId:k,
 t:(c.FirstName||'')+' '+(c.LastName||''),
 cat:(s.Classes&&s.Classes[c.ClassID])?s.Classes[c.ClassID].Description:'',
 laps:parseInt(c.Laps)||0,
@@ -1310,6 +1329,42 @@ FK.state.elapsed=h*3600+m*60+Math.floor(sec);
 }
 FK.state.liveData=comps;
 FK.recordHistory(comps);
+},
+/* GetRacer -- historico oficial de voltas de 1 racerID, com FlagStatus por volta
+   (bandeira oficial do Race Monitor, nao mais so a heuristica de duracao que a
+   gente usava pra adivinhar volta de parada). Pedido 27/08/2026, reaproveita o
+   mesmo /api/live (ver functions/index.js) so que com racerId na query. So chama
+   pros karts da equipe (FK.cfg.myKarts) pra nao gastar cota a toa com o grid todo. */
+pollRacerLaps:function(){
+if(FK.cfg.source!=='live')return;
+(FK.cfg.myKarts||[]).forEach(function(k){FK.fetchRacerLaps(k);});
+},
+fetchRacerLaps:function(kart){
+var racerId=FK.state.racerIdByKart&&FK.state.racerIdByKart[kart];
+if(!racerId)return;
+var url='/api/live?raceId='+encodeURIComponent(FK.cfg.raceId)+'&racerId='+encodeURIComponent(racerId);
+var xhr=new XMLHttpRequest();
+xhr.open('GET',url);
+xhr.onload=function(){
+try{
+var r=JSON.parse(xhr.responseText);
+/* formato do corpo ainda nao confirmado com dado ao vivo real (sessao de teste nao
+   estava ativa quando isso foi implementado) -- assumido pela doc da Race Monitor:
+   um array Laps com {Lap,Position,LapTime,FlagStatus,TotalTime} solto no corpo,
+   igual GetSession devolve os campos da sessao direto (nao aninhado). Se vier
+   aninhado (ex: r.Racer.Laps) o segundo operando do || abaixo cobre isso; se vier
+   diferente disso ainda, so nao acha nada e a UI cai de volta no historico
+   auto-detectado -- nao quebra nada. Validar isso na proxima corrida ao vivo e
+   atualizar este comentario. */
+var laps=r.Laps||(r.Racer&&r.Racer.Laps)||[];
+if(r.Successful&&laps.length){
+FK.state.officialLaps[kart]=laps;
+if(typeof FK.rDashLapHistory==='function'){FK.rDashLapHistory('d');FK.rDashLapHistory('dg');}
+}
+}catch(e){console.warn('FKART GetRacer parse error:',e);}
+};
+xhr.onerror=function(){};
+xhr.send();
 },
 /* === MYLAPTIME (colar leitura da tela) === */
 parseLaptimePaste:function(text){
@@ -2330,13 +2385,22 @@ rDashPaceComp:function(prefix){
 lastNLaps:function(kart,n){
   n=n||10;
   var h=(FK.state.history&&FK.state.history[kart])||[];
+  var off=(FK.state.officialLaps&&FK.state.officialLaps[kart])||[];
   var laps=[];
   for(var i=1;i<h.length&&laps.length<n;i++){
     var cur=h[h.length-i],prev=h[h.length-i-1];
     if(!prev)break;
     if(cur.laps>prev.laps){
       var t=FK.parseT(cur.last);
-      if(t&&t>0&&t<999)laps.push({lapNum:cur.laps,timeStr:cur.last,timeSec:t});
+      if(t&&t>0&&t<999){
+        var entry={lapNum:cur.laps,timeStr:cur.last,timeSec:t};
+        /* cruza com o historico oficial do GetRacer (se ja foi buscado) so pra
+           anexar a bandeira real dessa volta -- nao troca o tempo/numero, so
+           enriquece com o dado confirmado quando disponivel (ver fetchRacerLaps). */
+        var o=off.filter(function(x){return parseInt(x.Lap)===cur.laps;})[0];
+        if(o&&o.FlagStatus){entry.flagStatus=o.FlagStatus;entry.official=true;}
+        laps.push(entry);
+      }
     }
   }
   return laps;
@@ -2355,13 +2419,14 @@ rDashLapHistory:function(prefix){
     }else{
       laps.forEach(function(lp){
         var isPit=lp.timeSec>=pitThreshold;
-        html+='<td><span class="lh-chip'+(isPit?' pit':'')+'" title="Volta '+lp.lapNum+(isPit?' (parada)':'')+'">'+lp.timeStr+'</span></td>';
+        var flagTxt=lp.official?(' — bandeira oficial: '+lp.flagStatus):'';
+        html+='<td><span class="lh-chip'+(isPit?' pit':'')+(lp.official?' official':'')+'" title="Volta '+lp.lapNum+(isPit?' (parada)':'')+flagTxt+'">'+lp.timeStr+'</span></td>';
       });
     }
     html+='</tr>';
   });
   html+='</tbody></table></div>'+
-  '<div style="font-size:9px;color:var(--mut);padding:4px 6px">mais recente à esquerda &middot; <span style="color:#ffa726">laranja</span> = volta de parada (&ge; '+(pitThreshold/60)+'min)</div>';
+  '<div style="font-size:9px;color:var(--mut);padding:4px 6px">mais recente à esquerda &middot; <span style="color:#ffa726">laranja</span> = volta de parada (&ge; '+(pitThreshold/60)+'min) &middot; borda verde = confirmado pelo Race Monitor (GetRacer)</div>';
   el.innerHTML=html;
 },
 /* ── Clima horário ── */
