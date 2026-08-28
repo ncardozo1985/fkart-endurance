@@ -33,14 +33,30 @@ body{background:var(--bg);color:var(--txt);font-family:'Segoe UI',Arial,sans-ser
 .info-badge.red-badge span{color:var(--red)}
 .info-badge.orange-badge{border-color:rgba(255,167,38,0.4);background:rgba(255,167,38,0.08)}
 .info-badge.orange-badge span{color:#ffa726}
-.wx-bar{font-size:11px;color:var(--mut);margin-left:auto;white-space:nowrap}
+.wx-bar{font-size:11px;color:var(--mut);white-space:nowrap}
+/* Redesign 27/08/2026 (pedido do Rapha): as 5 informacoes-chave do topbar (decorrido, restante,
+   volta do lider, fecha o box, lider) precisam ser legiveis de longe -- o box passou a usar
+   monitor 2K/4K ou TV como tela principal. Escala perto da logo SEMBOX (24px), bem maior que os
+   info-badge pequenos usados pros dados secundarios (Corrida/Pista/status). */
+.hdr-stats{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+.hdr-stat{display:flex;flex-direction:column;line-height:1.05}
+.hdr-stat .hs-lbl{font-size:9px;color:var(--mut);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;white-space:nowrap}
+.hdr-stat .hs-val{font-size:24px;font-weight:900;color:var(--txt);font-variant-numeric:tabular-nums;white-space:nowrap}
+.hdr-stat.acc .hs-val{color:var(--acc)}
+/* Botao de tema estilo "pill" com icone, no espirito do toggle de aparencia do iPhone
+   (icone + rotulo da acao, em vez do texto puro que tinha antes). */
+.theme-toggle-btn{background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:20px;padding:4px 12px 4px 4px;display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:11px;color:var(--txt);font-family:inherit}
+.theme-toggle-btn:hover{border-color:var(--acc2)}
+.theme-toggle-btn .tt-icon{width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,0.08);display:inline-flex;align-items:center;justify-content:center;font-size:13px}
+/* Pedido do Rapha: previsao do tempo sai de cima da linha azul (topbar) e desce pra altura dos
+   botoes de aba, do lado direito da barra de abas. */
+.tabs-wx{margin-left:auto;display:flex;align-items:center;gap:4px;padding:0 12px;flex-shrink:0}
 .tabs{display:flex;background:#0a0b0e;border-bottom:1px solid var(--border);overflow-x:auto;flex-shrink:0}
 .tabs::-webkit-scrollbar{height:3px}.tabs::-webkit-scrollbar-thumb{background:var(--acc2)}
 .tab{padding:10px 14px;cursor:pointer;border-bottom:2px solid transparent;color:var(--mut);font-size:12px;white-space:nowrap;transition:all .2s;user-select:none}
 .tab:hover{color:var(--txt);background:rgba(255,255,255,0.04)}
 .tab.on{color:var(--acc);border-bottom-color:var(--acc);background:rgba(226,35,26,0.06)}
 .content{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column}
-#pane-dash.on{flex:1;display:flex;flex-direction:column;min-height:0}
 .pane{display:none}.pane.on{display:block}
 .card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px}
 h3{color:var(--acc);font-size:13px;margin-bottom:10px;text-transform:uppercase;letter-spacing:1px}
@@ -108,6 +124,22 @@ tr:hover td{background:rgba(255,255,255,0.02)}
 .status-demo{background:#ffa726}
 .status-off{background:var(--mut)}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0.25}}
+/* Pedido do Rapha: efeito de "pulso" numa linha da Classificacao quando o dado daquele kart
+   muda (nova volta etc.) -- da a sensacao visual de update em tempo real. Sem fill-mode:forwards
+   de proposito, assim ao terminar a linha volta pro estilo normal (inclusive tr.my-kart, que tem
+   fundo proprio). */
+@keyframes rowPulseAnim{0%{background-color:rgba(102,187,106,0.4)}100%{background-color:transparent}}
+tr.row-pulse td{animation:rowPulseAnim 1.1s ease-out}
+/* Dashboard Celular (27/08/2026) -- vista simplificada pra quem acompanha pelo celular fora do
+   box durante uma parada: so os numeros essenciais (bem grandes) + cronometro da equipe. Layout
+   de coluna unica, largura maxima de leitura confortavel, funciona em qualquer largura de tela. */
+.mob-root{display:flex;flex-direction:column;gap:10px;max-width:480px;margin:0 auto;width:100%}
+.mob-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mob-stat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center}
+.mob-stat .ms-lbl{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:1px}
+.mob-stat .ms-val{font-size:30px;font-weight:900;color:var(--txt);font-variant-numeric:tabular-nums;margin-top:3px;line-height:1}
+.mob-stat.acc .ms-val{color:var(--acc)}
+.mob-stat.wide{grid-column:span 2}
 .ph{display:flex;align-items:center;justify-content:center;height:150px;color:var(--mut);font-size:14px;border:1px dashed var(--border);border-radius:8px;flex-direction:column;gap:6px}
 .ph small{font-size:11px;color:#2a2d38}
 canvas{border-radius:8px;max-width:100%;display:block}
@@ -270,9 +302,6 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .kr-cell .kl{font-size:8px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
 .kr-cell .kv{font-size:11px;font-weight:700;color:var(--txt)}
 .kr-cell .kv.acc{color:var(--acc)}
-.krono-stint-bar{display:flex;justify-content:space-between;align-items:center;margin-top:3px;padding-top:3px;border-top:1px solid var(--border);font-size:9px}
-.krono-stint-bar .ks-lbl{color:var(--mut)}
-.krono-stint-bar .ks-val{font-weight:700;color:var(--txt)}
 /* Box Intelligence */
 /* Box Intelligence — matriz visual */
 .bxi-matrix{display:flex;flex-wrap:wrap;gap:5px;padding:10px}
@@ -363,27 +392,34 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 <div class="info-badge red-badge"><span class="status-dot status-live" id="src-dot"></span><span id="src-label">DEMO</span></div>
 <div class="info-badge">Corrida: <span id="race-name">KGV Endurance</span></div>
 <div class="info-badge" id="hdr-track-badge" style="display:none">Pista: <span id="hdr-track-name">--</span></div>
-<div class="info-badge">Decorrido: <span id="elapsed">00:00:00</span></div>
-<div class="info-badge">Restante: <span id="remaining">--:--:--</span></div>
-<div class="info-badge">Volta (líder): <span id="hdr-lap-num">--</span></div>
-<div class="info-badge">Fecha o box: <span id="hdr-cd-pitclose">--:--:--</span></div>
-<div class="info-badge">Lider: <span id="leader-info">-</span></div>
-<button id="theme-toggle-btn" class="info-badge" style="cursor:pointer;font:inherit" onclick="FK.toggleTheme()" title="Alternar entre tema escuro e tema claro (util contra claridade/sol)">&#9788; Tema Claro</button>
+<!-- Redesign 27/08/2026: as 5 infos-chave viram numeros grandes (perto do tamanho da logo),
+     pensado pra quem le de longe num monitor/TV dentro do box. -->
+<div class="hdr-stats">
+<div class="hdr-stat"><span class="hs-lbl">Decorrido</span><span class="hs-val" id="elapsed">00:00:00</span></div>
+<div class="hdr-stat"><span class="hs-lbl">Restante</span><span class="hs-val" id="remaining">--:--:--</span></div>
+<div class="hdr-stat"><span class="hs-lbl">Volta (líder)</span><span class="hs-val" id="hdr-lap-num">--</span></div>
+<div class="hdr-stat acc"><span class="hs-lbl">Fecha o box</span><span class="hs-val" id="hdr-cd-pitclose">--:--:--</span></div>
+<div class="hdr-stat"><span class="hs-lbl">Líder</span><span class="hs-val" id="leader-info" style="font-size:16px">-</span></div>
+</div>
+<button id="theme-toggle-btn" class="theme-toggle-btn" onclick="FK.toggleTheme()" title="Alternar entre tema escuro e tema claro (util contra claridade/sol)"><span class="tt-icon">&#9728;&#65039;</span><span>Tema Claro</span></button>
+</div>
+</div>
+<div class="tabs" id="tabs">
+<div class="tab on" data-tab="dashgeral">&#127937; Dashboard</div>
+<div class="tab" data-tab="mobile">&#128241; Dashboard Celular</div>
+<div class="tab" data-tab="pilotos">&#128100; Pilotos</div>
+<div class="tab" data-tab="estrategia">&#127919; Estrategia</div>
+<div class="tab" data-tab="config">&#9881; Config</div>
+<!-- Pedido do Rapha: previsao do tempo sai de cima da linha azul e desce pra altura dos
+     botoes de aba, do lado direito da barra. -->
+<div class="tabs-wx">
 <div class="wx-bar" id="wxbar">Carregando...</div>
 <div id="wx-topbar-forecast" style="display:flex;align-items:center;gap:4px;margin-left:8px"></div>
 <canvas id="wx-hourly-canvas" height="28" style="width:160px;border-radius:3px;display:none;vertical-align:middle;margin-left:4px"></canvas>
 </div>
 </div>
-<div class="tabs" id="tabs">
-<div class="tab on" data-tab="dash">&#127931; Dashboard KGV</div>
-<div class="tab" data-tab="dashgeral">&#127937; Dashboard Geral</div>
-<div class="tab" data-tab="pilotos">&#128100; Pilotos</div>
-<div class="tab" data-tab="box">&#127955; Box</div>
-<div class="tab" data-tab="estrategia">&#127919; Estrategia</div>
-<div class="tab" data-tab="config">&#9881; Config</div>
-</div>
 <div class="content">
-<div class="pane on" id="pane-dash">
+<div class="pane on" id="pane-dashgeral">
 <div class="dash-root">
   <!-- COLUNAS PRINCIPAIS -->
   <div class="dash-cols">
@@ -391,75 +427,7 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
     <div class="dash-col">
       <div class="dash-card">
         <div class="dash-card-hdr">
-          <h3>&#127937; Classificação — Top 20 + Equipe</h3>
-          <span style="font-size:10px;color:var(--mut)" id="d-rank-updated"></span>
-        </div>
-        <div class="dr-mykarts-strip" id="d-rank-mykarts"></div>
-        <table class="dr-table" id="d-rank-table">
-          <thead><tr>
-            <th>Pos</th><th>Kart</th><th>Piloto / Equipe</th><th>Cat</th>
-            <th>Última</th><th>Gap</th><th title="Paradas curtas (volta cronometrada a partir da duracao minima configurada)">P.Curta</th><th title="Paradas longas (volta cronometrada a partir da duracao longa configurada)">P.Longa</th><th>Proj</th>
-          </tr></thead>
-          <tbody id="d-rank-body"></tbody>
-        </table>
-      </div>
-    </div>
-    <!-- COL 2: CRONOS + HISTORICO + PACE + BOX INTEL + MAPA -->
-    <div class="dash-col">
-      <div class="dash-card">
-        <div class="dash-card-hdr">
-          <h3>&#9201; Cronômetros da Equipe</h3>
-          <span style="font-size:9px;color:var(--mut)">Volta atual</span>
-        </div>
-        <div class="krono-grid" id="d-krono-grid"></div>
-      </div>
-      <div class="dash-card">
-        <div class="dash-card-hdr">
-          <h3>&#128220; Histórico de Voltas — Equipe</h3>
-          <span style="font-size:9px;color:var(--mut)">últimas 10 voltas por kart</span>
-        </div>
-        <div id="d-laphist-body"></div>
-      </div>
-      <div class="dash-card">
-        <div class="dash-card-hdr">
-          <h3>&#9889; Pace Equipe vs Top 10</h3>
-          <span style="font-size:9px;color:var(--mut)">verde = mais rápido · vermelho = mais lento</span>
-        </div>
-        <div id="d-pace-comp" style="overflow-x:auto;padding:8px"></div>
-      </div>
-      <div class="dash-card">
-        <div class="dash-card-hdr">
-          <h3>&#127955; Box Intelligence — Karts Disponíveis</h3>
-          <span style="font-size:9px;color:var(--acc)" id="d-bxi-count"></span>
-        </div>
-        <div id="d-bxi-body"></div>
-      </div>
-      <div class="dash-card">
-        <div class="dash-card-hdr">
-          <h3>&#128506; Mapa <span id="d-map-track-name" style="font-weight:400;color:var(--mut);font-size:9px;letter-spacing:0"></span></h3>
-          <span style="font-size:9px;color:var(--mut)">Karts da equipe</span>
-        </div>
-        <div id="dash-rain-wrap" style="padding:0 8px 6px;display:none">
-          <div style="font-size:9px;color:var(--mut);margin-bottom:3px;letter-spacing:0.04em">🌧 CHUVA — PROBABILIDADE HORA A HORA</div>
-          <canvas id="dash-rain-chart" style="width:100%;border-radius:4px;display:block"></canvas>
-        </div>
-        <div class="dash-map-wrap">
-          <canvas id="mapa-canvas-dash" style="width:100%;border-radius:6px;display:block"></canvas>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-</div>
-<div class="pane" id="pane-dashgeral">
-<div class="dash-root">
-  <!-- COLUNAS PRINCIPAIS -->
-  <div class="dash-cols">
-    <!-- COL 1: RANKING -->
-    <div class="dash-col">
-      <div class="dash-card">
-        <div class="dash-card-hdr">
-          <h3>&#127937; Classificação — Top 20 + Equipe</h3>
+          <h3>&#127937; Classificação — Top 10 + Equipe</h3>
           <span style="font-size:10px;color:var(--mut)" id="dg-rank-updated"></span>
         </div>
         <div class="dr-mykarts-strip" id="dg-rank-mykarts"></div>
@@ -525,13 +493,23 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
     </div>
   </div>
 </div></div>
-<div class="pane" id="pane-box">
-<div class="card">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <h3 style="margin:0">&#127955; Controle de Box</h3>
-    <span style="font-size:12px;color:var(--mut)">Status em tempo real dos karts da equipe</span>
+<!-- Dashboard Celular (27/08/2026): vista compacta pra quem acompanha pelo celular, longe
+     da telona do box -- so o essencial pra uma decisao rapida numa parada. -->
+<div class="pane" id="pane-mobile">
+<div class="mob-root">
+  <div class="mob-stats">
+    <div class="mob-stat"><span class="ms-lbl">Decorrido</span><span class="ms-val" id="mob-elapsed">00:00:00</span></div>
+    <div class="mob-stat"><span class="ms-lbl">Restante</span><span class="ms-val" id="mob-remaining">--:--:--</span></div>
+    <div class="mob-stat"><span class="ms-lbl">Volta (líder)</span><span class="ms-val" id="mob-lap-num">--</span></div>
+    <div class="mob-stat acc"><span class="ms-lbl">Fecha o box</span><span class="ms-val" id="mob-cd-pitclose">--:--:--</span></div>
   </div>
-  <div id="box-body" class="box-grid"></div>
+  <div class="dash-card">
+    <div class="dash-card-hdr">
+      <h3>&#9201; Cronômetros da Equipe</h3>
+      <span style="font-size:9px;color:var(--mut)">Volta atual</span>
+    </div>
+    <div class="krono-grid" id="mob-krono-grid"></div>
+  </div>
 </div>
 </div>
 <div class="pane" id="pane-estrategia">
@@ -991,7 +969,9 @@ if(!document.body)return;
 if(mode==='light')document.body.classList.add('theme-light');
 else document.body.classList.remove('theme-light');
 var btn=document.getElementById('theme-toggle-btn');
-if(btn)btn.innerHTML=mode==='light'?'&#9789; Tema Escuro':'&#9788; Tema Claro';
+/* Pedido do Rapha (27/08/2026): estilo "pill" com icone (tipo o toggle de aparencia do
+   iPhone) em vez do texto solto que tinha antes -- icone mostra o modo pro qual vai mudar. */
+if(btn)btn.innerHTML=mode==='light'?'<span class="tt-icon">&#127769;</span><span>Tema Escuro</span>':'<span class="tt-icon">&#9728;&#65039;</span><span>Tema Claro</span>';
 if(!skipSave){try{localStorage.setItem('fkart_theme',mode);}catch(e){}}
 },
 tab:function(name){
@@ -1001,8 +981,8 @@ var t=document.querySelector('.tab[data-tab="'+name+'"]');
 var p=document.getElementById('pane-'+name);
 if(t)t.classList.add('on');
 if(p)p.classList.add('on');
-if(name==='dash'){FK.rDash();setTimeout(function(){FK.drawWxChart();FK.drawMapDash();},50);}
 if(name==='dashgeral'){FK.rDashGeral();}
+if(name==='mobile'){FK.rDashMobile();}
 if(name==='pilotos')FK.rPilotos();
 if(name==='estrategia'){FK.rEstrategia();FK.rStintPlan&&FK.rStintPlan();}
 if(name==='config'){FK.renderConfig();FK.renderKartPilotsSetup();}
@@ -1042,8 +1022,8 @@ FK.rPlacar();
 FK.rPilotos();
 FK.rDashKartsBox&&FK.rDashKartsBox();
 FK.rDashKartsBox&&FK.rDashKartsBox('dg');
-FK.rDashCrono&&FK.rDashCrono();
 FK.rDashCrono&&FK.rDashCrono('dg-krono-grid','-dg');
+FK.rDashCrono&&FK.rDashCrono('mob-krono-grid','-mob');
 FK.rPilotQueue&&FK.rPilotQueue();
 FK.renderKartPilotsSetup&&FK.renderKartPilotsSetup();
 FK.rStintPlan&&FK.rStintPlan();
@@ -1147,10 +1127,10 @@ var e=FK.state.elapsed;
    errada ou desatualizada. Cai pro calculo antigo pra demo/colado do LapTime, que nao tem
    esse campo. */
 var rem=(FK.cfg.source==='live'&&FK.state.timeToGoSec!=null)?FK.state.timeToGoSec:Math.max(0,FK.cfg.raceTotal-e);
-var elEl=document.getElementById('elapsed');
-var remEl=document.getElementById('remaining');
-if(elEl)elEl.textContent=FK.fmtTime(e);
-if(remEl)remEl.textContent=rem>0?FK.fmtTime(rem):'ENCERRADA';
+var elStr=FK.fmtTime(e);
+var remStr=rem>0?FK.fmtTime(rem):'ENCERRADA';
+['elapsed','mob-elapsed'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=elStr;});
+['remaining','mob-remaining'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=remStr;});
 /* faixa superior (volta do líder + fecha o box) fica no topbar, visível em qualquer aba */
 FK.rDashHdrStrip();
 /* mantém o ritmo do cronômetro da equipe sincronizado com a volta real mais recente */
@@ -1160,20 +1140,18 @@ if(FK.syncKronoLapTimes)FK.syncKronoLapTimes();
    (troca de aba, salvar config, registrar troca), obrigando a dar refresh na página pra ver
    dado novo. Dashboard Geral nem o ranking atualizava sozinho — foi a causa do "não atualiza
    continuamente" relatado ao vivo em Betim. krono/stint continuam via o interval kronoFast (50ms). */
-var dashPane=document.getElementById('pane-dash');
 var dashGeralPane=document.getElementById('pane-dashgeral');
-if(dashPane&&dashPane.classList.contains('on')){
-  FK.rDashRanking();FK.updateKronoPos();FK.drawMapDash();
-  FK.rDashBoxIntel();FK.rDashKartsBox();FK.rDashPaceComp();FK.rDashLapHistory();
+var mobilePane=document.getElementById('pane-mobile');
+if(dashGeralPane&&dashGeralPane.classList.contains('on')){
+  FK.rDashRanking('dg');FK.updateKronoPos();
+  FK.rDashBoxIntel('dg');FK.rDashKartsBox('dg');FK.rDashPaceComp('dg');FK.rDashLapHistory('dg');
   /* rDashCrono só reconstrói o DOM quando a chave (karts+ordem) muda -- chamar toda vez
      é barato e é o que permite a ordenação por colocação (cfg-krono-sort-pos) reagir ao
      vivo conforme as posições mudam, e não só quando a aba é trocada ou o config é salvo */
-  FK.rDashCrono();
-}else if(dashGeralPane&&dashGeralPane.classList.contains('on')){
-  FK.rDashRanking('dg');FK.updateKronoPos();
-  FK.rDashBoxIntel('dg');FK.rDashKartsBox('dg');FK.rDashPaceComp('dg');FK.rDashLapHistory('dg');
   FK.rDashCrono('dg-krono-grid','-dg');
   if(FK.rPilotQueue)FK.rPilotQueue();
+}else if(mobilePane&&mobilePane.classList.contains('on')){
+  FK.updateKronoPos();FK.rDashCrono('mob-krono-grid','-mob');
 }
 },1000);
 },
@@ -1406,7 +1384,8 @@ FK.recordHistory(rows);
 try{localStorage.setItem('fkart_cfg',JSON.stringify(FK.cfg));}catch(e){}
 FK.updateSrcBadge();FK.rPlacar();
 if(typeof FK.rEstrategia==='function')FK.rEstrategia();
-if(typeof FK.rDash==='function'){try{FK.rDash();}catch(e){}}
+if(typeof FK.rDashGeral==='function'){try{FK.rDashGeral();}catch(e){}}
+if(typeof FK.rDashMobile==='function'){try{FK.rDashMobile();}catch(e){}}
 var st=document.getElementById('config-status');if(st)st.style.display='block';
 var sb=document.getElementById('config-status-body');
 if(sb)sb.innerHTML='<span style="color:#66bb6a">&#10003; '+rows.length+' karts lidos do LapTime as '+new Date().toLocaleTimeString('pt-BR')+'</span>';
@@ -1857,8 +1836,16 @@ rEstrategia:function(){
     var minDur=FK.cfg.minPitDurationSec||0;
     var maxStops=FK.cfg.maxPitStops||0;
     var pitCloseSec=(FK.cfg.pitCloseMin||0)*60;
+    /* pedido 27/08/2026: removida a aba Box (registro manual de entrada/saida), que era a
+       unica fonte de FK.state.pitStops. O numero de paradas cumpridas passa a vir da mesma
+       deteccao automatica ja usada na Classificacao (FK.state.pitLapCounts, por duracao de
+       volta cronometrada) -- continua funcionando ao vivo sem precisar de registro manual.
+       myStops/pitStops so ficam guardados aqui pro sub-aviso de Stop&Go (parada mais curta
+       que o minimo), que dependia do registro manual e agora fica dormente (sem dado pra
+       detectar isso automaticamente ainda). */
     var myStops=(FK.state.pitStops||[]).filter(function(p){return p.kart===knum;});
-    var doneStops=myStops.length;
+    var plc=(FK.state.pitLapCounts&&FK.state.pitLapCounts[knum])||{short:0,long:0};
+    var doneStops=(plc.short||0)+(plc.long||0);
     var shortStops=myStops.filter(function(p){return p.duracao<minDur;});
     var penaltyDebtSec=shortStops.reduce(function(sum,p){return sum+2*(minDur-p.duracao);},0);
     var stopsLeft=Math.max(0,minStops-doneStops);
@@ -2153,10 +2140,18 @@ rDashRanking:function(prefix){
   });
   proj.sort(function(a,b){return b.projLaps-a.projLaps;});
   var projPos={};proj.forEach(function(p,i){projPos[p.kart]=i+1;});
-  /* top N (ampliado a pedido da equipe pra caber mais karts sem precisar trocar de tela) */
-  var topN=20;
+  /* top N (pedido 27/08/2026: voltou pra 10 -- o "top 20" deixava a tabela grande demais na
+     telona do box; equipe fora do top N continua aparecendo destacada logo abaixo) */
+  var topN=10;
   var top10=data.slice(0,topN);
   var teamExtra=data.filter(function(d){return FK.isMy(d.kart)&&d.pos>topN;});
+  /* pulso visual (pedido 27/08/2026): marca a linha que mudou desde o ultimo render (nova volta,
+     gap, etc.) com uma classe que anima um brilho rapido -- da a sensacao de "dado chegando" em
+     tempo real. So compara com o snapshot do render anterior (por prefix, dash e dashgeral tem
+     ritmos proprios), e nunca marca no primeiro render (fingerprint ainda nao existe). */
+  if(!FK.state.rankPrevFp)FK.state.rankPrevFp={};
+  if(!FK.state.rankPrevFp[prefix])FK.state.rankPrevFp[prefix]={};
+  var prevFp=FK.state.rankPrevFp[prefix];
   /* faixa fixa "Meus Karts" — sempre visível, não some quando o kart entra/sai do top N */
   var mkEl=document.getElementById(prefix+'-rank-mykarts');
   if(mkEl){
@@ -2180,7 +2175,10 @@ rDashRanking:function(prefix){
     var pPos=projPos[d.kart]||d.pos;var delta=d.pos-pPos;
     var projCls=delta>0?'proj-up':delta<0?'proj-dn':'proj-eq';
     var arrow='<span class="proj-arrow '+projCls+'">P'+pPos+'</span>';
-    return '<tr class="'+(my?'my-kart':'')+(sep?' dr-sep':'')+'">'+
+    var fp=d.pos+'|'+d.laps+'|'+d.last+'|'+d.gap;
+    var pulsed=prevFp[d.kart]!==undefined&&prevFp[d.kart]!==fp;
+    prevFp[d.kart]=fp;
+    return '<tr class="'+(my?'my-kart':'')+(sep?' dr-sep':'')+(pulsed?' row-pulse':'')+'">'+
     '<td><span class="d-pos '+pc+'">'+d.pos+'</span></td>'+
     '<td><span class="d-kart'+(my?' my':'')+'">'+d.kart+'</span></td>'+
     '<td><div style="line-height:1.3"><span style="font-weight:'+(my?700:400)+'">'+d.t+(my?' ★':'')+'</span><br><span style="font-size:9px;color:var(--mut)">'+( d.equipe||'')+'</span></div></td>'+
@@ -2253,11 +2251,11 @@ syncKronoLapTimes:function(){
 startKronoInterval:function(){
   if(FK.state.kronoFast)clearInterval(FK.state.kronoFast);
   FK.state.kronoFast=setInterval(function(){
-    var paneKgv=document.getElementById('pane-dash');
     var paneGeral=document.getElementById('pane-dashgeral');
-    var onKgv=paneKgv&&paneKgv.classList.contains('on');
+    var paneMobile=document.getElementById('pane-mobile');
     var onGeral=paneGeral&&paneGeral.classList.contains('on');
-    if(!onKgv&&!onGeral)return;
+    var onMobile=paneMobile&&paneMobile.classList.contains('on');
+    if(!onGeral&&!onMobile)return;
     FK.cfg.myKarts.forEach(function(k){
       var ks=FK.state.kronoState&&FK.state.kronoState[k];
       if(!ks||!ks.lapStartTs)return;
@@ -2277,23 +2275,18 @@ startKronoInterval:function(){
       var ss=s<10?'0'+s.toFixed(3):s.toFixed(3);
       var timerStr=(m<10?'0'+m:m)+':'+ss;
       var lateCls=elapsed>ks.lapTime*0.96?' late':'';
-      var onTrack=(Date.now()-(ks.stintStartTs||Date.now()))/1000;
-      var otm=Math.floor(onTrack/60);var ots=Math.floor(onTrack%60);
-      var otStr=(otm<10?'0'+otm:otm)+':'+(ots<10?'0'+ots:ots);
-      var stintStr=(ks.stintLaps||0)+'v · '+otStr+' em pista';
-      ['kt-'+k,'kt-'+k+'-dg'].forEach(function(id){
+      /* pedido 27/08/2026: tirou a linha "Xv · tempo em pista" (ks-*) dos quadradinhos -- o
+         tracking interno (stintLaps/stintStartTs) continua em FK.state.kronoState, só parou
+         de ser exibido. */
+      ['kt-'+k,'kt-'+k+'-dg','kt-'+k+'-mob'].forEach(function(id){
         var tel=document.getElementById(id);
         if(tel){tel.textContent=timerStr;tel.className='krono-timer'+lateCls;}
-      });
-      ['ks-'+k,'ks-'+k+'-dg'].forEach(function(id){
-        var sel=document.getElementById(id);
-        if(sel)sel.textContent=stintStr;
       });
     });
   },50);
 },
 rDashCrono:function(gridId,idSuffix){
-  gridId=gridId||'d-krono-grid';idSuffix=idSuffix||'';
+  gridId=gridId||'dg-krono-grid';idSuffix=idSuffix||'-dg';
   var el=document.getElementById(gridId);if(!el)return;
   if(!FK.cfg.myKarts.length){el.innerHTML='<div style="padding:20px;color:var(--mut);text-align:center;font-size:12px">Nenhum kart configurado</div>';return;}
   var data=FK.getData();
@@ -2327,7 +2320,6 @@ rDashCrono:function(gridId,idSuffix){
     '<div class="kr-cell"><span class="kl">Melhor</span><span class="kv acc" id="kbest-'+k+idSuffix+'">'+best+'</span></div>'+
     '<div class="kr-cell"><span class="kl">Última</span><span class="kv" id="klast-'+k+idSuffix+'">'+last+'</span></div>'+
     '</div>'+
-    '<div class="krono-stint-bar"><span class="ks-lbl">Stint</span><span class="ks-val" id="ks-'+k+idSuffix+'">0v · 00:00</span></div>'+
     '</div>';
   });
   el.innerHTML=html;
@@ -2338,7 +2330,7 @@ updateKronoPos:function(){
   FK.cfg.myKarts.forEach(function(k){
     var kd=FK.findKartData(data,k);
     var txt='P'+(kd?kd.pos:'?');
-    ['kp-'+k,'kp-'+k+'-dg'].forEach(function(id){
+    ['kp-'+k,'kp-'+k+'-dg','kp-'+k+'-mob'].forEach(function(id){
       var el=document.getElementById(id);
       if(el)el.textContent=txt;
     });
@@ -2584,17 +2576,21 @@ rDashKartsBox:function(prefix){
    Agora são elementos únicos no topbar, atualizados independente da aba ativa. */
 rDashHdrStrip:function(){
   var data=FK.getData();
-  var lapEl=document.getElementById('hdr-lap-num');
-  if(lapEl)lapEl.textContent=(data[0]&&data[0].laps!=null)?data[0].laps:'--';
+  var lapVal=(data[0]&&data[0].laps!=null)?data[0].laps:'--';
+  /* espelha nos 2 lugares -- topbar (telona) e Dashboard Celular (aba mobile) -- os dois leem
+     os mesmos dados, so mudam de id porque moram em duas telas diferentes. */
+  ['hdr-lap-num','mob-lap-num'].forEach(function(id){
+    var el=document.getElementById(id);if(el)el.textContent=lapVal;
+  });
   var e=FK.state.elapsed||0;
-  var pitEl=document.getElementById('hdr-cd-pitclose');
-  if(pitEl){
-    var pitCloseSec=(FK.cfg.pitCloseMin||0)*60;
-    var remPit=pitCloseSec-e;
+  var pitCloseSec=(FK.cfg.pitCloseMin||0)*60;
+  var remPit=pitCloseSec-e;
+  ['hdr-cd-pitclose','mob-cd-pitclose'].forEach(function(id){
+    var pitEl=document.getElementById(id);if(!pitEl)return;
     if(pitCloseSec<=0){pitEl.textContent='—';}
     else if(remPit>0){pitEl.textContent=FK.fmtTime(remPit);pitEl.style.color='';}
     else{pitEl.textContent='FECHADO';pitEl.style.color='var(--red)';}
-  }
+  });
   /* pista/sessao detectadas ao vivo pelo GetSession (so aparece quando ha dado real) */
   var trackBadge=document.getElementById('hdr-track-badge');
   var trackEl=document.getElementById('hdr-track-name');
@@ -2709,19 +2705,16 @@ drawDashRainChart:function(){
     ctx.textBaseline='top';ctx.fillText(item.h+'h',x+bw/2,2);
   });
 },
-/* ── render completo do dashboard ── */
-rDash:function(){
-  FK.rDashRanking();
-  FK.rDashCrono();
-  FK.updateKronoPos();
-  FK.rDashBoxIntel();
-  FK.rDashKartsBox();
-  FK.rDashPaceComp();
-  FK.rDashLapHistory();
+/* ── Dashboard Celular (27/08/2026) -- so os numeros essenciais + cronometro da equipe,
+   pra quem acompanha pelo celular fora do box durante uma parada. ── */
+rDashMobile:function(){
   FK.rDashHdrStrip();
-  FK.drawMapDash();
-  FK.drawWxChart();
-  FK.drawDashRainChart();
+  FK.rDashCrono('mob-krono-grid','-mob');
+  FK.updateKronoPos();
+  var elEl=document.getElementById('mob-elapsed');if(elEl)elEl.textContent=FK.fmtTime(FK.state.elapsed||0);
+  var total=FK.cfg.raceTotal||10800;
+  var rem=(FK.cfg.source==='live'&&FK.state.timeToGoSec!=null)?FK.state.timeToGoSec:Math.max(0,total-(FK.state.elapsed||0));
+  var remEl=document.getElementById('mob-remaining');if(remEl)remEl.textContent=rem>0?FK.fmtTime(rem):'ENCERRADA';
 },
 /* ── Dashboard Geral (sem mapa — Race Monitor genérico, ex: Itu) ── */
 rDashGeral:function(){
@@ -2848,9 +2841,9 @@ if(!FK.state.wxHourly){
 }
 FK.initKrono();
 FK.updateTopbar();FK.updateSrcBadge();FK.rPlacar();
-FK.rPilotos();FK.rBox();FK.rEstrategia();
+FK.rPilotos();FK.rEstrategia();
 FK.loadWxHourly();FK.loadWx();FK.startClock();FK.startKronoInterval();
-FK.rDash();setTimeout(function(){FK.drawWxChart();FK.drawMapDash();FK.drawDashRainChart();},100);
+FK.rDashGeral();FK.rDashMobile();setTimeout(function(){FK.drawWxChart();},100);
 }
 };
 document.querySelectorAll('.tab').forEach(function(t){
