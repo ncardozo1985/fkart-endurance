@@ -698,7 +698,7 @@ Ordenar cronometros da equipe pela colocacao na corrida (senao, ordem de cadastr
 <input type="text" id="cfg-my-category" placeholder="Ex: LIGHT" oninput="this.value=this.value.toUpperCase()">
 </div>
 </div>
-<small style="color:var(--mut);font-size:11px;display:block">Ajuste estes campos conforme o regulamento de cada corrida. Para a Endurance Itu 6h (23/08/2026, Art.14&#186;): 5 paradas obrigatorias de 5min + 1 parada longa de 7min = 32min de paradas no total. As "Paradas Longas" contam separado das paradas minimas normais e entram na Proje&ccedil;&atilde;o como tempo obrigat&oacute;rio adicional descontado do tempo total de prova. As paradas cumpridas sao contadas a partir do registro manual na aba Box (entrada/saida). A categoria precisa bater com o texto da coluna CATEGORIA da fonte de dados.</small>
+<small style="color:var(--mut);font-size:11px;display:block">Ajuste estes campos conforme o regulamento de cada corrida. Para a Endurance Itu 6h (23/08/2026, Art.14&#186;): 5 paradas obrigatorias de 5min + 1 parada longa de 7min = 32min de paradas no total. As "Paradas Longas" contam separado das paradas minimas normais e entram na Proje&ccedil;&atilde;o como tempo obrigat&oacute;rio adicional descontado do tempo total de prova. As paradas cumpridas sao contadas automaticamente pela volta cronometrada detectada no feed ao vivo (duracao >= o minimo configurado acima). A categoria precisa bater com o texto da coluna CATEGORIA da fonte de dados.</small>
 </div>
 <div class="cfg-panel">
 <h3>&#128679; Janelas Especiais da Prova</h3>
