@@ -444,26 +444,39 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .tv-pq-status{font-size:12px;color:#5DCAA5;white-space:nowrap;flex-shrink:0}
 .tv-pq-item.active .tv-pq-status{color:var(--acc);font-weight:700}
 .tv-pq-item.next .tv-pq-status{color:#4fc3f7;font-weight:700}
-/* TV Pilotos (1920x1080) — mesmos widgets do Dashboard Geral, fontes maiores p/ leitura a
-   distancia. Escopo .tv-dash so afeta essa aba, nao mexe no Dashboard Geral do chefe. */
-.tv-dash .dash-card-hdr h3{font-size:17px}
-.tv-dash .dash-card-hdr span{font-size:13px!important}
-.tv-dash .krono-card{padding:10px 12px}
-.tv-dash .krono-badge{width:38px;height:38px;font-size:16px}
-.tv-dash .krono-pos-info{font-size:14px}
-.tv-dash .krono-name{font-size:15px}
-.tv-dash .krono-timer{font-size:30px}
-.tv-dash .kr-cell .kl{font-size:11px}
-.tv-dash .kr-cell .kv{font-size:16px}
-.tv-dash .dr-mykarts-strip .mk-chip{font-size:13px}
-.tv-dash .dr-table th{font-size:13px}
-.tv-dash .dr-table td{font-size:16px;padding:8px 9px}
-.tv-dash .proj-arrow{font-size:13px}
-.tv-dash .d-pos{font-size:14px;width:28px;height:28px}
-.tv-dash .d-kart{font-size:14px;width:38px;height:38px}
-.tv-dash .laphist-table{font-size:15px}
-.tv-dash .lh-kart{font-size:15px;padding:5px 10px}
-.tv-dash .lh-chip{font-size:14px;min-width:66px;height:30px}
+/* TV Pilotos (1920x1080) — mesmos widgets do Dashboard Geral, fontes bem maiores p/ leitura
+   a distancia (telona no box). Escopo .tv-dash so afeta essa aba, nao mexe no Dashboard Geral
+   do chefe. O pane em si precisa preencher a altura toda do viewport (sem scroll da pagina) --
+   por isso a regra de altura no #pane-tvpilotos.pane.on abaixo, com especificidade maior que
+   o ".pane.on{display:block}" generico. */
+#pane-tvpilotos.pane.on{display:flex;flex-direction:column;flex:1;min-height:0}
+.tv-dash.dash-root{flex:1;min-height:0;grid-template-rows:auto 1fr}
+.tv-dash .dash-card-hdr{padding:10px 16px}
+.tv-dash .dash-card-hdr h3{font-size:22px}
+.tv-dash .dash-card-hdr span{font-size:15px!important}
+.tv-dash .krono-grid{padding:10px;gap:8px}
+.tv-dash .krono-card{padding:12px 14px}
+.tv-dash .krono-badge{width:46px;height:46px;font-size:19px}
+.tv-dash .krono-pos-info{font-size:16px}
+.tv-dash .krono-name{font-size:17px}
+.tv-dash .krono-timer{font-size:38px}
+.tv-dash .kr-cell .kl{font-size:12px}
+.tv-dash .kr-cell .kv{font-size:19px}
+.tv-dash .dr-mykarts-strip .mk-chip{font-size:15px;padding:4px 10px}
+.tv-dash .dr-table th{font-size:15px;padding:6px 8px}
+.tv-dash .dr-table td{font-size:19px;padding:9px 10px}
+.tv-dash .proj-arrow{font-size:15px}
+.tv-dash .d-pos{font-size:16px;width:32px;height:32px}
+.tv-dash .d-kart{font-size:16px;width:44px;height:44px}
+.tv-dash .laphist-table{font-size:18px}
+.tv-dash .lh-kart{font-size:17px;padding:6px 12px}
+.tv-dash .lh-chip{font-size:16px;min-width:74px;height:34px}
+.tv-dash .tv-pq-kart{padding:8px 12px;margin-bottom:6px}
+.tv-dash .tv-pq-name{font-size:20px}
+.tv-dash .tv-pq-lbl{font-size:12px}
+.tv-dash .tv-pq-pname{font-size:18px}
+.tv-dash .tv-pq-status{font-size:14px}
+.tv-dash .tv-pq-item{padding:7px 12px}
 .pq-activate-btn{background:var(--acc);color:#fff;border:none;border-radius:5px;padding:4px 9px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap}
 /* Config: Setup — pilotos por kart */
 .kp-setup-kart{margin-bottom:12px}
