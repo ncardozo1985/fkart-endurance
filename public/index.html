@@ -338,9 +338,14 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .proj-arrow{font-size:10px}.proj-up{color:#66bb6a}.proj-dn{color:var(--red)}.proj-eq{color:var(--mut)}
 /* Cronômetros */
 .krono-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:5px;padding:6px}
-.krono-grid.grid6{grid-template-columns:repeat(6,minmax(0,1fr))}
-@media (max-width:1100px){.krono-grid.grid6{grid-template-columns:repeat(3,minmax(0,1fr))}}
-.krono-card{background:var(--bg);border:1px solid rgba(226,35,26,0.3);border-radius:7px;padding:6px 8px}
+/* pedido 15/09/2026: "ajustar a largura para todos os cronometros ficarem na mesma linha,
+   considerando um maximo de 8" -- antes era fixo em 6 colunas (com quebra pra 3 em telas
+   estreitas), o que ou sobrava espaço com poucos karts ou quebrava linha com mais de 6.
+   Agora o numero de colunas (--kn) e calculado em JS a partir da quantidade real de karts
+   (rDashCrono), sempre 1 unica linha -- as colunas so ficam mais estreitas conforme a
+   equipe tem mais karts, ate o teto de 8. */
+.krono-grid.grid-fit{grid-template-columns:repeat(var(--kn,6),minmax(0,1fr))}
+.krono-card{background:var(--bg);border:1px solid rgba(226,35,26,0.3);border-radius:7px;padding:6px 8px;min-width:0}
 .krono-top{display:flex;align-items:center;gap:8px;margin-bottom:4px}
 .krono-left{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0}
 .krono-badge{width:26px;height:26px;border-radius:50%;background:var(--acc);color:#fff;font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--font-head)}
@@ -353,6 +358,22 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .kr-cell .kl{font-size:8px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
 .kr-cell .kv{font-size:11px;font-weight:700;color:var(--txt)}
 .kr-cell .kv.acc{color:var(--acc)}
+/* pedido 15/09/2026: "na aba dashboard celular que todos os cronometros caibam na tela do
+   celular com maximo de 8" -- o mob-root trava em 480px de largura, entao com --kn=8 cada
+   card fica bem estreito (~40-55px); aperta padding/fontes so aqui (Dashboard Celular) pra
+   caber sem cortar conteudo. Posicao (P3 etc) some nesse card -- ja aparece na Classificacao
+   logo abaixo -- pra sobrar espaço pro que importa na parada: kart, piloto e o cronometro. */
+.mob-root .krono-grid.grid-fit{gap:3px;padding:4px}
+.mob-root .krono-card{padding:3px 2px;border-radius:5px}
+.mob-root .krono-top{gap:2px;margin-bottom:2px;flex-direction:column}
+.mob-root .krono-badge{width:18px;height:18px;font-size:8px}
+.mob-root .krono-pos-info{display:none}
+.mob-root .krono-name{font-size:7px;line-height:1.05;-webkit-line-clamp:1;text-align:center}
+.mob-root .krono-timer{font-size:10px;letter-spacing:-0.8px;padding:1px 0}
+.mob-root .krono-row{gap:1px;margin-top:1px}
+.mob-root .kr-cell{align-items:center}
+.mob-root .kr-cell .kl{font-size:6px}
+.mob-root .kr-cell .kv{font-size:8px}
 /* Box Intelligence */
 /* Box Intelligence — matriz visual */
 .bxi-matrix{display:flex;flex-wrap:wrap;gap:5px;padding:10px}
@@ -414,8 +435,10 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 /* Fila de pilotos (Dashboard Geral) -- 31/08/2026: virou faixa de largura total no rodapé
    (antes era coluna estreita e o widget dominava o espaço sozinho), 6 karts lado a lado. */
 .pq-body{display:flex;flex-direction:column;gap:8px;padding:8px}
-.pq-body.grid6{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
-@media (max-width:1100px){.pq-body.grid6{grid-template-columns:repeat(3,minmax(0,1fr))}}
+/* pedido 15/09/2026: "a tabela fila de pilotos, considera quatro karts por linha pra
+   melhorar a disposição visual" -- era grid6 (6 karts numa linha só, cards bem apertados) */
+.pq-body.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+@media (max-width:900px){.pq-body.grid4{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .pq-kart-card{background:var(--bg);border:1px solid rgba(226,35,26,0.3);border-radius:8px;padding:8px 10px}
 .pq-kart-hdr{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .pq-current{display:flex;flex-direction:column;gap:1px}
@@ -612,7 +635,7 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
       <h3>&#9201; Cronômetros da Equipe</h3>
       <span style="font-size:9px;color:var(--mut)">Volta atual</span>
     </div>
-    <div class="krono-grid grid6" id="dg-krono-grid"></div>
+    <div class="krono-grid grid-fit" id="dg-krono-grid"></div>
   </div>
   <!-- COLUNAS PRINCIPAIS -->
   <div class="dash-cols">
@@ -665,7 +688,7 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
       <h3>&#128101; Fila de Pilotos</h3>
       <span style="font-size:9px;color:var(--mut)">clique Ativar pra colocar o próximo</span>
     </div>
-    <div class="pq-body grid6" id="dg-pq-body"></div>
+    <div class="pq-body grid4" id="dg-pq-body"></div>
   </div>
   <!-- TEMPO TOTAL POR PILOTO: pedido 15/09/2026 -- "tabela abaixo da fila de pilotos... por
        nome de piloto, quanto tempo correu, baseado nos tempos totalizados da fila de
@@ -722,7 +745,7 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
       <h3>&#9201; Cronômetros da Equipe</h3>
       <span style="font-size:9px;color:var(--mut)">Volta atual</span>
     </div>
-    <div class="krono-grid" id="mob-krono-grid"></div>
+    <div class="krono-grid grid-fit" id="mob-krono-grid"></div>
   </div>
 </div>
 </div>
@@ -736,7 +759,7 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
       <h3>&#9201; Cronômetros da Equipe</h3>
       <span style="font-size:12px;color:var(--mut)">Volta atual</span>
     </div>
-    <div class="krono-grid grid6" id="tv-krono-grid"></div>
+    <div class="krono-grid grid-fit" id="tv-krono-grid"></div>
   </div>
   <div class="dash-cols">
     <div class="dash-col">
@@ -3020,6 +3043,13 @@ rDashCrono:function(gridId,idSuffix){
       return pa-pb;
     });
   }
+  /* pedido 15/09/2026: "ajustar a largura para todos os cronometros ficarem na mesma linha,
+     considerando um maximo de 8" -- numero de colunas do grid (--kn, ver .grid-fit no CSS)
+     acompanha a quantidade real de karts da equipe, sem nunca passar de 8 (se um dia tiver
+     mais que isso, as colunas so ficam mais apertadas em vez de quebrar linha). Fica fora do
+     "if kartKey" abaixo pra sempre estar correto, mesmo que o DOM dos cards não precise ser
+     reconstruído nesta chamada. */
+  el.style.setProperty('--kn',Math.max(1,Math.min(karts.length,8)));
   /* só reconstrói estrutura se a lista de karts OU a ordem mudou (evita recriar o DOM a
      cada tick e perder o estado visual dos timers) */
   var kartKey=karts.join(',')+'|'+(FK.cfg.kronoSortByPos?'pos':'reg');
