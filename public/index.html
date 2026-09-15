@@ -369,11 +369,17 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .mob-root .krono-badge{width:18px;height:18px;font-size:8px}
 .mob-root .krono-pos-info{display:none}
 .mob-root .krono-name{font-size:7px;line-height:1.05;-webkit-line-clamp:1;text-align:center}
-.mob-root .krono-timer{font-size:10px;letter-spacing:-0.8px;padding:1px 0}
-.mob-root .krono-row{gap:1px;margin-top:1px}
+/* --mob-tfs/--mob-kvfs: fonte do cronômetro e do melhor/última encolhe mais um degrau quando
+   a equipe tem 7-8 karts (rDashCrono calcula e seta essas variáveis) -- com 6 ou menos, o
+   tamanho normal (10px/8px) já cabe folgado; com 7-8 o "00:00.000" precisa de um degrau a
+   menos pra não vazar do card de ~41px. */
+.mob-root .krono-timer{font-size:var(--mob-tfs,10px);letter-spacing:-0.8px;padding:1px 0}
+/* Melhor/Última empilhados (1 coluna) em vez de lado a lado -- em 1/8 da largura da tela
+   nao sobra espaço horizontal pra "01:01.747" dividir a linha ao meio sem cortar */
+.mob-root .krono-row{grid-template-columns:1fr;gap:0;margin-top:1px}
 .mob-root .kr-cell{align-items:center}
 .mob-root .kr-cell .kl{font-size:6px}
-.mob-root .kr-cell .kv{font-size:8px}
+.mob-root .kr-cell .kv{font-size:var(--mob-kvfs,8px)}
 /* Box Intelligence */
 /* Box Intelligence — matriz visual */
 .bxi-matrix{display:flex;flex-wrap:wrap;gap:5px;padding:10px}
@@ -3050,6 +3056,12 @@ rDashCrono:function(gridId,idSuffix){
      "if kartKey" abaixo pra sempre estar correto, mesmo que o DOM dos cards não precise ser
      reconstruído nesta chamada. */
   el.style.setProperty('--kn',Math.max(1,Math.min(karts.length,8)));
+  /* No Dashboard Celular (idSuffix -mob), com 7-8 karts o card fica estreito demais (~40px)
+     pro cronômetro "00:00.000" no tamanho normal -- encolhe mais um degrau nesse caso. */
+  if(idSuffix==='-mob'){
+    el.style.setProperty('--mob-tfs',(karts.length>6?8:10)+'px');
+    el.style.setProperty('--mob-kvfs',(karts.length>6?7:8)+'px');
+  }
   /* só reconstrói estrutura se a lista de karts OU a ordem mudou (evita recriar o DOM a
      cada tick e perder o estado visual dos timers) */
   var kartKey=karts.join(',')+'|'+(FK.cfg.kronoSortByPos?'pos':'reg');
