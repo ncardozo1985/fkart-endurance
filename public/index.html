@@ -1332,7 +1332,7 @@ firebase.auth().onAuthStateChanged(function(user){
 if(FK.state.authProfileUnsub){FK.state.authProfileUnsub();FK.state.authProfileUnsub=null;}
 FK.state.authUser=user;
 FK.state.authProfile=null;
-if(!user){FK.applyAuthUI();return;}
+if(!user){FK.stopSync&&FK.stopSync();FK.applyAuthUI();return;}
 var db=firebase.firestore();
 var ref=db.collection('users').doc(user.uid);
 ref.get().then(function(snap){
@@ -1357,6 +1357,7 @@ FK.state.authProfile=snap.exists?snap.data():null;
 FK.applyAuthUI();
 var upane=document.getElementById('pane-users');
 if(FK.state.authProfile&&FK.state.authProfile.isAdmin&&upane&&upane.classList.contains('on'))FK.rUsersAdmin();
+if(FK.state.authProfile&&FK.state.authProfile.approved)FK.initSync&&FK.initSync();
 });
 }).catch(function(e){console.error('Auth/Firestore erro',e);alert('Erro ao carregar seu cadastro: '+(e&&e.message?e.message:e));});
 });
@@ -1476,10 +1477,126 @@ FK.rPilotQueue&&FK.rPilotQueue();
 FK.renderKartPilotsSetup&&FK.renderKartPilotsSetup();
 FK.rStintPlan&&FK.rStintPlan();
 FK.loadWx();FK.loadWxHourly();
+FK.pushCfgToCloud&&FK.pushCfgToCloud();
 var el=document.getElementById('cfg-race-name');
 if(el)el.style.borderColor='#66bb6a';
 setTimeout(function(){if(el)el.style.borderColor='';},1500);
 alert('Configuracao salva! Karts: '+FK.cfg.myKarts.join(', ')||'nenhum');
+},
+/* === SINCRONIZACAO ENTRE APARELHOS (15/09/2026) ===
+   Pedido do Rapha: "no macbook esta as informacoes que subimos... ai loguei no celular mas
+   vou ter que atualizar os karts que queremos seguir e por ai vai. como pode refletir os
+   dados que o chefe de equipe estiver controlando". Usa o Firestore que ja esta ligado (ate
+   agora so pra aprovacao de usuario) pra guardar TRES documentos compartilhados entre todo
+   mundo logado e aprovado:
+     sync/cfg     -> espelho de FK.cfg (karts, elegibilidade piloto x kart, regulamento, etc)
+     sync/pilotos -> espelho da lista de pilotos (fk_pilotos)
+     sync/live    -> fila de pilotos ao vivo (quem esta em cada vaga, duracao dos stints ja
+                     concluidos, vaga ativa, e quem esta pilotando cada kart agora)
+   Cada aparelho continua guardando uma copia em localStorage (funciona offline / recarrega
+   rapido), mas o Firestore e quem manda: ao logar, os 3 listeners abaixo trazem o que foi
+   configurado por ultimo em QUALQUER aparelho, na hora, sem precisar reconfigurar nada de
+   novo. Qualquer usuario aprovado pode gravar (pedido do Rapha) -- ver firestore.rules.
+   Limitacao conhecida: cada doc e sobrescrito inteiro a cada gravacao (nao por campo), entao
+   se dois aparelhos gravarem quase ao mesmo tempo em cima do MESMO documento, o ultimo a
+   gravar "ganha". Pra uso normal de chefe de equipe (uma decisao por vez) isso nao e
+   problema; edicoes simultaneas no mesmo campo por pessoas diferentes sao raras na pratica. */
+initSync:function(){
+  if(FK.state.syncInited)return;
+  if(typeof firebase==='undefined')return;
+  FK.state.syncInited=true;
+  var db=firebase.firestore();
+  FK.state.syncUnsubs=FK.state.syncUnsubs||[];
+  FK.state.syncUnsubs.push(db.collection('sync').doc('cfg').onSnapshot(function(snap){
+    if(snap.exists)FK.applyRemoteCfg(snap.data());
+  },function(e){console.error('sync cfg erro',e);}));
+  FK.state.syncUnsubs.push(db.collection('sync').doc('pilotos').onSnapshot(function(snap){
+    if(snap.exists)FK.applyRemotePilotos(snap.data());
+  },function(e){console.error('sync pilotos erro',e);}));
+  FK.state.syncUnsubs.push(db.collection('sync').doc('live').onSnapshot(function(snap){
+    if(snap.exists)FK.applyRemoteLive(snap.data());
+  },function(e){console.error('sync live erro',e);}));
+},
+stopSync:function(){
+  (FK.state.syncUnsubs||[]).forEach(function(u){try{u();}catch(e){}});
+  FK.state.syncUnsubs=[];
+  FK.state.syncInited=false;
+},
+pushCfgToCloud:function(){
+  if(FK.state.applyingRemote||typeof firebase==='undefined'||!FK.state.authUser)return;
+  firebase.firestore().collection('sync').doc('cfg').set(FK.cfg).catch(function(e){console.error('push cfg erro',e);});
+},
+pushPilotosToCloud:function(arr){
+  if(FK.state.applyingRemote||typeof firebase==='undefined'||!FK.state.authUser)return;
+  firebase.firestore().collection('sync').doc('pilotos').set({list:arr}).catch(function(e){console.error('push pilotos erro',e);});
+},
+pushLiveToCloud:function(){
+  if(FK.state.applyingRemote||typeof firebase==='undefined'||!FK.state.authUser)return;
+  var driverByKart={};
+  (FK.cfg.myKarts||[]).forEach(function(k){
+    var bs=FK.state.boxState&&FK.state.boxState[k];
+    driverByKart[k]=(bs&&bs.piloto)||'';
+  });
+  var payload={
+    pilotQueue:FK.state.pilotQueue||{},
+    pqSlotDur:FK.state.pqSlotDur||{},
+    pilotQueueActiveIdx:FK.state.pilotQueueActiveIdx||{},
+    driverByKart:driverByKart
+  };
+  firebase.firestore().collection('sync').doc('live').set(payload).catch(function(e){console.error('push live erro',e);});
+},
+/* aplica um doc remoto -- liga a trava applyingRemote pra nao re-empurrar de volta pro
+   Firestore o mesmo dado que acabou de chegar de la (evitaria eco, embora inofensivo). */
+applyRemoteCfg:function(data){
+  if(!data)return;
+  FK.state.applyingRemote=true;
+  FK.cfg=Object.assign(FK.cfg,data);
+  try{localStorage.setItem('fkart_cfg',JSON.stringify(FK.cfg));}catch(e){}
+  FK.updateTopbar&&FK.updateTopbar();
+  FK.renderConfig&&FK.renderConfig();
+  FK.rPlacar&&FK.rPlacar();
+  FK.rPilotos&&FK.rPilotos();
+  FK.rDashKartsBox&&FK.rDashKartsBox();
+  FK.rDashKartsBox&&FK.rDashKartsBox('dg');
+  FK.rDashCrono&&FK.rDashCrono('dg-krono-grid','-dg');
+  FK.rDashCrono&&FK.rDashCrono('mob-krono-grid','-mob');
+  FK.rDashCrono&&FK.rDashCrono('tv-krono-grid','-tv');
+  var pqEl=document.getElementById('dg-pq-body');if(pqEl)pqEl.dataset.pqKey='';
+  FK.rPilotQueue&&FK.rPilotQueue();
+  FK.rPilotTotals&&FK.rPilotTotals();
+  FK.renderKartPilotsSetup&&FK.renderKartPilotsSetup();
+  FK.rStintPlan&&FK.rStintPlan();
+  FK.state.applyingRemote=false;
+},
+applyRemotePilotos:function(data){
+  if(!data)return;
+  FK.state.applyingRemote=true;
+  try{localStorage.setItem('fk_pilotos',JSON.stringify(data.list||[]));}catch(e){}
+  FK.rPilotos&&FK.rPilotos();
+  FK.renderKartPilotsSetup&&FK.renderKartPilotsSetup();
+  var pqEl=document.getElementById('dg-pq-body');if(pqEl)pqEl.dataset.pqKey='';
+  FK.rPilotQueue&&FK.rPilotQueue();
+  FK.rPilotTotals&&FK.rPilotTotals();
+  FK.state.applyingRemote=false;
+},
+applyRemoteLive:function(data){
+  if(!data)return;
+  FK.state.applyingRemote=true;
+  FK.state.pilotQueue=data.pilotQueue||{};
+  FK.state.pqSlotDur=data.pqSlotDur||{};
+  FK.state.pilotQueueActiveIdx=data.pilotQueueActiveIdx||{};
+  var driverByKart=data.driverByKart||{};
+  if(!FK.state.boxState)FK.state.boxState={};
+  Object.keys(driverByKart).forEach(function(k){
+    if(!FK.state.boxState[k])FK.state.boxState[k]={status:'disponivel',piloto:''};
+    FK.state.boxState[k].piloto=driverByKart[k];
+  });
+  var pqEl=document.getElementById('dg-pq-body');if(pqEl)pqEl.dataset.pqKey='';
+  FK.rPilotQueue&&FK.rPilotQueue();
+  FK.rPilotTotals&&FK.rPilotTotals();
+  FK.updatePilotQueueCurrent&&FK.updatePilotQueueCurrent();
+  FK.rBox&&FK.rBox();
+  FK.state.applyingRemote=false;
 },
 renderConfig:function(){
 var el=document.getElementById('cfg-race-name');if(el)el.value=FK.cfg.raceName;
@@ -1846,6 +1963,7 @@ FK.cfg.source='mylaptime';
 FK.state.liveData=rows;
 FK.recordHistory(rows);
 try{localStorage.setItem('fkart_cfg',JSON.stringify(FK.cfg));}catch(e){}
+FK.pushCfgToCloud&&FK.pushCfgToCloud();
 FK.updateSrcBadge();FK.rPlacar();
 if(typeof FK.rEstrategia==='function')FK.rEstrategia();
 if(typeof FK.rDashGeral==='function'){try{FK.rDashGeral();}catch(e){}}
@@ -1964,6 +2082,7 @@ getPilotos:function(){
 },
 savePilotosLS:function(arr){
   localStorage.setItem('fk_pilotos',JSON.stringify(arr));
+  FK.pushPilotosToCloud&&FK.pushPilotosToCloud(arr);
 },
 showAddPiloto:function(){
   var f=document.getElementById('add-piloto-form');
@@ -2030,6 +2149,7 @@ syncPilotoKartToConfig:function(){
     });
   });
   try{localStorage.setItem('fkart_cfg',JSON.stringify(FK.cfg));}catch(e){}
+  FK.pushCfgToCloud&&FK.pushCfgToCloud();
   FK.renderKartPilotsSetup&&FK.renderKartPilotsSetup();
   var pqEl=document.getElementById('dg-pq-body');if(pqEl)pqEl.dataset.pqKey='';
   FK.rPilotQueue&&FK.rPilotQueue();
@@ -3644,6 +3764,7 @@ setPilotQueueSlot:function(kart,idx,value){
   var el=document.getElementById('dg-pq-body');if(el)el.dataset.pqKey='';
   FK.rPilotQueue();
   FK.rPilotTotals&&FK.rPilotTotals();
+  FK.pushLiveToCloud&&FK.pushLiveToCloud();
 },
 /* Ativa o próximo piloto da fila (sempre em ordem): fecha o stint do piloto atual
    (duração calculada a partir de stintStartTs, guardada em pqSlotDur pra mostrar
@@ -3670,6 +3791,7 @@ activatePilotQueueSlot:function(kart,idx){
   var el=document.getElementById('dg-pq-body');if(el)el.dataset.pqKey='';
   FK.rPilotQueue();
   FK.rPilotTotals&&FK.rPilotTotals();
+  FK.pushLiveToCloud&&FK.pushLiveToCloud();
 },
 /* Tabela de tempo total dirigido por piloto, abaixo da Fila de Pilotos -- pedido 15/09/2026:
    "criar uma tabela abaixo da tabela fila de pilotos na aba dashboard, que por nome de
@@ -3732,6 +3854,7 @@ toggleKartPilot:function(kart,name){
   var idx=arr.indexOf(name);
   if(idx>=0)arr.splice(idx,1);else arr.push(name);
   try{localStorage.setItem('fkart_cfg',JSON.stringify(FK.cfg));}catch(e){}
+  FK.pushCfgToCloud&&FK.pushCfgToCloud();
   FK.renderKartPilotsSetup();
   if(FK.rPilotQueue){var pqEl=document.getElementById('dg-pq-body');if(pqEl)pqEl.dataset.pqKey='';FK.rPilotQueue();}
 },
