@@ -59,6 +59,11 @@ body{background:var(--bg);color:var(--txt);font-family:'Segoe UI',Arial,sans-ser
 .hdr-stack-row .hs-lbl{font-size:8px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;width:58px;flex-shrink:0}
 .hdr-stack-row .hs-val{font-size:13px;font-weight:900;color:var(--txt);font-variant-numeric:tabular-nums;font-family:var(--font-display)}
 .hdr-stack-row.acc .hs-val{color:var(--acc)}
+.hdr-stack-row.heavy-warn .hs-val{color:#eab308}
+.hdr-stack-row.heavy-danger .hs-val{color:#ef4444;animation:heavyBlink 1s infinite}
+.hdr-stack-row.heavy-active .hs-val{color:#4fc3f7}
+.hdr-stack-row.heavy-done .hs-val{color:#22c55e}
+@keyframes heavyBlink{0%,100%{opacity:1}50%{opacity:.4}}
 .hdr-leader{display:flex;flex-direction:column;gap:2px;flex-shrink:0;border-left:1px solid var(--border);padding-left:12px}
 .hdr-leader .hs-leader{font-size:11px;font-weight:700;color:var(--txt);white-space:nowrap}
 /* Botao de tema estilo "pill" com icone, no espirito do toggle de aparencia do iPhone
@@ -198,6 +203,11 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .pilot-card-body label{font-size:12px;color:var(--mut);display:flex;align-items:center;gap:6px}
 .pilot-kart-sel{background:var(--card);color:var(--txt);border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:13px}
 .attr-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.nota-badge{flex-shrink:0;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;border:2px solid transparent}
+.nota-badge.nota-hi{background:rgba(34,197,94,0.2);color:#22c55e;border-color:#22c55e}
+.nota-badge.nota-mid{background:rgba(234,179,8,0.2);color:#eab308;border-color:#eab308}
+.nota-badge.nota-lo{background:rgba(239,68,68,0.2);color:#ef4444;border-color:#ef4444}
+.nota-badge.nota-none{background:rgba(255,255,255,0.05);color:var(--mut);border-color:var(--border);font-size:11px}
 .attr-tag{background:var(--card);color:var(--mut);border:1px solid var(--border);border-radius:12px;padding:3px 10px;font-size:11px;cursor:pointer;transition:.2s}
 .attr-tag:hover{border-color:var(--acc);color:var(--acc)}
 .attr-tag.sel{background:rgba(226,35,26,0.15);color:var(--acc);border-color:var(--acc)}
@@ -417,6 +427,43 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .pq-slot-name{font-size:11px;font-weight:700;color:var(--txt);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .pq-slot-status{font-size:9px;color:#5DCAA5;white-space:nowrap;flex-shrink:0}
 .pq-slot-timer{font-size:10px;color:var(--acc);font-weight:900;font-family:'Courier New',monospace;white-space:nowrap;flex-shrink:0}
+/* Fila de Pilotos read-only (TV Pilotos) */
+.tv-pq-kart{background:var(--bg);border:1px solid rgba(226,35,26,0.3);border-radius:8px;padding:10px 12px;margin-bottom:8px}
+.tv-pq-kart:last-child{margin-bottom:0}
+.tv-pq-hdr{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.tv-pq-current{display:flex;flex-direction:column;gap:2px}
+.tv-pq-lbl{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+.tv-pq-name{font-size:17px;font-weight:900;color:var(--txt)}
+.tv-pq-list{display:flex;flex-direction:column;gap:4px}
+.tv-pq-item{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:5px;padding:6px 10px}
+.tv-pq-item.done{opacity:.55}
+.tv-pq-item.active{border-color:var(--acc);background:rgba(226,35,26,0.1)}
+.tv-pq-item.next{border-color:#4fc3f7}
+.tv-pq-num{font-size:12px;font-weight:900;color:var(--acc);min-width:18px;text-align:center;flex-shrink:0}
+.tv-pq-pname{font-size:15px;font-weight:700;color:var(--txt);flex:1}
+.tv-pq-status{font-size:12px;color:#5DCAA5;white-space:nowrap;flex-shrink:0}
+.tv-pq-item.active .tv-pq-status{color:var(--acc);font-weight:700}
+.tv-pq-item.next .tv-pq-status{color:#4fc3f7;font-weight:700}
+/* TV Pilotos (1920x1080) — mesmos widgets do Dashboard Geral, fontes maiores p/ leitura a
+   distancia. Escopo .tv-dash so afeta essa aba, nao mexe no Dashboard Geral do chefe. */
+.tv-dash .dash-card-hdr h3{font-size:17px}
+.tv-dash .dash-card-hdr span{font-size:13px!important}
+.tv-dash .krono-card{padding:10px 12px}
+.tv-dash .krono-badge{width:38px;height:38px;font-size:16px}
+.tv-dash .krono-pos-info{font-size:14px}
+.tv-dash .krono-name{font-size:15px}
+.tv-dash .krono-timer{font-size:30px}
+.tv-dash .kr-cell .kl{font-size:11px}
+.tv-dash .kr-cell .kv{font-size:16px}
+.tv-dash .dr-mykarts-strip .mk-chip{font-size:13px}
+.tv-dash .dr-table th{font-size:13px}
+.tv-dash .dr-table td{font-size:16px;padding:8px 9px}
+.tv-dash .proj-arrow{font-size:13px}
+.tv-dash .d-pos{font-size:14px;width:28px;height:28px}
+.tv-dash .d-kart{font-size:14px;width:38px;height:38px}
+.tv-dash .laphist-table{font-size:15px}
+.tv-dash .lh-kart{font-size:15px;padding:5px 10px}
+.tv-dash .lh-chip{font-size:14px;min-width:66px;height:30px}
 .pq-activate-btn{background:var(--acc);color:#fff;border:none;border-radius:5px;padding:4px 9px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap}
 /* Config: Setup — pilotos por kart */
 .kp-setup-kart{margin-bottom:12px}
@@ -483,6 +530,7 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 <div class="hdr-stack-row"><span class="hs-lbl">Decorrido</span><span class="hs-val" id="elapsed">00:00:00</span></div>
 <div class="hdr-stack-row"><span class="hs-lbl">Restante</span><span class="hs-val" id="remaining">--:--:--</span></div>
 <div class="hdr-stack-row acc"><span class="hs-lbl">Fecha o box</span><span class="hs-val" id="hdr-cd-pitclose">--:--:--</span></div>
+<div class="hdr-stack-row" id="hdr-heavy-row" onclick="FK.toggleHeavyStint()" style="cursor:pointer" title="Clique para marcar o inicio do Stint Obrigatorio Pesado (105kg / 40min). Clique de novo pra reiniciar."><span class="hs-lbl">Stint Pesado</span><span class="hs-val" id="hdr-cd-heavy">--:--:--</span></div>
 </div>
 <div class="hdr-leader">
 <div class="hdr-stack-row"><span class="hs-lbl">Volta (líder)</span><span class="hs-val" id="hdr-lap-num">--</span></div>
@@ -496,6 +544,7 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 <div class="tabs" id="tabs">
 <div class="tab on" data-tab="dashgeral">&#127937; Dashboard</div>
 <div class="tab" data-tab="mobile">&#128241; Dashboard Celular</div>
+<div class="tab" data-tab="tvpilotos">&#128250; TV Pilotos</div>
 <div class="tab" data-tab="pilotos">&#128100; Pilotos</div>
 <div class="tab" data-tab="estrategia">&#127919; Estrategia</div>
 <div class="tab" data-tab="config">&#9881; Config</div>
@@ -571,9 +620,12 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 </div>
 <div class="pane" id="pane-pilotos">
 <div class="card">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:8px;flex-wrap:wrap">
     <h3 style="margin:0">&#128100; Pilotos</h3>
-    <button class="live-btn" onclick="FK.showAddPiloto()" style="padding:8px 16px;font-size:13px">&#43; Adicionar Piloto</button>
+    <div style="display:flex;gap:8px">
+      <button onclick="FK.showImportPilotos()" style="padding:8px 16px;font-size:13px;background:var(--card);color:var(--txt);border:1px solid var(--border);border-radius:6px;cursor:pointer">&#128203; Importar Lista</button>
+      <button class="live-btn" onclick="FK.showAddPiloto()" style="padding:8px 16px;font-size:13px">&#43; Adicionar Piloto</button>
+    </div>
   </div>
   <div id="pilotos-body"></div>
   <div id="add-piloto-form" style="display:none;margin-top:16px;background:var(--border);padding:16px;border-radius:8px">
@@ -587,6 +639,15 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
       <button onclick="FK.hideAddPiloto()" style="flex:1;background:var(--card);color:var(--mut);border:1px solid var(--border);padding:8px;border-radius:6px;cursor:pointer">Cancelar</button>
     </div>
   </div>
+  <div id="import-piloto-form" style="display:none;margin-top:16px;background:var(--border);padding:16px;border-radius:8px">
+    <h4 style="margin:0 0 8px;color:var(--acc)">Importar / Atualizar Pilotos em massa</h4>
+    <p style="font-size:11px;color:var(--mut);margin:0 0 8px">Uma linha por piloto: <code>Nome, Nota</code> (nota é opcional, 0-10). Pilotos existentes (por nome) têm a nota atualizada; nomes novos são cadastrados.</p>
+    <textarea id="ip-text" rows="8" placeholder="Bruno Rossi, 8&#10;Marcos Takuma, 9&#10;Raphael Cardozo, 8" style="width:100%;font-family:monospace;font-size:12px;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--txt)"></textarea>
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button class="live-btn" onclick="FK.importPilotosBulk()" style="flex:1">&#10003; Importar</button>
+      <button onclick="FK.hideImportPilotos()" style="flex:1;background:var(--card);color:var(--mut);border:1px solid var(--border);padding:8px;border-radius:6px;cursor:pointer">Cancelar</button>
+    </div>
+  </div>
 </div></div>
 <!-- Dashboard Celular (27/08/2026): vista compacta pra quem acompanha pelo celular, longe
      da telona do box -- so o essencial pra uma decisao rapida numa parada. -->
@@ -598,6 +659,54 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
       <span style="font-size:9px;color:var(--mut)">Volta atual</span>
     </div>
     <div class="krono-grid" id="mob-krono-grid"></div>
+  </div>
+</div>
+</div>
+<!-- TV Pilotos (15/09/2026): dashboard fixo pra telona do box, resolucao 1920x1080, visao
+     do piloto -- so o que ele precisa (cronometros, classificacao, historico de voltas,
+     fila de pilotos) sem os controles do chefe de equipe. So leitura, nada clicavel. -->
+<div class="pane" id="pane-tvpilotos">
+<div class="dash-root tv-dash">
+  <div class="dash-card">
+    <div class="dash-card-hdr">
+      <h3>&#9201; Cronômetros da Equipe</h3>
+      <span style="font-size:12px;color:var(--mut)">Volta atual</span>
+    </div>
+    <div class="krono-grid grid6" id="tv-krono-grid"></div>
+  </div>
+  <div class="dash-cols">
+    <div class="dash-col">
+      <div class="dash-card">
+        <div class="dash-card-hdr">
+          <h3>&#127937; Classificação — Top 10 + Equipe</h3>
+          <span style="font-size:12px;color:var(--mut)" id="tv-rank-updated"></span>
+        </div>
+        <div class="dr-mykarts-strip" id="tv-rank-mykarts"></div>
+        <table class="dr-table" id="tv-rank-table">
+          <thead><tr>
+            <th>Pos</th><th>Kart</th><th>Piloto / Equipe</th><th>Cat</th>
+            <th>Última</th><th>Gap</th><th>P.Curta</th><th>P.Longa</th><th>Proj</th>
+          </tr></thead>
+          <tbody id="tv-rank-body"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="dash-col">
+      <div class="dash-card">
+        <div class="dash-card-hdr">
+          <h3>&#128220; Histórico de Voltas — Equipe</h3>
+          <span style="font-size:12px;color:var(--mut)">últimas 10 voltas por kart</span>
+        </div>
+        <div id="tv-laphist-body"></div>
+      </div>
+      <div class="dash-card">
+        <div class="dash-card-hdr">
+          <h3>&#128101; Fila de Pilotos</h3>
+          <span style="font-size:12px;color:var(--mut)">quem vai para cada kart</span>
+        </div>
+        <div id="tv-pq-body"></div>
+      </div>
+    </div>
   </div>
 </div>
 </div>
@@ -1085,6 +1194,7 @@ if(t)t.classList.add('on');
 if(p)p.classList.add('on');
 if(name==='dashgeral'){FK.rDashGeral();}
 if(name==='mobile'){FK.rDashMobile();}
+if(name==='tvpilotos'){FK.rTvPilotos();}
 if(name==='pilotos')FK.rPilotos();
 if(name==='estrategia'){FK.rEstrategia();FK.rStintPlan&&FK.rStintPlan();}
 if(name==='config'){FK.renderConfig();FK.renderKartPilotsSetup();}
@@ -1095,7 +1205,7 @@ if(name==='users'){FK.rUsersAdmin();}
    A seguranca de verdade mora nas regras do Firestore (firestore.rules), isso aqui
    so esconde botoes/abas -- ninguem consegue burlar so mexendo no JS do navegador. */
 ADMIN_EMAIL:'gomescardozodasilva@gmail.com',
-ALL_TABS:['dashgeral','mobile','pilotos','estrategia','config'],
+ALL_TABS:['dashgeral','mobile','tvpilotos','pilotos','estrategia','config'],
 tabAllowed:function(name){
 if(name==='users')return !!(FK.state.authProfile&&FK.state.authProfile.isAdmin);
 if(!FK.state.authProfile||!FK.state.authProfile.approved)return false;
@@ -1189,7 +1299,7 @@ var rows=[];
 qs.forEach(function(doc){
 var d=doc.data(),uid=doc.id;
 var perms=d.permissions||{};
-var lblMap={dashgeral:'Dashboard',mobile:'Dash. Celular',pilotos:'Pilotos',estrategia:'Estrategia',config:'Config'};
+var lblMap={dashgeral:'Dashboard',mobile:'Dash. Celular',tvpilotos:'TV Pilotos',pilotos:'Pilotos',estrategia:'Estrategia',config:'Config'};
 var chips=FK.ALL_TABS.map(function(t){
 return '<label><input type="checkbox" data-uid="'+uid+'" data-perm="'+t+'" '+(perms[t]?'checked':'')+' '+(d.isAdmin?'disabled':'')+'> '+(lblMap[t]||t)+'</label>';
 }).join('');
@@ -1338,6 +1448,16 @@ if(rn)rn.textContent=FK.cfg.raceName;
 var wx=document.getElementById('wxbar');
 if(wx&&!FK.state.wxCurrent)wx.textContent=FK.cfg.wxLabel||'—';
 },
+toggleHeavyStint:function(){
+  if(FK.state.heavyStintDone){
+    if(confirm('Stint pesado ja marcado como cumprido. Reiniciar o cronometro?')){FK.state.heavyStintStartSec=null;FK.state.heavyStintDone=false;}
+  }else if(FK.state.heavyStintStartSec!=null){
+    if(confirm('Cronometro do stint pesado em andamento ('+FK.fmtTime(Math.max(0,(FK.state.elapsed||0)-FK.state.heavyStintStartSec))+' rodados). Reiniciar/cancelar?')){FK.state.heavyStintStartSec=null;}
+  }else{
+    FK.state.heavyStintStartSec=FK.state.elapsed||0;
+  }
+  FK.rDashHdrStrip&&FK.rDashHdrStrip();
+},
 updateSrcBadge:function(){
 var dot=document.getElementById('src-dot');
 var lbl=document.getElementById('src-label');
@@ -1375,6 +1495,7 @@ if(FK.syncKronoLapTimes)FK.syncKronoLapTimes();
    continuamente" relatado ao vivo em Betim. krono/stint continuam via o interval kronoFast (50ms). */
 var dashGeralPane=document.getElementById('pane-dashgeral');
 var mobilePane=document.getElementById('pane-mobile');
+var tvPane=document.getElementById('pane-tvpilotos');
 if(dashGeralPane&&dashGeralPane.classList.contains('on')){
   FK.rDashRanking('dg');FK.updateKronoPos();
   FK.rDashBoxIntel('dg');FK.rDashKartsBox('dg');FK.rDashPaceComp('dg');FK.rDashLapHistory('dg');
@@ -1385,6 +1506,10 @@ if(dashGeralPane&&dashGeralPane.classList.contains('on')){
   if(FK.rPilotQueue)FK.rPilotQueue();
 }else if(mobilePane&&mobilePane.classList.contains('on')){
   FK.updateKronoPos();FK.rDashCrono('mob-krono-grid','-mob');
+}else if(tvPane&&tvPane.classList.contains('on')){
+  FK.rDashRanking('tv');FK.updateKronoPos();FK.rDashLapHistory('tv');
+  FK.rDashCrono('tv-krono-grid','-tv');
+  if(FK.rTvPilotQueue)FK.rTvPilotQueue();
 }
 },1000);
 },
@@ -1704,18 +1829,23 @@ pilotos.forEach(function(p,i){
   var kart2=(p.karts&&p.karts[1])||'';
   var kartOpts=FK.cfg.myKarts.map(function(k){return '<option value="'+k+'"'+(kart1===k?' selected':'')+'>Kart '+k+'</option>';}).join('');
   var kartOpts2=FK.cfg.myKarts.map(function(k){return '<option value="'+k+'"'+(kart2===k?' selected':'')+'>Kart '+k+'</option>';}).join('');
+  var nota=(p.nota===null||p.nota===undefined||p.nota==='')?null:parseFloat(p.nota);
+  var notaCls='nota-badge'+(nota===null?' nota-none':(nota>=8?' nota-hi':(nota>=6?' nota-mid':' nota-lo')));
+  var notaBadge='<div class="'+notaCls+'" title="Pontuação do piloto">'+(nota===null?'--':nota.toFixed(nota%1===0?0:1))+'</div>';
   html+='<div class="pilot-card">';
   html+='<div class="pilot-card-header">';
   html+='<div class="pilot-avatar">'+((p.nome||'?')[0].toUpperCase())+'</div>';
   html+='<div class="pilot-card-info">';
-  html+='<div class="pilot-card-name">'+( p.nome||'Sem nome')+'</div>';
+  html+='<div class="pilot-card-name" onclick="FK.editPilotoNome('+i+')" title="Clique para editar" style="cursor:pointer">'+( p.nome||'Sem nome')+' &#9998;</div>';
   html+='<div class="pilot-card-apelido">'+( p.apelido||'')+'</div>';
   html+='</div>';
+  html+=notaBadge;
   html+='<button class="del-btn" onclick="FK.removePiloto('+i+')" title="Remover">&times;</button>';
   html+='</div>';
   html+='<div class="pilot-card-body">';
   html+='<div class="kart-sel-row"><label class="kart-sel-lbl">Kart 1:<select class="pilot-kart-sel" data-slot="0" onchange="FK.setPilotoKart('+i+',0,this.value)"><option value="">--</option>'+kartOpts+'</select></label><label class="kart-sel-lbl">Kart 2:<select class="pilot-kart-sel" data-slot="1" onchange="FK.setPilotoKart('+i+',1,this.value)"><option value="">--</option>'+kartOpts2+'</select></label></div>';
   html+='<label>Ordem de pilotagem:<input type="number" min="1" max="20" value="'+(p.ordem||i+1)+'" style="width:60px;margin-left:8px" onchange="FK.setPilotoOrdem('+i+',this.value)"></label>';
+  html+='<label>Pontuação (0-10):<input type="number" min="0" max="10" step="0.5" value="'+(nota===null?'':nota)+'" placeholder="--" style="width:60px;margin-left:8px" onchange="FK.setPilotoNota('+i+',this.value)"></label>';
   html+='<div class="attr-list">'+attBtns+'</div>';
   html+='</div>';
   html+='</div>';
@@ -1765,6 +1895,62 @@ setPilotoKart:function(i,slot,k){
 },
 setPilotoOrdem:function(i,v){
   var arr=FK.getPilotos();if(arr[i]){arr[i].ordem=parseInt(v)||i+1;FK.savePilotosLS(arr);}
+},
+setPilotoNota:function(i,v){
+  var arr=FK.getPilotos();if(!arr[i])return;
+  var n=parseFloat(v);
+  if(isNaN(n)){arr[i].nota=null;}else{arr[i].nota=Math.max(0,Math.min(10,n));}
+  FK.savePilotosLS(arr);FK.rPilotos();
+},
+editPilotoNome:function(i){
+  var arr=FK.getPilotos();if(!arr[i])return;
+  var novo=prompt('Nome do piloto:',arr[i].nome||'');
+  if(novo===null)return;
+  novo=novo.trim();if(!novo)return;
+  arr[i].nome=novo;
+  FK.savePilotosLS(arr);FK.rPilotos();
+},
+showImportPilotos:function(){
+  var f=document.getElementById('import-piloto-form');
+  if(f){f.style.display='block';}
+},
+hideImportPilotos:function(){
+  var f=document.getElementById('import-piloto-form');
+  if(f){f.style.display='none';}
+  var t=document.getElementById('ip-text');if(t)t.value='';
+},
+_normNome:function(s){
+  return (s||'').toString().trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+},
+importPilotosBulk:function(){
+  var raw=(document.getElementById('ip-text')||{}).value||'';
+  var lines=raw.split(/\n/).map(function(l){return l.trim();}).filter(function(l){return l;});
+  if(!lines.length)return alert('Cole ao menos uma linha (Nome, Nota).');
+  var arr=FK.getPilotos();
+  var added=0,updated=0;
+  lines.forEach(function(line){
+    var parts=line.split(',');
+    var nome=(parts[0]||'').trim();
+    if(!nome)return;
+    var notaRaw=parts.length>1?parts.slice(1).join(',').trim():'';
+    var nota=notaRaw===''?null:Math.max(0,Math.min(10,parseFloat(notaRaw)));
+    if(notaRaw!==''&&isNaN(nota))nota=null;
+    var key=FK._normNome(nome);
+    var found=null;
+    for(var j=0;j<arr.length;j++){if(FK._normNome(arr[j].nome)===key){found=arr[j];break;}}
+    if(found){
+      if(nota!==null&&!isNaN(nota))found.nota=nota;
+      updated++;
+    }else{
+      arr.push({nome:nome,apelido:'',kart:'',ordem:arr.length+1,attrs:[],nota:(nota!==null&&!isNaN(nota))?nota:null});
+      added++;
+    }
+  });
+  FK.savePilotosLS(arr);
+  FK.hideImportPilotos();
+  FK.rPilotos();
+  FK.renderKartPilotsSetup&&FK.renderKartPilotsSetup();
+  alert('Importação concluída: '+added+' novo(s), '+updated+' atualizado(s).');
 },
 toggleAttr:function(i,a){
   var arr=FK.getPilotos();
@@ -2499,8 +2685,8 @@ syncKronoLapTimes:function(){
     ks.best=kd.best;ks.last=kd.last;ks.pos=kd.pos;
     /* "Melhor"/"Última" no card só eram escritos na criação do card (nunca mais depois) —
        atualiza aqui também pra não ficarem parados durante a corrida */
-    ['kbest-'+k,'kbest-'+k+'-dg'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=kd.best||'--:--';});
-    ['klast-'+k,'klast-'+k+'-dg'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=kd.last||'--:--';});
+    ['kbest-'+k,'kbest-'+k+'-dg','kbest-'+k+'-tv'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=kd.best||'--:--';});
+    ['klast-'+k,'klast-'+k+'-dg','klast-'+k+'-tv'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=kd.last||'--:--';});
   });
 },
 startKronoInterval:function(){
@@ -2508,9 +2694,11 @@ startKronoInterval:function(){
   FK.state.kronoFast=setInterval(function(){
     var paneGeral=document.getElementById('pane-dashgeral');
     var paneMobile=document.getElementById('pane-mobile');
+    var paneTv=document.getElementById('pane-tvpilotos');
     var onGeral=paneGeral&&paneGeral.classList.contains('on');
     var onMobile=paneMobile&&paneMobile.classList.contains('on');
-    if(!onGeral&&!onMobile)return;
+    var onTv=paneTv&&paneTv.classList.contains('on');
+    if(!onGeral&&!onMobile&&!onTv)return;
     FK.cfg.myKarts.forEach(function(k){
       var ks=FK.state.kronoState&&FK.state.kronoState[k];
       if(!ks||!ks.lapStartTs)return;
@@ -2533,7 +2721,7 @@ startKronoInterval:function(){
       /* pedido 27/08/2026: tirou a linha "Xv · tempo em pista" (ks-*) dos quadradinhos -- o
          tracking interno (stintLaps/stintStartTs) continua em FK.state.kronoState, só parou
          de ser exibido. */
-      ['kt-'+k,'kt-'+k+'-dg','kt-'+k+'-mob'].forEach(function(id){
+      ['kt-'+k,'kt-'+k+'-dg','kt-'+k+'-mob','kt-'+k+'-tv'].forEach(function(id){
         var tel=document.getElementById(id);
         if(tel){tel.textContent=timerStr;tel.className='krono-timer'+lateCls;}
       });
@@ -2587,7 +2775,7 @@ updateKronoPos:function(){
   FK.cfg.myKarts.forEach(function(k){
     var kd=FK.findKartData(data,k);
     var txt='P'+(kd?kd.pos:'?');
-    ['kp-'+k,'kp-'+k+'-dg','kp-'+k+'-mob'].forEach(function(id){
+    ['kp-'+k,'kp-'+k+'-dg','kp-'+k+'-mob','kp-'+k+'-tv'].forEach(function(id){
       var el=document.getElementById(id);
       if(el)el.textContent=txt;
     });
@@ -2848,6 +3036,39 @@ rDashHdrStrip:function(){
     else if(remPit>0){pitEl.textContent=FK.fmtTime(remPit);pitEl.style.color='';}
     else{pitEl.textContent='FECHADO';pitEl.style.color='var(--red)';}
   });
+  /* Stint Obrigatorio Pesado (Art.21 regulamento KGV 6h): 105kg, minimo 40min consecutivos,
+     tem que ser ABERTO ate FK.cfg.heavyWindowEndSec de prova. Clique no card (FK.toggleHeavyStint)
+     marca o inicio manualmente -- nao da pra detectar peso/turno automaticamente pelo feed. */
+  (function(){
+    var row=document.getElementById('hdr-heavy-row'),val=document.getElementById('hdr-cd-heavy');
+    if(!row||!val)return;
+    row.classList.remove('heavy-warn','heavy-danger','heavy-active','heavy-done');
+    var HEAVY_DUR=2400; /* 40min, fixo pelo regulamento */
+    var hs=FK.state.heavyStintStartSec;
+    if(FK.state.heavyStintDone){
+      val.textContent='CUMPRIDO ✓';row.classList.add('heavy-done');
+    }else if(hs!=null){
+      var remStint=HEAVY_DUR-((FK.state.elapsed||0)-hs);
+      if(remStint<=0){
+        FK.state.heavyStintDone=true;val.textContent='CUMPRIDO ✓';row.classList.add('heavy-done');
+      }else{
+        val.textContent=FK.fmtTime(remStint);row.classList.add('heavy-active');
+      }
+    }else{
+      var heavyEnd=FK.cfg.heavyWindowEndSec||0;
+      if(heavyEnd<=0){val.textContent='--:--:--';}
+      else{
+        var remDeadline=heavyEnd-(FK.state.elapsed||0);
+        if(remDeadline>0){
+          val.textContent=FK.fmtTime(remDeadline);
+          if(remDeadline<600)row.classList.add('heavy-danger');
+          else if(remDeadline<1800)row.classList.add('heavy-warn');
+        }else{
+          val.textContent='ATRASADO!';row.classList.add('heavy-danger');
+        }
+      }
+    }
+  })();
   /* pista/sessao detectadas ao vivo pelo GetSession (so aparece quando ha dado real) */
   var trackBadge=document.getElementById('hdr-track-badge');
   var trackEl=document.getElementById('hdr-track-name');
@@ -2985,6 +3206,17 @@ rDashGeral:function(){
   FK.rDashHdrStrip();
   FK.rPilotQueue();
 },
+/* ── TV Pilotos (15/09/2026): telona 1920x1080 p/ os pilotos, so leitura -- reusa os mesmos
+   renderizadores parametrizados por prefixo (rDashRanking/rDashCrono/rDashLapHistory) e
+   um espelho read-only da Fila de Pilotos (rTvPilotQueue), sem selects/botao Ativar. ── */
+rTvPilotos:function(){
+  FK.rDashRanking('tv');
+  FK.rDashCrono('tv-krono-grid','-tv');
+  FK.updateKronoPos();
+  FK.rDashLapHistory('tv');
+  FK.rDashHdrStrip();
+  FK.rTvPilotQueue();
+},
 /* ── Fila de pilotos por kart (Dashboard Geral) ──
    Nº de vagas = paradas máximas (config), sendo as primeiras (paradas mínimas) obrigatórias
    e o restante marcado como extra/opcional. Reconstrói só quando karts/paradas/pilotos mudam;
@@ -3044,7 +3276,7 @@ updatePilotQueueCurrent:function(){
     var nome=(bs[k]&&bs[k].piloto)||'—';
     var el=document.getElementById('pq-cur-'+k);
     if(el)el.textContent=nome;
-    ['kn-'+k+'-dg','kn-'+k+'-mob'].forEach(function(id){
+    ['kn-'+k+'-dg','kn-'+k+'-mob','kn-'+k+'-tv'].forEach(function(id){
       var nel=document.getElementById(id);
       if(nel)nel.textContent=nome;
     });
@@ -3054,6 +3286,43 @@ updatePilotQueueCurrent:function(){
       if(ks&&ks.stintStartTs)timerEl.textContent=FK.fmtTime((Date.now()-ks.stintStartTs)/1000);
     }
   });
+},
+/* Fila de Pilotos, versao read-only pra TV Pilotos: mesmo estado (FK.state.pilotQueue /
+   pilotQueueActiveIdx / pqSlotDur) que a Fila de Pilotos do Dashboard Geral, mas so exibe
+   -- sem select de escalacao nem botao Ativar (isso continua so no Dashboard Geral, com
+   o chefe de equipe). So mostra vagas ja preenchidas pelo chefe (pula vagas vazias). */
+rTvPilotQueue:function(){
+  var el=document.getElementById('tv-pq-body');if(!el)return;
+  if(!FK.cfg.myKarts.length){el.innerHTML='<div style="padding:20px;color:var(--mut);text-align:center;font-size:14px">Nenhum kart configurado</div>';return;}
+  var minStops=FK.cfg.minPitStops||0;
+  var maxStops=FK.cfg.maxPitStops||0;
+  var slots=Math.max(maxStops,minStops,1);
+  var bs=FK.state.boxState||{};
+  var html='';
+  FK.cfg.myKarts.forEach(function(k){
+    var queue=(FK.state.pilotQueue&&FK.state.pilotQueue[k])||[];
+    var activeIdx=(FK.state.pilotQueueActiveIdx&&FK.state.pilotQueueActiveIdx[k]!=null)?FK.state.pilotQueueActiveIdx[k]:-1;
+    var doneDur=(FK.state.pqSlotDur&&FK.state.pqSlotDur[k])||{};
+    var curName=(bs[k]&&bs[k].piloto)||'—';
+    html+='<div class="tv-pq-kart">';
+    html+='<div class="tv-pq-hdr"><span class="krono-badge" style="width:34px;height:34px;font-size:13px">'+k+'</span><div class="tv-pq-current"><span class="tv-pq-lbl">Na pista agora</span><span class="tv-pq-name">'+curName+'</span></div></div>';
+    html+='<div class="tv-pq-list">';
+    var any=false;
+    for(var i=0;i<slots;i++){
+      var val=queue[i]||'';
+      if(!val)continue;
+      any=true;
+      var required=i<minStops;
+      var isPast=i<activeIdx||doneDur[i]!=null;
+      var isActive=i===activeIdx;
+      var st=isPast?'done':(isActive?'active':(i===activeIdx+1?'next':'pending'));
+      var stLbl=isPast?('Concluído'+(doneDur[i]!=null?' · '+FK.fmtTime(Math.floor(doneDur[i]/1000)):'')):(isActive?'Na pista':(i===activeIdx+1?'Próximo':'Na fila'));
+      html+='<div class="tv-pq-item '+st+'"><span class="tv-pq-num">'+(i+1)+(required?'':'*')+'</span><span class="tv-pq-pname">'+val+'</span><span class="tv-pq-status">'+stLbl+'</span></div>';
+    }
+    if(!any)html+='<div style="padding:8px;color:var(--mut);font-size:12px">Fila ainda não montada</div>';
+    html+='</div></div>';
+  });
+  el.innerHTML=html;
 },
 setPilotQueueSlot:function(kart,idx,value){
   if(!FK.state.pilotQueue)FK.state.pilotQueue={};
