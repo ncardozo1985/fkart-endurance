@@ -242,6 +242,11 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .wx-hour-cell.rain .wh-p{color:#4fc3f7}
 .wx-hour-cell.dry .wh-p{color:var(--green)}
 .wx-hour-cell .wh-mm{font-size:10px;color:var(--mut);margin-top:1px}
+.wx-hour-cell .wh-temp{font-size:10px;color:var(--mut);margin-top:3px;border-top:1px dashed var(--border);padding-top:3px}
+.wx-hour-cell .wh-track{font-size:11px;font-weight:700;margin-top:1px}
+.wx-hour-cell .wh-track.trk-cold{color:#4fc3f7}
+.wx-hour-cell .wh-track.trk-warm{color:#ffa726}
+.wx-hour-cell .wh-track.trk-hot{color:var(--acc)}
 
 /*  Box tab CSS  */
 .box-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
@@ -2245,6 +2250,37 @@ rStintPlan:function(){
   body.innerHTML=rows;
   if(typeof FK.rSatWx==='function')FK.rSatWx(stints,pitsArr);
 },
+/* Estimativa de temperatura de PISTA (pedido 15/09/2026: "baseado em analises e informacoes
+   tecnicas" -- nao existe sensor de asfalto no KGV nem API publica que devolva isso, so da
+   pra estimar). Modelo simples com 2 fatores, montado em cima de referencias tecnicas de
+   motorsport/pavimentacao (ver fontes citadas na resposta do chat):
+   1) OFFSET solar por condicao de ceu (WMO weathercode do Open-Meteo): sol aberto aquece
+      asfalto MUITO mais que o ar (+15 a +20°C e casos extremos vao ate +25/30°C segundo
+      fontes de F1/pavimentacao); nublado fechado o ganho quase some (fica so uns +3/4°C
+      residual); chuva/garoa ativa joga a pista pra perto do ar (o asfalto molhado esfria
+      rapido -- por isso usamos ate um leve NEGATIVO).
+   2) FATOR de "memoria termica" por hora do dia: o asfalto tem massa termica e atrasa em
+      relacao ao ar -- de manha cedo ainda nao acumulou calor (mesmo com sol), o pico
+      real de temperatura de pista bate no meio/fim da tarde (14h-16h), nao ao meio-dia.
+      Isso é aproximado aqui por uma curva crescente das 7h as 15h.
+   E so uma ESTIMATIVA (a variavel real muda com sombra, vento, tipo de asfalto do KGV
+   especificamente, etc.) -- por isso a UI sempre rotula como "estimado". */
+estTrackTemp:function(airTemp,code,hour,mm){
+  var solarOffset;
+  if(mm>0||code>=51){solarOffset=-1;}          // chuva/garoa ativa: pista ~= ar (ou um pouco abaixo)
+  else if(code===0){solarOffset=18;}            // ceu limpo/sol aberto
+  else if(code===1||code===2){solarOffset=12;}  // parcialmente nublado
+  else if(code===3){solarOffset=4;}             // nublado fechado, sem chuva
+  else{solarOffset=2;}                          // neblina/outros -- conservador
+  var lagFactor;
+  if(hour<=8)lagFactor=0.35;
+  else if(hour<=10)lagFactor=0.55;
+  else if(hour<=12)lagFactor=0.75;
+  else if(hour<=14)lagFactor=0.9;
+  else lagFactor=1.0;
+  var offset=solarOffset*(solarOffset>0?lagFactor:1); // o offset negativo (chuva) nao usa lag -- efeito é imediato
+  return Math.round((airTemp+offset)*10)/10;
+},
 /* Estrategia 2 -- previsao do dia da corrida cruzada com o planejamento de stints acima
    (pedido 15/09/2026: "montar uma sugestao... se tiver mais probabilidade de chuva em
    determinado horario, tentar stints mais longos na pista seca e stints mais curtos se
@@ -2271,10 +2307,11 @@ rSatWx:function(stints,pitsArr){
     var html='';
     hrs.forEach(function(h){
       var cls=h.p>=50?'rain':(h.p<30?'dry':'');
-      html+='<div class="wx-hour-cell '+cls+'"><div class="wh-h">'+(h.h<10?'0'+h.h:h.h)+'h</div><div class="wh-p">'+h.p+'%</div><div class="wh-mm">'+(h.mm!=null?h.mm.toFixed(1):'-')+'mm</div></div>';
+      var trkCls=h.track<20?'trk-cold':(h.track>42?'trk-hot':'trk-warm');
+      html+='<div class="wx-hour-cell '+cls+'"><div class="wh-h">'+(h.h<10?'0'+h.h:h.h)+'h</div><div class="wh-p">'+h.p+'%</div><div class="wh-mm">'+(h.mm!=null?h.mm.toFixed(1):'-')+'mm</div><div class="wh-temp">'+Math.round(h.temp)+'&deg;C ar</div><div class="wh-track '+trkCls+'">'+h.track.toFixed(0)+'&deg;C pista&#42;</div></div>';
     });
     elHourly.innerHTML=html;
-    if(elUpd)elUpd.textContent='Previsao consultada '+new Date(FK.state.satWxFetchedAt).toLocaleString('pt-BR')+' · pode mudar ate sabado, revise de novo na sexta';
+    if(elUpd)elUpd.textContent='Previsao consultada '+new Date(FK.state.satWxFetchedAt).toLocaleString('pt-BR')+' · pode mudar ate sabado, revise de novo na sexta · &#42;pista = estimativa (KGV nao tem sensor de asfalto)';
     var startH=FK.SAT_RACE_START_H;
     function probAt(elapsedSec){
       var h=Math.floor(startH+elapsedSec/3600);
@@ -2296,9 +2333,19 @@ rSatWx:function(stints,pitsArr){
       var hh=d.getHours(),mm=d.getMinutes();
       return (hh<10?'0'+hh:hh)+':'+(mm<10?'0'+mm:mm);
     };
+    /* temperatura de pista estimada (ja calculada por hora em FK.estTrackTemp, na busca) --
+       usa pra apontar a largada fria (grip reduzido no S1) e o pico do dia. */
+    var startTrackH=hrs.find(function(x){return x.h===startH;});
+    var trackVals=hrs.map(function(h){return h.track;});
+    var maxTrack=Math.max.apply(null,trackVals),minTrack=Math.min.apply(null,trackVals);
+    var maxTrackHour=(hrs.find(function(h){return h.track===maxTrack;})||{}).h;
+    var trackTxt='<br><br><b>&#127777; Temperatura de pista (estimada)</b> — o KGV nao tem sensor de asfalto, entao isso e uma estimativa baseada em referencias tecnicas (sol direto aquece o asfalto bem mais que o ar; chuva/nublado derruba essa diferenca; e a pista "atrasa" em relacao ao ar, batendo o pico so no meio da tarde). '+
+      'A largada as '+raceClockTxt(0)+' pega a pista mais fria do dia (&#8776;'+(startTrackH?startTrackH.track.toFixed(0):'--')+'&deg;C estimados, contra '+(startTrackH?Math.round(startTrackH.temp):'--')+'&deg;C de ar) — espere grip reduzido e cuidado extra nas primeiras voltas do S1. '+
+      'A pista deve esquentar ao longo da manha, com pico estimado perto de '+(maxTrackHour!=null?(maxTrackHour<10?'0'+maxTrackHour:maxTrackHour)+'h':'--')+' (&#8776;'+maxTrack.toFixed(0)+'&deg;C) — janela de melhor grip, mas tambem de mais desgaste. '+
+      (maxRisk>=20?'Se a chuva da tarde se confirmar, a pista esfria rapido e perde parte desse grip extra — reforca o cuidado no(s) stint(s) de maior risco apontado(s) acima.':'');
     var reco;
     if(maxRisk<20){
-      reco='Previsao aponta corrida praticamente seca de ponta a ponta (chance de chuva abaixo de 20% o tempo todo, entre '+raceClockTxt(0)+' e '+raceClockTxt((FK.cfg.raceTotal||21600))+'). A Estrategia 1 (divisao igual dos stints acima) vale como esta — sem necessidade de ajuste por clima.';
+      reco='Previsao aponta corrida praticamente seca de ponta a ponta (chance de chuva abaixo de 20% o tempo todo, entre '+raceClockTxt(0)+' e '+raceClockTxt((FK.cfg.raceTotal||21600))+'). A Estrategia 1 (divisao igual dos stints acima) vale como esta — sem necessidade de ajuste por chuva.'+trackTxt;
     }else{
       var riskTxt=riskStints.map(function(st){return 'S'+st.idx+' ('+raceClockTxt(st.start)+'-'+raceClockTxt(st.end)+', ate '+st.rainRisk+'% de chance)';}).join(', ');
       var focoTxt=(lastStint&&lastStint.rainRisk>=20)?('no <b>ultimo stint (S'+lastStint.idx+', '+raceClockTxt(lastStint.start)+'-'+raceClockTxt(lastStint.end)+')</b>'):('em '+riskTxt);
@@ -2307,7 +2354,7 @@ rSatWx:function(stints,pitsArr){
       '<br>1) escale o piloto mais seguro/constante (nao necessariamente o mais rapido) pro(s) stint(s) de maior risco de chuva — um erro/spin custa mais caro no fim da prova do que no comeco;'+
       '<br>2) aproveite a janela seca do inicio da manha pra colocar ritmo forte e construir vantagem de voltas enquanto a pista esta no seco;'+
       '<br>3) o regulamento permite ate '+(FK.cfg.maxPitStops||8)+' paradas (o minimo obrigatorio e '+((FK.cfg.minPitStops||0)+(FK.cfg.longPitStops||0))+') — se a chuva chegar mais forte ou mais cedo do que essa previsao, uma parada extra (~'+Math.round((FK.cfg.minPitDurationSec||360)/60)+'min) da pra trocar de piloto fora do horario planejado sem violar o minimo obrigatorio, desde que ainda dentro do corte de '+FK.fmtTime(FK.cfg.mandatoryStopCutoffSec||0)+';'+
-      '<br>4) revise essa previsao de novo mais perto do dia (sexta-feira) — a alguns dias de distancia ela ainda pode mudar bastante.';
+      '<br>4) revise essa previsao de novo mais perto do dia (sexta-feira) — a alguns dias de distancia ela ainda pode mudar bastante.'+trackTxt;
     }
     elReco.innerHTML=reco;
   }
@@ -2327,7 +2374,8 @@ rSatWx:function(stints,pitsArr){
       if(t.slice(0,10)!==target)return;
       var hh=parseInt(t.slice(11,13),10);
       if(hh<startH||hh>endH)return;
-      hrs.push({h:hh,p:d.hourly.precipitation_probability[i],mm:d.hourly.precipitation[i],temp:d.hourly.temperature_2m[i]});
+      var temp=d.hourly.temperature_2m[i],code=d.hourly.weathercode[i],mm=d.hourly.precipitation[i];
+      hrs.push({h:hh,p:d.hourly.precipitation_probability[i],mm:mm,temp:temp,code:code,track:FK.estTrackTemp(temp,code,hh,mm)});
     });
     FK.state.satWxHourly=hrs;
     FK.state.satWxFetchedAt=Date.now();
