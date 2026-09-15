@@ -667,6 +667,19 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
     </div>
     <div class="pq-body grid6" id="dg-pq-body"></div>
   </div>
+  <!-- TEMPO TOTAL POR PILOTO: pedido 15/09/2026 -- "tabela abaixo da fila de pilotos... por
+       nome de piloto, quanto tempo correu, baseado nos tempos totalizados da fila de
+       pilotos". Soma os stints concluidos (+ o stint em andamento, se houver) por piloto. -->
+  <div class="dash-card">
+    <div class="dash-card-hdr">
+      <h3>&#9201; Tempo Total por Piloto</h3>
+      <span style="font-size:9px;color:var(--mut)">soma dos stints da fila de pilotos</span>
+    </div>
+    <table class="dr-table" style="width:100%;max-width:420px">
+      <thead><tr><th>Piloto</th><th style="text-align:right">Tempo</th></tr></thead>
+      <tbody id="dg-pt-body"></tbody>
+    </table>
+  </div>
 </div>
 </div>
 <div class="pane" id="pane-pilotos">
@@ -1569,6 +1582,7 @@ if(dashGeralPane&&dashGeralPane.classList.contains('on')){
      vivo conforme as posições mudam, e não só quando a aba é trocada ou o config é salvo */
   FK.rDashCrono('dg-krono-grid','-dg');
   if(FK.rPilotQueue)FK.rPilotQueue();
+  FK.rPilotTotals&&FK.rPilotTotals();
 }else if(mobilePane&&mobilePane.classList.contains('on')){
   FK.updateKronoPos();FK.rDashCrono('mob-krono-grid','-mob');
 }else if(tvPane&&tvPane.classList.contains('on')){
@@ -1946,9 +1960,10 @@ savePiloto:function(){
   FK.renderKartPilotsSetup&&FK.renderKartPilotsSetup();
 },
 removePiloto:function(i){
-  var arr=FK.getPilotos();arr.splice(i,1);
+  var arr=FK.getPilotos();
+  arr.splice(i,1);
   FK.savePilotosLS(arr);FK.rPilotos();
-  FK.renderKartPilotsSetup&&FK.renderKartPilotsSetup();
+  FK.syncPilotoKartToConfig();
 },
 setPilotoKart:function(i,slot,k){
   var arr=FK.getPilotos();
@@ -1957,6 +1972,41 @@ setPilotoKart:function(i,slot,k){
   arr[i].karts[slot]=k;
   arr[i].kart=arr[i].karts[0];
   FK.savePilotosLS(arr);
+  FK.syncPilotoKartToConfig();
+},
+/* Sincroniza FK.cfg.kartPilots (o que o Config mostra como "chips" e o que o Dashboard usa
+   pra filtrar o dropdown da Fila de Pilotos) a partir do Kart 1 / Kart 2 escolhido na aba
+   Pilotos -- pedido 15/09/2026: "fiz a definicao dos karts por pilotos na aba pilotos, porem
+   na aba config nao foi atualizado, entao esta aparecendo todas as opcoes de pilotos em cada
+   kart". Antes cada tela guardava a informacao no seu canto (o piloto guardava so
+   arr[i].karts, nunca refletido em FK.cfg.kartPilots). Roda uma reconciliacao completa (nao
+   so do piloto que mudou) -- assim tambem conserta de uma vez os pilotos que ja tinham sido
+   configurados na aba Pilotos ANTES desse fix existir, e limpa nomes "fantasma" (removidos
+   ou renomeados) sem apagar nada que o usuario adicionou manualmente no Config pra um kart
+   que nenhum piloto reivindica (ex: kart emprestado, sem piloto fixo). */
+syncPilotoKartToConfig:function(){
+  var arr=FK.getPilotos();
+  if(!FK.cfg.kartPilots)FK.cfg.kartPilots={};
+  var validNames={};
+  arr.forEach(function(p){var n=p.apelido||p.nome;if(n)validNames[n]=true;});
+  FK.cfg.myKarts.forEach(function(k){
+    if(!FK.cfg.kartPilots[k])FK.cfg.kartPilots[k]=[];
+    var list=FK.cfg.kartPilots[k];
+    for(var gi=list.length-1;gi>=0;gi--){if(!validNames[list[gi]])list.splice(gi,1);}
+    arr.forEach(function(p){
+      var name=p.apelido||p.nome;if(!name)return;
+      var assigned=(p.karts||[]).filter(Boolean);
+      var has=list.indexOf(name)>=0;
+      var should=assigned.indexOf(k)>=0;
+      if(should&&!has)list.push(name);
+      if(!should&&has)list.splice(list.indexOf(name),1);
+    });
+  });
+  try{localStorage.setItem('fkart_cfg',JSON.stringify(FK.cfg));}catch(e){}
+  FK.renderKartPilotsSetup&&FK.renderKartPilotsSetup();
+  var pqEl=document.getElementById('dg-pq-body');if(pqEl)pqEl.dataset.pqKey='';
+  FK.rPilotQueue&&FK.rPilotQueue();
+  FK.rPilotTotals&&FK.rPilotTotals();
 },
 setPilotoOrdem:function(i,v){
   var arr=FK.getPilotos();if(arr[i]){arr[i].ordem=parseInt(v)||i+1;FK.savePilotosLS(arr);}
@@ -1974,6 +2024,9 @@ editPilotoNome:function(i){
   novo=novo.trim();if(!novo)return;
   arr[i].nome=novo;
   FK.savePilotosLS(arr);FK.rPilotos();
+  /* pedido 15/09/2026: renomear o piloto tambem atualiza o nome dele dentro das listas de
+     elegiveis por kart (FK.cfg.kartPilots), senao fica uma referencia com o nome antigo. */
+  FK.syncPilotoKartToConfig();
 },
 showImportPilotos:function(){
   var f=document.getElementById('import-piloto-form');
@@ -3428,6 +3481,7 @@ rDashGeral:function(){
   FK.rDashLapHistory('dg');
   FK.rDashHdrStrip();
   FK.rPilotQueue();
+  FK.rPilotTotals&&FK.rPilotTotals();
 },
 /* ── TV Pilotos (15/09/2026): telona 1920x1080 p/ os pilotos, so leitura -- reusa os mesmos
    renderizadores parametrizados por prefixo (rDashRanking/rDashCrono/rDashLapHistory) e
@@ -3555,6 +3609,7 @@ setPilotQueueSlot:function(kart,idx,value){
      concluídas/ativa, então basta atualizar o botão Ativar (se essa vaga virou a "próxima") */
   var el=document.getElementById('dg-pq-body');if(el)el.dataset.pqKey='';
   FK.rPilotQueue();
+  FK.rPilotTotals&&FK.rPilotTotals();
 },
 /* Ativa o próximo piloto da fila (sempre em ordem): fecha o stint do piloto atual
    (duração calculada a partir de stintStartTs, guardada em pqSlotDur pra mostrar
@@ -3580,6 +3635,40 @@ activatePilotQueueSlot:function(kart,idx){
   FK.rBox&&FK.rBox();
   var el=document.getElementById('dg-pq-body');if(el)el.dataset.pqKey='';
   FK.rPilotQueue();
+  FK.rPilotTotals&&FK.rPilotTotals();
+},
+/* Tabela de tempo total dirigido por piloto, abaixo da Fila de Pilotos -- pedido 15/09/2026:
+   "criar uma tabela abaixo da tabela fila de pilotos na aba dashboard, que por nome de
+   piloto, quanto tempo correu, baseado nos tempos totalizados da fila de pilotos". Soma os
+   stints já concluídos (FK.state.pqSlotDur, cruzando com o nome guardado em
+   FK.state.pilotQueue pra cada vaga) por piloto em todos os karts, e soma tambem o stint em
+   andamento (se o piloto estiver na pista agora), pra refletir o tempo real já rodado. */
+rPilotTotals:function(){
+  var el=document.getElementById('dg-pt-body');if(!el)return;
+  var totals={};
+  var order=[];
+  function add(name,ms){
+    if(!name||!ms||ms<0)return;
+    if(!(name in totals)){totals[name]=0;order.push(name);}
+    totals[name]+=ms;
+  }
+  FK.cfg.myKarts.forEach(function(k){
+    var queue=(FK.state.pilotQueue&&FK.state.pilotQueue[k])||[];
+    var doneDur=(FK.state.pqSlotDur&&FK.state.pqSlotDur[k])||{};
+    Object.keys(doneDur).forEach(function(idx){add(queue[idx],doneDur[idx]);});
+    var activeIdx=(FK.state.pilotQueueActiveIdx&&FK.state.pilotQueueActiveIdx[k]!=null)?FK.state.pilotQueueActiveIdx[k]:-1;
+    if(activeIdx>=0){
+      var ks=FK.state.kronoState&&FK.state.kronoState[k];
+      if(ks&&ks.stintStartTs)add(queue[activeIdx],Date.now()-ks.stintStartTs);
+    }
+  });
+  if(!order.length){el.innerHTML='<tr><td colspan="2" style="text-align:center;color:var(--mut);padding:10px">Nenhum stint concluído ainda</td></tr>';return;}
+  order.sort(function(a,b){return totals[b]-totals[a];});
+  var html='';
+  order.forEach(function(name){
+    html+='<tr><td>'+name+'</td><td style="text-align:right;font-variant-numeric:tabular-nums">'+FK.fmtTime(Math.floor(totals[name]/1000))+'</td></tr>';
+  });
+  el.innerHTML=html;
 },
 /* ── Config: Setup — pilotos elegíveis por kart ── */
 renderKartPilotsSetup:function(){
