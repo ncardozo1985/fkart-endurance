@@ -778,6 +778,19 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
     <th>Stint</th><th>Inicio</th><th>Fim</th><th>Duracao</th><th>Parada apos</th><th>Alerta</th>
   </tr></thead><tbody id="stint-plan-body"></tbody></table></div>
 </div>
+<!-- Estrategia 2 -- previsao do dia da corrida (15/09/2026, pedido do Rapha): cruza a previsao
+     horaria de sabado (largada) com o planejamento de stints acima pra sugerir ajustes de
+     escalacao de piloto por janela de risco de chuva. So aparece util quando FK.rSatWx() acha
+     dados -- ver constantes FK.SAT_RACE_DATE/FK.SAT_RACE_START_H. -->
+<div class="card" id="sat-wx-card">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px">
+    <h3 style="margin:0">&#127782; Estrategia 2 — Previsao do Dia da Corrida (sabado, largada 9h)</h3>
+    <span style="font-size:11px;color:var(--mut)" id="sat-wx-updated"></span>
+  </div>
+  <p style="color:var(--mut);font-size:12px;margin-bottom:10px">Previsao especifica pro horario da prova (9h as ~15h) no KGV, cruzada com os stints do planejamento acima. Baseada na previsao de hoje — revise de novo mais perto do dia, a alguns dias de distancia ela ainda pode mudar.</p>
+  <div id="sat-wx-hourly" class="wx-hourly-row"><span style="color:var(--mut);font-size:12px">Carregando previsao de sabado...</span></div>
+  <div id="sat-wx-reco" style="margin-top:10px;font-size:12px;line-height:1.7;color:var(--txt)"></div>
+</div>
 <div class="card">
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px">
     <h3 style="margin:0">&#127919; Estrategia (Solo Endurance)</h3>
@@ -1248,6 +1261,10 @@ if(name==='users'){FK.rUsersAdmin();}
    A seguranca de verdade mora nas regras do Firestore (firestore.rules), isso aqui
    so esconde botoes/abas -- ninguem consegue burlar so mexendo no JS do navegador. */
 ADMIN_EMAIL:'gomescardozodasilva@gmail.com',
+/* Estrategia 2 -- data/horario da corrida de sabado (pedido 15/09/2026). Ajuste aqui se a
+   data ou o horario de largada mudar (confirmado com o Rapha: sabado 19/09, largada ~9h). */
+SAT_RACE_DATE:'2026-09-19',
+SAT_RACE_START_H:9,
 ALL_TABS:['dashgeral','mobile','tvpilotos','pilotos','estrategia','config'],
 tabAllowed:function(name){
 if(name==='users')return !!(FK.state.authProfile&&FK.state.authProfile.isAdmin);
@@ -2226,6 +2243,98 @@ rStintPlan:function(){
     rows+='<tr'+(st.heavyRec?' style="background:rgba(79,195,247,0.08)"':'')+'><td>S'+st.idx+(st.heavyRec?' &#9878;':'')+'</td><td>'+FK.fmtTime(st.start)+'</td><td>'+FK.fmtTime(st.end)+'</td><td>'+mmss(st.end-st.start)+'</td><td>'+pitTxt+'</td><td>'+warnTxt+'</td></tr>';
   });
   body.innerHTML=rows;
+  if(typeof FK.rSatWx==='function')FK.rSatWx(stints,pitsArr);
+},
+/* Estrategia 2 -- previsao do dia da corrida cruzada com o planejamento de stints acima
+   (pedido 15/09/2026: "montar uma sugestao... se tiver mais probabilidade de chuva em
+   determinado horario, tentar stints mais longos na pista seca e stints mais curtos se
+   chover"). Como o regulamento fixa o NUMERO e a DURACAO das paradas obrigatorias (nao da
+   pra alongar/encurtar stint trocando pneu como em prova de carro -- e kart alugado, pneu
+   fixo), o ajuste possivel de verdade e: 1) qual piloto pilota cada janela (o mais
+   seguro/constante nas janelas de maior risco de chuva, nao necessariamente o mais rapido),
+   2) empurrar ritmo forte nas janelas secas pra construir vantagem, e 3) usar as paradas
+   OPCIONAIS que sobram ate o maximo do regulamento (maxPitStops) como contingencia se a
+   chuva chegar diferente do previsto. So busca a previsao uma vez por sessao (fica em
+   FK.state.satWxHourly) pra nao bater na API toda hora que rStintPlan() roda. */
+rSatWx:function(stints,pitsArr){
+  var elHourly=document.getElementById('sat-wx-hourly');
+  var elReco=document.getElementById('sat-wx-reco');
+  var elUpd=document.getElementById('sat-wx-updated');
+  if(!elHourly||!elReco)return;
+  function render(){
+    var hrs=FK.state.satWxHourly;
+    if(!hrs||!hrs.length){
+      elHourly.innerHTML='<span style="color:var(--mut);font-size:12px">Sem dados de previsao pra '+FK.SAT_RACE_DATE+' ainda (fora do alcance da previsao, ou erro na busca).</span>';
+      elReco.innerHTML='';
+      return;
+    }
+    var html='';
+    hrs.forEach(function(h){
+      var cls=h.p>=50?'rain':(h.p<30?'dry':'');
+      html+='<div class="wx-hour-cell '+cls+'"><div class="wh-h">'+(h.h<10?'0'+h.h:h.h)+'h</div><div class="wh-p">'+h.p+'%</div><div class="wh-mm">'+(h.mm!=null?h.mm.toFixed(1):'-')+'mm</div></div>';
+    });
+    elHourly.innerHTML=html;
+    if(elUpd)elUpd.textContent='Previsao consultada '+new Date(FK.state.satWxFetchedAt).toLocaleString('pt-BR')+' · pode mudar ate sabado, revise de novo na sexta';
+    var startH=FK.SAT_RACE_START_H;
+    function probAt(elapsedSec){
+      var h=Math.floor(startH+elapsedSec/3600);
+      var found=hrs.find(function(x){return x.h===h;});
+      return found?found.p:null;
+    }
+    var riskStints=[];
+    stints.forEach(function(st){
+      var pStart=probAt(st.start),pEnd=probAt(Math.max(st.start,st.end-1));
+      var maxP=Math.max(pStart!=null?pStart:0,pEnd!=null?pEnd:0);
+      st.rainRisk=maxP;
+      if(maxP>=20)riskStints.push(st);
+    });
+    var maxRisk=stints.reduce(function(a,st){return Math.max(a,st.rainRisk||0);},0);
+    var lastStint=stints[stints.length-1];
+    var raceClockTxt=function(sec){
+      var d=new Date(2000,0,1,startH,0,0);
+      d.setSeconds(d.getSeconds()+sec);
+      var hh=d.getHours(),mm=d.getMinutes();
+      return (hh<10?'0'+hh:hh)+':'+(mm<10?'0'+mm:mm);
+    };
+    var reco;
+    if(maxRisk<20){
+      reco='Previsao aponta corrida praticamente seca de ponta a ponta (chance de chuva abaixo de 20% o tempo todo, entre '+raceClockTxt(0)+' e '+raceClockTxt((FK.cfg.raceTotal||21600))+'). A Estrategia 1 (divisao igual dos stints acima) vale como esta — sem necessidade de ajuste por clima.';
+    }else{
+      var riskTxt=riskStints.map(function(st){return 'S'+st.idx+' ('+raceClockTxt(st.start)+'-'+raceClockTxt(st.end)+', ate '+st.rainRisk+'% de chance)';}).join(', ');
+      var focoTxt=(lastStint&&lastStint.rainRisk>=20)?('no <b>ultimo stint (S'+lastStint.idx+', '+raceClockTxt(lastStint.start)+'-'+raceClockTxt(lastStint.end)+')</b>'):('em '+riskTxt);
+      reco='<b>Chuva pode aparecer ao longo da tarde</b> — maior risco caindo justamente '+focoTxt+
+      '. Como o numero e a duracao das paradas sao fixos pelo regulamento (nao da pra "entrar antes pra trocar pneu" — e kart de aluguel, pneu unico), os ajustes reais de estrategia sao de escalacao de piloto e uso das paradas opcionais que sobram:'+
+      '<br>1) escale o piloto mais seguro/constante (nao necessariamente o mais rapido) pro(s) stint(s) de maior risco de chuva — um erro/spin custa mais caro no fim da prova do que no comeco;'+
+      '<br>2) aproveite a janela seca do inicio da manha pra colocar ritmo forte e construir vantagem de voltas enquanto a pista esta no seco;'+
+      '<br>3) o regulamento permite ate '+(FK.cfg.maxPitStops||8)+' paradas (o minimo obrigatorio e '+((FK.cfg.minPitStops||0)+(FK.cfg.longPitStops||0))+') — se a chuva chegar mais forte ou mais cedo do que essa previsao, uma parada extra (~'+Math.round((FK.cfg.minPitDurationSec||360)/60)+'min) da pra trocar de piloto fora do horario planejado sem violar o minimo obrigatorio, desde que ainda dentro do corte de '+FK.fmtTime(FK.cfg.mandatoryStopCutoffSec||0)+';'+
+      '<br>4) revise essa previsao de novo mais perto do dia (sexta-feira) — a alguns dias de distancia ela ainda pode mudar bastante.';
+    }
+    elReco.innerHTML=reco;
+  }
+  if(FK.state.satWxHourly){render();return;}
+  var lat=FK.cfg.wxLat!=null?FK.cfg.wxLat:-23.6051778;
+  var lon=FK.cfg.wxLon!=null?FK.cfg.wxLon:-46.8360874;
+  var url='https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+
+    '&hourly=precipitation_probability,precipitation,temperature_2m,weathercode&timezone=America/Sao_Paulo&forecast_days=10';
+  var xhr=new XMLHttpRequest();xhr.open('GET',url);
+  xhr.onload=function(){try{
+    var d=JSON.parse(xhr.responseText);
+    var target=FK.SAT_RACE_DATE;
+    var startH=Math.max(0,FK.SAT_RACE_START_H-1);
+    var endH=Math.min(23,FK.SAT_RACE_START_H+Math.ceil((FK.cfg.raceTotal||21600)/3600)+1);
+    var hrs=[];
+    d.hourly.time.forEach(function(t,i){
+      if(t.slice(0,10)!==target)return;
+      var hh=parseInt(t.slice(11,13),10);
+      if(hh<startH||hh>endH)return;
+      hrs.push({h:hh,p:d.hourly.precipitation_probability[i],mm:d.hourly.precipitation[i],temp:d.hourly.temperature_2m[i]});
+    });
+    FK.state.satWxHourly=hrs;
+    FK.state.satWxFetchedAt=Date.now();
+    render();
+  }catch(e){console.warn('sat wx error',e);elHourly.innerHTML='<span style="color:var(--mut);font-size:12px">Erro ao buscar previsao de sabado.</span>';}};
+  xhr.onerror=function(){elHourly.innerHTML='<span style="color:var(--mut);font-size:12px">Erro ao buscar previsao de sabado (sem conexao?).</span>';};
+  xhr.send();
 },
 rEstrategia:function(){
   var el=document.getElementById('estrategia-body');if(!el)return;
