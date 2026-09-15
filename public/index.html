@@ -346,9 +346,10 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
    equipe tem mais karts, ate o teto de 8. */
 .krono-grid.grid-fit{grid-template-columns:repeat(var(--kn,6),minmax(0,1fr))}
 /* Dashboard Celular usa esta variante em vez de grid-fit: em telas de celular "caber na tela"
-   não precisa ser 1 linha só -- 2-3 linhas de cards maiores/legíveis cabem tranquilo e ficam
-   bem melhor de ler do que 6-8 cards espremidos numa linha (ver comentário mais abaixo). */
-.krono-grid.grid-mob{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))}
+   não precisa ser 1 linha só -- pedido 15/09/2026 (depois de ver em 3 colunas): "da pra
+   colocar dois por linha, mas menores na altura, assim ocupa bem a disposição do celular" --
+   2 colunas largas (mais espaço pra cada card) só que mais baixas (ver overrides abaixo). */
+.krono-grid.grid-mob{grid-template-columns:repeat(2,minmax(0,1fr))}
 .krono-card{background:var(--bg);border:1px solid rgba(226,35,26,0.3);border-radius:7px;padding:6px 8px;min-width:0}
 .krono-top{display:flex;align-items:center;gap:8px;margin-bottom:4px}
 .krono-left{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0}
@@ -362,21 +363,18 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .kr-cell .kl{font-size:8px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
 .kr-cell .kv{font-size:11px;font-weight:700;color:var(--txt)}
 .kr-cell .kv.acc{color:var(--acc)}
-/* pedido 15/09/2026: "na aba dashboard celular que todos os cronometros caibam na tela do
-   celular com maximo de 8". Primeira tentativa forçou tudo numa linha só (igual Dashboard/TV)
-   -- ficou technicamente sem overflow, mas o Rapha testou no iPhone dele e reportou "cards
-   muito pequenos/apertados" (print em anexo). Ajuste: no celular NÃO força 1 linha só -- deixa
-   quebrar em 2-3 linhas (repeat(auto-fill,minmax(100px,1fr)) via .grid-mob), o que já cabe
-   folgado na tela (sobra bastante espaço vazio embaixo, conferido no print) e permite cards
-   bem maiores/legíveis, perto do tamanho normal do Dashboard Geral. */
-.mob-root .krono-card{padding:5px 7px}
-.mob-root .krono-badge{width:22px;height:22px;font-size:10px}
-.mob-root .krono-name{font-size:9px;line-height:1.15;-webkit-line-clamp:1}
+/* pedido 15/09/2026, 2ª rodada: com 3 por linha os cards ficaram altos/desproporcionais pro
+   gosto do Rapha -- "dois por linha, mas menores na altura, assim ocupa bem a disposição do
+   celular". Com 2 colunas sobra bastante largura por card, então: badge + nome voltam lado a
+   lado (não empilhados) e Melhor/Última voltam lado a lado também (cabe de sobra em ~150-190px
+   de largura) -- isso encolhe a altura do card quase pela metade em troca da largura extra. */
+.mob-root .krono-card{padding:5px 8px}
+.mob-root .krono-top{flex-direction:row;gap:6px;margin-bottom:2px}
+.mob-root .krono-badge{width:20px;height:20px;font-size:9px}
+.mob-root .krono-name{font-size:10px;line-height:1.1;-webkit-line-clamp:1;text-align:left}
 .mob-root .krono-pos-info{font-size:9px}
-.mob-root .krono-timer{font-size:15px;letter-spacing:-0.5px}
-/* Melhor/Última empilhados (1 coluna) em vez de lado a lado -- evita que "01:01.747" precise
-   dividir a linha ao meio em cards mais estreitos (ex: 3 por linha) */
-.mob-root .krono-row{grid-template-columns:1fr;gap:0;margin-top:2px}
+.mob-root .krono-timer{font-size:17px;letter-spacing:-0.5px;padding:1px 0}
+.mob-root .krono-row{grid-template-columns:1fr 1fr;gap:4px;margin-top:1px}
 .mob-root .kr-cell{align-items:center}
 .mob-root .kr-cell .kl{font-size:7px}
 .mob-root .kr-cell .kv{font-size:10px}
