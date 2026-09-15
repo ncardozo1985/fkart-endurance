@@ -446,37 +446,58 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .tv-pq-item.next .tv-pq-status{color:#4fc3f7;font-weight:700}
 /* TV Pilotos (1920x1080) — mesmos widgets do Dashboard Geral, fontes bem maiores p/ leitura
    a distancia (telona no box). Escopo .tv-dash so afeta essa aba, nao mexe no Dashboard Geral
-   do chefe. O pane em si precisa preencher a altura toda do viewport (sem scroll da pagina) --
-   por isso a regra de altura no #pane-tvpilotos.pane.on abaixo, com especificidade maior que
-   o ".pane.on{display:block}" generico. */
+   do chefe.
+   CORRECAO 15/09/2026 (pedido do Rapha: "a disposicao das informacoes esta superando o tamanho
+   da tela, vai requerer um mouse"): a causa raiz era que NADA travava a altura do body/.content
+   de verdade -- o .pane virar flex:1 nao tem efeito nenhum se o pai (.content, que por sua vez
+   e filho do body) pode crescer sem limite, e o body so tinha min-height:100vh (sem teto), entao
+   quando o conteudo passava da altura da tela a PAGINA INTEIRA esticava e sobrava scroll do
+   navegador (exige mouse — inviavel numa TV de kiosk). Agora, ao entrar na aba TV Pilotos,
+   FK.tab() poe a classe "tv-mode" no <body> (ver tab():function) e as regras body.tv-mode
+   abaixo travam a pagina exatamente na altura da tela, escondem tudo que e clicavel/dispensavel
+   numa TV sem mouse (abas de navegacao, botao de tema, previsao hora-a-hora) pra sobrar altura
+   de verdade pro conteudo, e qualquer excesso que ainda sobre vira scroll interno só daquela
+   coluna (.dash-col overflow-y), nunca da pagina toda. */
+body.tv-mode{height:100vh;overflow:hidden}
+body.tv-mode .content{overflow:hidden;padding:8px;min-height:0}
+body.tv-mode .tabs{display:none}
+body.tv-mode #theme-toggle-btn{display:none}
+body.tv-mode #wx-hourly-canvas,body.tv-mode #wx-topbar-forecast{display:none}
+body.tv-mode .topbar{padding:4px 12px;gap:10px;flex-wrap:nowrap}
+body.tv-mode .hdr-stack,body.tv-mode .hdr-leader{padding-left:8px;gap:1px}
+body.tv-mode .hdr-stack-row .hs-lbl{width:50px;font-size:7px}
+body.tv-mode .hdr-stack-row .hs-val{font-size:12px}
+body.tv-mode .hdr-leader .hs-leader{font-size:10px}
 #pane-tvpilotos.pane.on{display:flex;flex-direction:column;flex:1;min-height:0}
-.tv-dash.dash-root{flex:1;min-height:0;grid-template-rows:auto 1fr}
-.tv-dash .dash-card-hdr{padding:10px 16px}
-.tv-dash .dash-card-hdr h3{font-size:22px}
-.tv-dash .dash-card-hdr span{font-size:15px!important}
-.tv-dash .krono-grid{padding:10px;gap:8px}
-.tv-dash .krono-card{padding:12px 14px}
-.tv-dash .krono-badge{width:46px;height:46px;font-size:19px}
-.tv-dash .krono-pos-info{font-size:16px}
-.tv-dash .krono-name{font-size:17px}
-.tv-dash .krono-timer{font-size:38px}
-.tv-dash .kr-cell .kl{font-size:12px}
-.tv-dash .kr-cell .kv{font-size:19px}
-.tv-dash .dr-mykarts-strip .mk-chip{font-size:15px;padding:4px 10px}
-.tv-dash .dr-table th{font-size:15px;padding:6px 8px}
-.tv-dash .dr-table td{font-size:19px;padding:9px 10px}
-.tv-dash .proj-arrow{font-size:15px}
-.tv-dash .d-pos{font-size:16px;width:32px;height:32px}
-.tv-dash .d-kart{font-size:16px;width:44px;height:44px}
-.tv-dash .laphist-table{font-size:18px}
-.tv-dash .lh-kart{font-size:17px;padding:6px 12px}
-.tv-dash .lh-chip{font-size:16px;min-width:74px;height:34px}
-.tv-dash .tv-pq-kart{padding:8px 12px;margin-bottom:6px}
-.tv-dash .tv-pq-name{font-size:20px}
-.tv-dash .tv-pq-lbl{font-size:12px}
-.tv-dash .tv-pq-pname{font-size:18px}
-.tv-dash .tv-pq-status{font-size:14px}
-.tv-dash .tv-pq-item{padding:7px 12px}
+.tv-dash.dash-root{flex:1;min-height:0;grid-template-rows:auto 1fr;gap:6px}
+.tv-dash .dash-cols{gap:6px}
+.tv-dash .dash-col{gap:6px}
+.tv-dash .dash-card-hdr{padding:6px 14px}
+.tv-dash .dash-card-hdr h3{font-size:18px}
+.tv-dash .dash-card-hdr span{font-size:13px!important}
+.tv-dash .krono-grid{padding:6px;gap:6px}
+.tv-dash .krono-card{padding:8px 10px}
+.tv-dash .krono-badge{width:38px;height:38px;font-size:16px}
+.tv-dash .krono-pos-info{font-size:13px}
+.tv-dash .krono-name{font-size:14px}
+.tv-dash .krono-timer{font-size:32px}
+.tv-dash .kr-cell .kl{font-size:10px}
+.tv-dash .kr-cell .kv{font-size:15px}
+.tv-dash .dr-mykarts-strip .mk-chip{font-size:12px;padding:3px 8px}
+.tv-dash .dr-table th{font-size:12px;padding:4px 6px}
+.tv-dash .dr-table td{font-size:15px;padding:5px 8px}
+.tv-dash .proj-arrow{font-size:12px}
+.tv-dash .d-pos{font-size:13px;width:27px;height:27px}
+.tv-dash .d-kart{font-size:13px;width:37px;height:37px}
+.tv-dash .laphist-table{font-size:14px}
+.tv-dash .lh-kart{font-size:14px;padding:4px 10px}
+.tv-dash .lh-chip{font-size:13px;min-width:58px;height:28px}
+.tv-dash .tv-pq-kart{padding:6px 10px;margin-bottom:5px}
+.tv-dash .tv-pq-name{font-size:16px}
+.tv-dash .tv-pq-lbl{font-size:10px}
+.tv-dash .tv-pq-pname{font-size:14px}
+.tv-dash .tv-pq-status{font-size:11px}
+.tv-dash .tv-pq-item{padding:5px 10px}
 .pq-activate-btn{background:var(--acc);color:#fff;border:none;border-radius:5px;padding:4px 9px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap}
 /* Config: Setup — pilotos por kart */
 .kp-setup-kart{margin-bottom:12px}
@@ -1205,6 +1226,12 @@ var t=document.querySelector('.tab[data-tab="'+name+'"]');
 var p=document.getElementById('pane-'+name);
 if(t)t.classList.add('on');
 if(p)p.classList.add('on');
+/* TV Pilotos (telona no box, sem mouse): trava a pagina na altura exata da tela via
+   classe no body (CSS abaixo cuida de zerar overflow/tabs/etc.) -- antes so o .pane
+   virava flex:1, mas o body/.content nunca ficavam com altura travada de verdade,
+   entao o conteudo empurrava a pagina inteira pra baixo do viewport (precisava de
+   mouse/scroll pra ver tudo). Ver bloco "body.tv-mode" no CSS. */
+document.body.classList.toggle('tv-mode',name==='tvpilotos');
 if(name==='dashgeral'){FK.rDashGeral();}
 if(name==='mobile'){FK.rDashMobile();}
 if(name==='tvpilotos'){FK.rTvPilotos();}
