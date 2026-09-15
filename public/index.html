@@ -460,10 +460,14 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
    coluna (.dash-col overflow-y), nunca da pagina toda. */
 body.tv-mode{height:100vh;overflow:hidden}
 body.tv-mode .content{overflow:hidden;padding:8px;min-height:0}
-body.tv-mode .tabs{display:none}
+/* pedido 15/09/2026: as abas nao podem sumir de vez -- sem elas ninguem troca de tela na TV.
+   Fica tudo visivel, so bem mais compacto (mesma ideia do breakpoint mobile) pra nao voltar
+   a empurrar o topbar pra 2 linhas. */
+body.tv-mode .tabs{gap:3px}
+body.tv-mode .tab{padding:3px 7px;font-size:10px}
 body.tv-mode #theme-toggle-btn{display:none}
 body.tv-mode #wx-hourly-canvas,body.tv-mode #wx-topbar-forecast{display:none}
-body.tv-mode .topbar{padding:4px 12px;gap:10px;flex-wrap:nowrap}
+body.tv-mode .topbar{padding:4px 12px;gap:8px;flex-wrap:nowrap}
 body.tv-mode .hdr-stack,body.tv-mode .hdr-leader{padding-left:8px;gap:1px}
 body.tv-mode .hdr-stack-row .hs-lbl{width:50px;font-size:7px}
 body.tv-mode .hdr-stack-row .hs-val{font-size:12px}
@@ -483,21 +487,29 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
 .tv-dash .krono-timer{font-size:32px}
 .tv-dash .kr-cell .kl{font-size:10px}
 .tv-dash .kr-cell .kv{font-size:15px}
-.tv-dash .dr-mykarts-strip .mk-chip{font-size:12px;padding:3px 8px}
-.tv-dash .dr-table th{font-size:12px;padding:4px 6px}
-.tv-dash .dr-table td{font-size:15px;padding:5px 8px}
+.tv-dash .dr-mykarts-strip .mk-chip{font-size:11px;padding:2px 6px}
+.tv-dash .dr-table th{font-size:11px;padding:3px 6px}
+/* linha da classificacao bem enxuta (pedido 15/09/2026: tem que caber o pior cenario --
+   10 do top + ate 6 karts da equipe fora do top 10 + 1 linha de separador = 17 linhas --
+   sem precisar de scroll). Badge de posicao/kart menor domina a altura da linha mais que
+   o padding, entao encolher os dois junto é o que realmente compra espaço vertical. */
+.tv-dash .dr-table td{font-size:14px;padding:3px 8px}
 .tv-dash .proj-arrow{font-size:12px}
-.tv-dash .d-pos{font-size:13px;width:27px;height:27px}
-.tv-dash .d-kart{font-size:13px;width:37px;height:37px}
+.tv-dash .d-pos{font-size:12px;width:23px;height:23px}
+.tv-dash .d-kart{font-size:12px;width:30px;height:30px}
 .tv-dash .laphist-table{font-size:14px}
 .tv-dash .lh-kart{font-size:14px;padding:4px 10px}
 .tv-dash .lh-chip{font-size:13px;min-width:58px;height:28px}
-.tv-dash .tv-pq-kart{padding:6px 10px;margin-bottom:5px}
-.tv-dash .tv-pq-name{font-size:16px}
+/* Fila de Pilotos em 3 colunas (pedido 15/09/2026: "tres karts por linha" -- antes cada
+   kart era um bloco cheio empilhado verticalmente, ficava comprido demais). */
+.tv-dash #tv-pq-body{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.tv-dash .tv-pq-kart{padding:6px 10px;margin-bottom:0;min-width:0}
+.tv-dash .tv-pq-hdr,.tv-dash .tv-pq-current,.tv-dash .tv-pq-item{min-width:0}
+.tv-dash .tv-pq-name{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tv-dash .tv-pq-lbl{font-size:10px}
-.tv-dash .tv-pq-pname{font-size:14px}
-.tv-dash .tv-pq-status{font-size:11px}
-.tv-dash .tv-pq-item{padding:5px 10px}
+.tv-dash .tv-pq-pname{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tv-dash .tv-pq-status{font-size:10px}
+.tv-dash .tv-pq-item{padding:4px 8px}
 .pq-activate-btn{background:var(--acc);color:#fff;border:none;border-radius:5px;padding:4px 9px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap}
 /* Config: Setup — pilotos por kart */
 .kp-setup-kart{margin-bottom:12px}
@@ -2643,6 +2655,10 @@ rDashRanking:function(prefix){
     }).join('');
     mkEl.innerHTML=mkHtml||'<span style="color:var(--mut);font-size:10px">Nenhum kart configurado</span>';
   }
+  /* linha mais compacta na TV (pedido 15/09/2026: sobrar espaço pra até +6 karts da equipe
+     fora do top 10, pior cenário) -- só encolhe o espaçamento entre as 2 linhas da célula
+     piloto/equipe, não mexe no Dashboard Geral do chefe. */
+  var tvRow=prefix==='tv';
   var html='';
   function rowHtml(d,sep){
     var my=FK.isMy(d.kart);
@@ -2662,7 +2678,7 @@ rDashRanking:function(prefix){
     return '<tr class="'+(my?'my-kart':'')+(sep?' dr-sep':'')+(pulsed?' row-pulse':'')+'">'+
     '<td><span class="d-pos '+pc+'">'+d.pos+'</span></td>'+
     '<td><span class="d-kart'+(my?' my':'')+'">'+d.kart+'</span></td>'+
-    '<td><div style="line-height:1.3"><span style="font-weight:'+(my?700:400)+'">'+d.t+(my?' ★':'')+'</span><br><span style="font-size:9px;color:var(--mut)">'+( d.equipe||'')+'</span></div></td>'+
+    '<td><div style="line-height:'+(tvRow?'1.05':'1.3')+'"><span style="font-weight:'+(my?700:400)+'">'+d.t+(my?' ★':'')+'</span><br><span style="font-size:9px;color:var(--mut)">'+( d.equipe||'')+'</span></div></td>'+
     '<td><span style="font-size:10px;color:var(--mut)">'+d.cat+'</span><span style="font-size:9px;color:#555;margin-left:3px">'+d.catPos+'º</span></td>'+
     '<td style="color:'+(my?'var(--acc)':'var(--txt)')+'">'+d.last+'</td>'+
     '<td style="font-size:10px;color:var(--mut)">'+d.gap+'</td>'+
