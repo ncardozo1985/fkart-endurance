@@ -766,15 +766,6 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
   <div id="est-wx-current" class="est-wx-row"><span style="color:var(--mut);font-size:12px">Carregando clima...</span></div>
   <div id="est-wx-hourly" class="wx-hourly-row"><span style="color:var(--mut);font-size:12px">Previsao hora a hora ate o fim da prova aparece aqui.</span></div>
 </div>
-<div class="card" style="margin-bottom:0">
-  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px">
-    <h3 style="margin:0" id="est-cat-title">&#127937; Classificacao da Categoria</h3>
-    <span style="font-size:11px;color:var(--mut)" id="est-cat-updated"></span>
-  </div>
-  <div style="overflow-x:auto"><table><thead><tr>
-    <th>Pos</th><th>Kart</th><th>Piloto/Equipe</th><th>Voltas</th><th>Melhor</th><th>Ultima</th><th>Gap (cat.)</th>
-  </tr></thead><tbody id="est-cat-body"></tbody></table></div>
-</div>
 </div>
 <div class="card" id="stint-plan-card">
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px">
@@ -2143,9 +2134,6 @@ rStintPlan:function(){
       var dur=isLong?longDur:minDur;
       var pStart=cursor,pEnd=pStart+dur;
       var warnings=[];
-      if(heavyEnd>heavyStart&&pStart<heavyEnd&&pEnd>heavyStart){
-        warnings.push('Heavy Window — sair do box 20kg acima do peso da categoria');
-      }
       if(boxFechadoStart>0&&svcApproxEnd>boxFechadoStart&&pStart<svcApproxEnd&&pEnd>boxFechadoStart){
         warnings.push('Perto/dentro do Box Fechado (Safety Kart) — confirme com a organizacao');
       }
@@ -2157,8 +2145,25 @@ rStintPlan:function(){
     }
   }
 
+  /* Stint Obrigatorio Pesado (105kg / min 40min continuos / tem que SAIR do box ate
+     heavyWindowEndSec de prova — pedido 15/09/2026, regra do adendo do regulamento): antes o
+     codigo so marcava "Heavy Window" em CADA parada que cruzasse a janela [0,4h], o que gerava
+     varios avisos iguais sem dizer qual stint de fato usar. Agora escolhe UM stint recomendado:
+     o ultimo que comeca antes do fim da janela E tem duracao >= HEAVY_MIN_SEC (mesmo minimo de
+     40min do adendo) -- assim sobra a maior folga possivel antes do corte, caso a corrida atrase. */
+  var HEAVY_MIN_SEC=2400;
+  var heavyRecIdx=-1;
+  if(heavyEnd>0){
+    for(var hi=0;hi<stints.length;hi++){
+      var hst=stints[hi];
+      if(hst.start<heavyEnd&&(hst.end-hst.start)>=HEAVY_MIN_SEC)heavyRecIdx=hi;
+    }
+    if(heavyRecIdx>=0)stints[heavyRecIdx].heavyRec=true;
+  }
+
   if(summ){
-    summ.textContent=numStints+' stints de ~'+mmss(stintSec)+' cada · '+pits+' paradas ('+minStops+'x'+(minDur/60)+'min'+(longStops>0?' + '+longStops+'x'+(longDur/60)+'min':'')+') = '+mmss(totalStopSec)+' de box';
+    summ.textContent=numStints+' stints de ~'+mmss(stintSec)+' cada · '+pits+' paradas ('+minStops+'x'+(minDur/60)+'min'+(longStops>0?' + '+longStops+'x'+(longDur/60)+'min':'')+') = '+mmss(totalStopSec)+' de box'+
+    (heavyRecIdx>=0?' · Stint Pesado (105kg) recomendado: S'+stints[heavyRecIdx].idx+' (sai '+FK.fmtTime(stints[heavyRecIdx].start)+', '+mmss(heavyEnd-stints[heavyRecIdx].start)+' de folga ate o corte de '+FK.fmtTime(heavyEnd)+')':'');
   }
 
   /* timeline SVG: faixa superior com as janelas especiais, faixa principal com stints/paradas */
@@ -2178,9 +2183,11 @@ rStintPlan:function(){
   var barY=28,barH=20;
   stints.forEach(function(st){
     var sx=x(st.start),sw=Math.max(1,x(st.end)-x(st.start));
-    svg+='<rect x="'+sx+'" y="'+barY+'" width="'+sw+'" height="'+barH+'" fill="var(--acc2)" opacity="0.85" rx="2"><title>Stint '+st.idx+': '+FK.fmtTime(st.start)+' - '+FK.fmtTime(st.end)+'</title></rect>';
+    var fill=st.heavyRec?'#4fc3f7':'var(--acc2)';
+    var titleSuf=st.heavyRec?' — recomendado p/ Stint Pesado (105kg)':'';
+    svg+='<rect x="'+sx+'" y="'+barY+'" width="'+sw+'" height="'+barH+'" fill="'+fill+'" opacity="0.9" rx="2" '+(st.heavyRec?'stroke="#fff" stroke-width="1.5"':'')+'><title>Stint '+st.idx+': '+FK.fmtTime(st.start)+' - '+FK.fmtTime(st.end)+titleSuf+'</title></rect>';
     if(sw>34){
-      svg+='<text x="'+(sx+sw/2)+'" y="'+(barY+barH/2+4)+'" font-size="10" fill="#fff" text-anchor="middle" font-weight="700">S'+st.idx+'</text>';
+      svg+='<text x="'+(sx+sw/2)+'" y="'+(barY+barH/2+4)+'" font-size="10" fill="#fff" text-anchor="middle" font-weight="700">S'+st.idx+(st.heavyRec?' ⚖':'')+'</text>';
     }
   });
   pitsArr.forEach(function(p){
@@ -2197,7 +2204,8 @@ rStintPlan:function(){
   }
   svg+='</svg>';
   svg+='<div style="display:flex;flex-wrap:wrap;gap:10px;font-size:9px;color:var(--mut);margin-top:2px">'+
-    '<span><span style="display:inline-block;width:8px;height:8px;background:#ffc107;opacity:0.7;margin-right:3px;vertical-align:middle"></span>Heavy Window</span>'+
+    '<span><span style="display:inline-block;width:8px;height:8px;background:#ffc107;opacity:0.7;margin-right:3px;vertical-align:middle"></span>Janela p/ Stint Pesado (105kg, ate 4h)</span>'+
+    '<span><span style="display:inline-block;width:8px;height:8px;background:#4fc3f7;margin-right:3px;vertical-align:middle"></span>Stint recomendado p/ Stint Pesado &#9878;</span>'+
     '<span><span style="display:inline-block;width:8px;height:8px;background:#ab47bc;opacity:0.7;margin-right:3px;vertical-align:middle"></span>Box Fechado / Safety Kart</span>'+
     '<span><span style="display:inline-block;width:8px;height:8px;background:var(--acc2);margin-right:3px;vertical-align:middle"></span>Stint</span>'+
     '<span><span style="display:inline-block;width:8px;height:8px;background:#8d6e63;margin-right:3px;vertical-align:middle"></span>Parada curta</span>'+
@@ -2211,13 +2219,15 @@ rStintPlan:function(){
   stints.forEach(function(st){
     var pit=pitsArr[st.idx-1];
     var pitTxt=pit?(pit.isLong?'Longa ('+(pit.dur/60)+'min)':'Curta ('+(pit.dur/60)+'min)'):'—';
-    var warnTxt=pit&&pit.warnings.length?('<span style="color:var(--red);font-size:10px">&#9888; '+pit.warnings.join(' · ')+'</span>'):'<span style="color:var(--mut);font-size:10px">—</span>';
-    rows+='<tr><td>S'+st.idx+'</td><td>'+FK.fmtTime(st.start)+'</td><td>'+FK.fmtTime(st.end)+'</td><td>'+mmss(st.end-st.start)+'</td><td>'+pitTxt+'</td><td>'+warnTxt+'</td></tr>';
+    var alerts=[];
+    if(pit&&pit.warnings.length)alerts.push('<span style="color:var(--red)">&#9888; '+pit.warnings.join(' · ')+'</span>');
+    if(st.heavyRec)alerts.push('<span style="color:#4fc3f7;font-weight:700">&#9878; Stint Pesado (105kg) — sai '+FK.fmtTime(st.start)+', '+mmss(heavyEnd-st.start)+' de folga ate o corte de '+FK.fmtTime(heavyEnd)+'</span>');
+    var warnTxt=alerts.length?('<div style="font-size:10px;display:flex;flex-direction:column;gap:2px">'+alerts.join('')+'</div>'):'<span style="color:var(--mut);font-size:10px">—</span>';
+    rows+='<tr'+(st.heavyRec?' style="background:rgba(79,195,247,0.08)"':'')+'><td>S'+st.idx+(st.heavyRec?' &#9878;':'')+'</td><td>'+FK.fmtTime(st.start)+'</td><td>'+FK.fmtTime(st.end)+'</td><td>'+mmss(st.end-st.start)+'</td><td>'+pitTxt+'</td><td>'+warnTxt+'</td></tr>';
   });
   body.innerHTML=rows;
 },
 rEstrategia:function(){
-  FK.rEstCatTable();
   var el=document.getElementById('estrategia-body');if(!el)return;
   var data=FK.getData();
   var rem=Math.max(0,(FK.cfg.raceTotal||0)-(FK.state.elapsed||0));
