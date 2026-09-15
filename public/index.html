@@ -345,6 +345,10 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
    (rDashCrono), sempre 1 unica linha -- as colunas so ficam mais estreitas conforme a
    equipe tem mais karts, ate o teto de 8. */
 .krono-grid.grid-fit{grid-template-columns:repeat(var(--kn,6),minmax(0,1fr))}
+/* Dashboard Celular usa esta variante em vez de grid-fit: em telas de celular "caber na tela"
+   não precisa ser 1 linha só -- 2-3 linhas de cards maiores/legíveis cabem tranquilo e ficam
+   bem melhor de ler do que 6-8 cards espremidos numa linha (ver comentário mais abaixo). */
+.krono-grid.grid-mob{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))}
 .krono-card{background:var(--bg);border:1px solid rgba(226,35,26,0.3);border-radius:7px;padding:6px 8px;min-width:0}
 .krono-top{display:flex;align-items:center;gap:8px;margin-bottom:4px}
 .krono-left{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0}
@@ -359,27 +363,23 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .kr-cell .kv{font-size:11px;font-weight:700;color:var(--txt)}
 .kr-cell .kv.acc{color:var(--acc)}
 /* pedido 15/09/2026: "na aba dashboard celular que todos os cronometros caibam na tela do
-   celular com maximo de 8" -- o mob-root trava em 480px de largura, entao com --kn=8 cada
-   card fica bem estreito (~40-55px); aperta padding/fontes so aqui (Dashboard Celular) pra
-   caber sem cortar conteudo. Posicao (P3 etc) some nesse card -- ja aparece na Classificacao
-   logo abaixo -- pra sobrar espaço pro que importa na parada: kart, piloto e o cronometro. */
-.mob-root .krono-grid.grid-fit{gap:3px;padding:4px}
-.mob-root .krono-card{padding:3px 2px;border-radius:5px}
-.mob-root .krono-top{gap:2px;margin-bottom:2px;flex-direction:column}
-.mob-root .krono-badge{width:18px;height:18px;font-size:8px}
-.mob-root .krono-pos-info{display:none}
-.mob-root .krono-name{font-size:7px;line-height:1.05;-webkit-line-clamp:1;text-align:center}
-/* --mob-tfs/--mob-kvfs: fonte do cronômetro e do melhor/última encolhe mais um degrau quando
-   a equipe tem 7-8 karts (rDashCrono calcula e seta essas variáveis) -- com 6 ou menos, o
-   tamanho normal (10px/8px) já cabe folgado; com 7-8 o "00:00.000" precisa de um degrau a
-   menos pra não vazar do card de ~41px. */
-.mob-root .krono-timer{font-size:var(--mob-tfs,10px);letter-spacing:-0.8px;padding:1px 0}
-/* Melhor/Última empilhados (1 coluna) em vez de lado a lado -- em 1/8 da largura da tela
-   nao sobra espaço horizontal pra "01:01.747" dividir a linha ao meio sem cortar */
-.mob-root .krono-row{grid-template-columns:1fr;gap:0;margin-top:1px}
+   celular com maximo de 8". Primeira tentativa forçou tudo numa linha só (igual Dashboard/TV)
+   -- ficou technicamente sem overflow, mas o Rapha testou no iPhone dele e reportou "cards
+   muito pequenos/apertados" (print em anexo). Ajuste: no celular NÃO força 1 linha só -- deixa
+   quebrar em 2-3 linhas (repeat(auto-fill,minmax(100px,1fr)) via .grid-mob), o que já cabe
+   folgado na tela (sobra bastante espaço vazio embaixo, conferido no print) e permite cards
+   bem maiores/legíveis, perto do tamanho normal do Dashboard Geral. */
+.mob-root .krono-card{padding:5px 7px}
+.mob-root .krono-badge{width:22px;height:22px;font-size:10px}
+.mob-root .krono-name{font-size:9px;line-height:1.15;-webkit-line-clamp:1}
+.mob-root .krono-pos-info{font-size:9px}
+.mob-root .krono-timer{font-size:15px;letter-spacing:-0.5px}
+/* Melhor/Última empilhados (1 coluna) em vez de lado a lado -- evita que "01:01.747" precise
+   dividir a linha ao meio em cards mais estreitos (ex: 3 por linha) */
+.mob-root .krono-row{grid-template-columns:1fr;gap:0;margin-top:2px}
 .mob-root .kr-cell{align-items:center}
-.mob-root .kr-cell .kl{font-size:6px}
-.mob-root .kr-cell .kv{font-size:var(--mob-kvfs,8px)}
+.mob-root .kr-cell .kl{font-size:7px}
+.mob-root .kr-cell .kv{font-size:10px}
 /* Box Intelligence */
 /* Box Intelligence — matriz visual */
 .bxi-matrix{display:flex;flex-wrap:wrap;gap:5px;padding:10px}
@@ -751,7 +751,7 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
       <h3>&#9201; Cronômetros da Equipe</h3>
       <span style="font-size:9px;color:var(--mut)">Volta atual</span>
     </div>
-    <div class="krono-grid grid-fit" id="mob-krono-grid"></div>
+    <div class="krono-grid grid-mob" id="mob-krono-grid"></div>
   </div>
 </div>
 </div>
@@ -3056,12 +3056,6 @@ rDashCrono:function(gridId,idSuffix){
      "if kartKey" abaixo pra sempre estar correto, mesmo que o DOM dos cards não precise ser
      reconstruído nesta chamada. */
   el.style.setProperty('--kn',Math.max(1,Math.min(karts.length,8)));
-  /* No Dashboard Celular (idSuffix -mob), com 7-8 karts o card fica estreito demais (~40px)
-     pro cronômetro "00:00.000" no tamanho normal -- encolhe mais um degrau nesse caso. */
-  if(idSuffix==='-mob'){
-    el.style.setProperty('--mob-tfs',(karts.length>6?8:10)+'px');
-    el.style.setProperty('--mob-kvfs',(karts.length>6?7:8)+'px');
-  }
   /* só reconstrói estrutura se a lista de karts OU a ordem mudou (evita recriar o DOM a
      cada tick e perder o estado visual dos timers) */
   var kartKey=karts.join(',')+'|'+(FK.cfg.kronoSortByPos?'pos':'reg');
