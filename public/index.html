@@ -260,6 +260,12 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .wx-hour-cell .wh-track.trk-cold{color:#4fc3f7}
 .wx-hour-cell .wh-track.trk-warm{color:#ffa726}
 .wx-hour-cell .wh-track.trk-hot{color:var(--acc)}
+.wx-hour-cell.compact{min-width:34px;padding:2px 3px;border-radius:6px;background:var(--glass)}
+.wx-hour-cell.compact .wh-h{font-size:8px}
+.wx-hour-cell.compact .wh-p{font-size:11px;margin-top:0}
+.wx-hour-cell.compact .wh-mm{display:none}
+.wx-hour-cell.compact .wh-temp{font-size:8px;margin-top:1px;border-top:none;padding-top:0;color:var(--mut)}
+.wx-hour-cell.compact .wh-track{font-size:8px;margin-top:0;font-weight:600}
 
 /*  Box tab CSS  */
 .box-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
@@ -1686,7 +1692,7 @@ updateTopbar:function(){
 var rn=document.getElementById('race-name');
 if(rn)rn.textContent=FK.cfg.raceName;
 var wx=document.getElementById('wxbar');
-if(wx&&!FK.state.wxCurrent)wx.textContent=FK.cfg.wxLabel||'—';
+if(wx&&!FK.state.wxCurrent)wx.textContent='Carregando clima...';
 },
 toggleHeavyStint:function(){
   if(FK.state.heavyStintDone){
@@ -2898,7 +2904,7 @@ var hum=d.relativehumidity_2m!=null?d.relativehumidity_2m:'--';
 FK.state.wxCurrent={temp:d.temperature_2m,hum:hum,wind:d.windspeed_10m,dir:dirs[di],icon:icon+' '+(wc===0?'Limpo':wc<=2?'Nublado parcial':wc<=3?'Nublado':wc<=67?'Chuva':'Neve'),rain:rain};
 if(typeof FK.rEstWeather==='function')FK.rEstWeather();
 var wx=document.getElementById('wxbar');
-if(wx)wx.innerHTML=(FK.cfg.wxLabel||'—')+' | '+icon+' | <span style="color:#90caf9">'+d.windspeed_10m+'km/h '+dirs[di]+'</span> | <span style="color:var(--acc)">'+d.temperature_2m+'°C</span> | <span style="color:#80deea">'+hum+'% UR</span> | <strong style="color:'+(rain?'#4fc3f7':'#66bb6a')+'">'+(rain?'Chuva possível':'Sem chuva')+'</strong>';
+if(wx)wx.innerHTML=icon+' | <span style="color:#90caf9">'+d.windspeed_10m+'km/h '+dirs[di]+'</span> | <span style="color:var(--acc)">'+d.temperature_2m+'°C</span> | <span style="color:#80deea">'+hum+'% UR</span> | <strong style="color:'+(rain?'#4fc3f7':'#66bb6a')+'">'+(rain?'Chuva possível':'Sem chuva')+'</strong>';
 }catch(e){}};
 xhr.onerror=function(){};
 xhr.send();setInterval(function(){FK.loadWx();},600000);
@@ -3315,6 +3321,24 @@ rDashLapHistory:function(prefix){
   el.innerHTML=html;
 },
 /* ── Clima horário ── */
+rTopbarWx:function(){
+  var el=document.getElementById('wx-topbar-forecast');if(!el)return;
+  var hrs=(FK.state.wxHourly||[]).slice(0,4);
+  if(!hrs.length){el.innerHTML='';return;}
+  var nowH=new Date().getHours();
+  var html='';
+  hrs.forEach(function(h){
+    var cls=h.p>=50?'rain':(h.p<30?'dry':'');
+    var trkCls=h.track!=null?(h.track<20?'trk-cold':(h.track>42?'trk-hot':'trk-warm')):'';
+    html+='<div class="wx-hour-cell compact '+cls+(h.h===nowH?' now':'')+'">'+
+      '<div class="wh-h">'+(h.h<10?'0'+h.h:h.h)+'h</div>'+
+      '<div class="wh-p">'+h.p+'%</div>'+
+      (h.temp!=null?'<div class="wh-temp">'+Math.round(h.temp)+'&deg;ar</div>':'')+
+      (h.track!=null?'<div class="wh-track '+trkCls+'">'+h.track.toFixed(0)+'&deg;pista</div>':'')+
+    '</div>';
+  });
+  el.innerHTML=html;
+},
 loadWxHourly:function(){
   var url='https://api.open-meteo.com/v1/forecast?latitude='+(FK.cfg.wxLat!=null?FK.cfg.wxLat:-23.249038)+'&longitude='+(FK.cfg.wxLon!=null?FK.cfg.wxLon:-47.339491)+
     '&hourly=precipitation_probability,precipitation,temperature_2m,weathercode&current=temperature_2m,weathercode,windspeed_10m,winddirection_10m,precipitation_probability,relativehumidity_2m'+
@@ -3335,20 +3359,23 @@ loadWxHourly:function(){
     var remainingSec=Math.max(0,(FK.cfg.raceTotal||14400)-(FK.state.elapsed||0));
     var raceEndMs=now.getTime()+remainingSec*1000+3600000;
     var times=d.hourly.time;var probs=d.hourly.precipitation_probability;var mms=d.hourly.precipitation;
+    var temps=d.hourly.temperature_2m;var codes=d.hourly.weathercode;
     var hrs=[];
     for(var i=0;i<times.length&&hrs.length<12;i++){
       var t=new Date(times[i]);
       if(t>=now){
-        hrs.push({h:t.getHours(),p:probs[i],mm:mms?mms[i]:null});
+        var hMm=mms?mms[i]:0;
+        hrs.push({h:t.getHours(),p:probs[i],mm:mms?mms[i]:null,temp:temps?temps[i]:null,track:(temps&&codes)?FK.estTrackTemp(temps[i],codes[i],t.getHours(),hMm):null});
         if(t.getTime()>=raceEndMs)break;
       }
     }
     FK.state.wxHourly=hrs;
     FK.drawWxChart();FK.drawDashRainChart();
     if(typeof FK.rEstWeather==='function')FK.rEstWeather();
+    if(typeof FK.rTopbarWx==='function')FK.rTopbarWx();
     /* update main wx bar too */
     var wx=document.getElementById('wxbar');
-    if(wx)wx.innerHTML=(FK.cfg.wxLabel||'—')+' | '+iconTxt+' | <span style="color:#90caf9">'+cur.windspeed_10m+'km/h '+dirs[di]+'</span> | <span style="color:var(--acc)">'+cur.temperature_2m+'°C</span> | <span style="color:#80deea">'+hum+'% UR</span> | <strong style="color:'+(rain?'#4fc3f7':'#66bb6a')+'">'+(rain?'Chuva possível':'Sem chuva')+'</strong>';
+    if(wx)wx.innerHTML=iconTxt+' | <span style="color:#90caf9">'+cur.windspeed_10m+'km/h '+dirs[di]+'</span> | <span style="color:var(--acc)">'+cur.temperature_2m+'°C</span> | <span style="color:#80deea">'+hum+'% UR</span> | <strong style="color:'+(rain?'#4fc3f7':'#66bb6a')+'">'+(rain?'Chuva possível':'Sem chuva')+'</strong>';
   }catch(e){console.warn('wx error',e);}};
   xhr.onerror=function(){};
   xhr.send();
@@ -3905,8 +3932,9 @@ if(!FK.getPilotos().length){
 if(!FK.state.wxHourly){
   var now=new Date();var h=now.getHours();
   FK.state.wxHourly=[{h:h,p:10},{h:(h+1)%24,p:15},{h:(h+2)%24,p:20},{h:(h+3)%24,p:35},{h:(h+4)%24,p:45},{h:(h+5)%24,p:40},{h:(h+6)%24,p:30},{h:(h+7)%24,p:20}];
+  if(typeof FK.rTopbarWx==='function')FK.rTopbarWx();
   var wxEl=document.getElementById('wxbar');
-  if(wxEl)wxEl.innerHTML=(FK.cfg.wxLabel||'—')+' | ⛅ Nublado parcial | <span style="color:#90caf9">12km/h NE</span> | <span style="color:var(--acc)">21°C</span> | <span style="color:#80deea">68% UR</span> | <strong style="color:#66bb6a">Sem chuva</strong>';
+  if(wxEl)wxEl.innerHTML='⛅ Nublado parcial | <span style="color:#90caf9">12km/h NE</span> | <span style="color:var(--acc)">21°C</span> | <span style="color:#80deea">68% UR</span> | <strong style="color:#66bb6a">Sem chuva</strong>';
 }
 FK.initKrono();
 FK.updateTopbar();FK.updateSrcBadge();FK.rPlacar();
