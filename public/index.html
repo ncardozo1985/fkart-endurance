@@ -240,6 +240,14 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .est-gap-box{flex:1;background:rgba(255,255,255,0.03);border-radius:8px;padding:8px 10px;text-align:center}
 .est-gap-box .lbl{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:1px}
 .est-gap-box .val{font-size:17px;font-weight:700;margin-top:2px}
+.gapboard-row{border-bottom:1px solid var(--border);padding:8px 0}
+.gapboard-row:last-child{border-bottom:none;padding-bottom:2px}
+.gapboard-row:first-child{padding-top:2px}
+.gapboard-hdr{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.gapboard-kart{font-size:13px;font-weight:900;color:var(--acc)}
+.gapboard-pos{font-size:11px;font-weight:700;color:var(--txt);background:rgba(255,255,255,0.06);border-radius:5px;padding:1px 7px}
+.gapboard-row .est-gaps{margin-bottom:6px}
+.gapboard-row .est-gaps:last-child{margin-bottom:0}
 .est-pace-badge{display:inline-block;width:100%;text-align:center;padding:8px;border-radius:8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px}
 .est-pace-badge.ok{background:rgba(102,187,106,0.15);color:var(--green)}
 .est-pace-badge.warn{background:rgba(255,167,38,0.15);color:#ffa726}
@@ -674,6 +682,13 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
           </tr></thead>
           <tbody id="dg-rank-body"></tbody>
         </table>
+      </div>
+      <div class="dash-card">
+        <div class="dash-card-hdr">
+          <h3>&#127919; Gap Board — Equipe</h3>
+          <span style="font-size:9px;color:var(--mut)">intervalo real p/ rival da frente/atras (geral e por categoria)</span>
+        </div>
+        <div id="dg-gapboard-body" style="padding:8px 12px"></div>
       </div>
     </div>
     <!-- COL 2: HISTORICO + PACE + BOX INTEL, empilhados na mesma altura da Classificacao -->
@@ -1744,7 +1759,7 @@ var mobilePane=document.getElementById('pane-mobile');
 var tvPane=document.getElementById('pane-tvpilotos');
 if(dashGeralPane&&dashGeralPane.classList.contains('on')){
   FK.rDashRanking('dg');FK.updateKronoPos();
-  FK.rDashBoxIntel('dg');FK.rDashKartsBox('dg');FK.rDashPaceComp('dg');FK.rDashLapHistory('dg');
+  FK.rDashBoxIntel('dg');FK.rDashKartsBox('dg');FK.rDashPaceComp('dg');FK.rDashGapBoard('dg');FK.rDashLapHistory('dg');
   /* rDashCrono só reconstrói o DOM quando a chave (karts+ordem) muda -- chamar toda vez
      é barato e é o que permite a ordenação por colocação (cfg-krono-sort-pos) reagir ao
      vivo conforme as posições mudam, e não só quando a aba é trocada ou o config é salvo */
@@ -3267,6 +3282,66 @@ rDashPaceComp:function(prefix){
   html+='</tbody></table>';
   el.innerHTML=html;
 },
+/* ── Gap Board (pedido 15/09/2026, inspirado em ferramentas de pit-wall de endurance):
+   intervalo real (nao "voltas de diferenca") pro rival diretamente a frente e atras de cada
+   kart da equipe -- geral (grid toda) e, se "Minha Categoria" estiver configurada, tambem
+   dentro da categoria (o rival que realmente importa pra disputa de classe). Reaproveita a
+   mesma logica de calculo de intervalo (parseGapSec + diff) ja usada nos cards da Estrategia,
+   mas como card compacto (uma linha por kart) pro Dashboard, pra consulta rapida ao vivo. */
+rDashGapBoard:function(prefix){
+  prefix=prefix||'d';
+  var el=document.getElementById(prefix+'-gapboard-body');if(!el)return;
+  var data=FK.getData();
+  if(!data.length){el.innerHTML='<p style="color:var(--mut);font-size:11px;padding:4px">Sem dados ainda.</p>';return;}
+  var myKarts=FK.cfg.myKarts||[];
+  if(!myKarts.length){el.innerHTML='<p style="color:var(--mut);font-size:11px;padding:4px">Configure seus karts em Config.</p>';return;}
+  var myCat=(FK.cfg.myCategory||'').trim().toUpperCase();
+  var catData=myCat?data.filter(function(d){return (d.cat||'').trim().toUpperCase()===myCat;}):null;
+  var html='';
+  myKarts.forEach(function(knum){
+    var idx=data.findIndex(function(d){return d.kart===knum;});
+    if(idx<0){
+      html+='<div class="gapboard-row"><div class="gapboard-hdr"><span class="gapboard-kart">#'+knum+'</span></div>'+
+      '<p style="color:var(--mut);font-size:11px;margin:0">Nao encontrado na leitura atual</p></div>';
+      return;
+    }
+    var cur=data[idx];
+    var ahead=idx>0?data[idx-1]:null;
+    var behind=idx<data.length-1?data[idx+1]:null;
+    var curGapSec=FK.parseGapSec(cur.gap);
+    var aheadGapSec=ahead?FK.parseGapSec(ahead.gap):null;
+    var behindGapSec=behind?FK.parseGapSec(behind.gap):null;
+    var intervalAhead=(ahead&&curGapSec!=null&&aheadGapSec!=null)?Math.abs(curGapSec-aheadGapSec):null;
+    var intervalBehind=(behind&&curGapSec!=null&&behindGapSec!=null)?Math.abs(behindGapSec-curGapSec):null;
+    var gapFrente=!ahead?'Lider':(intervalAhead!=null?'+'+intervalAhead.toFixed(3)+'s':(ahead.gap||'-'));
+    var gapAtras=!behind?'Ultimo':(intervalBehind!=null?'+'+intervalBehind.toFixed(3)+'s':(behind.gap||'-'));
+    var rowHtml='<div class="gapboard-row"><div class="gapboard-hdr"><span class="gapboard-kart">#'+cur.kart+'</span><span class="gapboard-pos">P'+cur.pos+' geral</span></div>'+
+    '<div class="est-gaps">'+
+      '<div class="est-gap-box"><div class="lbl">Frente'+(ahead?' &middot; #'+ahead.kart:'')+'</div><div class="val">'+gapFrente+'</div></div>'+
+      '<div class="est-gap-box"><div class="lbl">Atras'+(behind?' &middot; #'+behind.kart:'')+'</div><div class="val">'+gapAtras+'</div></div>'+
+    '</div>';
+    if(myCat){
+      if((cur.cat||'').trim().toUpperCase()!==myCat){
+        rowHtml+='<div class="est-pace-badge warn" style="margin-top:0">Categoria da fonte ("'+(cur.cat||'-')+'") nao bate com "'+myCat+'"</div>';
+      }else if(catData){
+        var cIdx=catData.findIndex(function(d){return d.kart===cur.kart;});
+        var cAhead=cIdx>0?catData[cIdx-1]:null;
+        var cBehind=cIdx<catData.length-1?catData[cIdx+1]:null;
+        var cAheadSec=cAhead?FK.parseGapSec(cAhead.gap):null;
+        var cBehindSec=cBehind?FK.parseGapSec(cBehind.gap):null;
+        var cIntAhead=(cAhead&&curGapSec!=null&&cAheadSec!=null)?Math.abs(curGapSec-cAheadSec):null;
+        var cIntBehind=(cBehind&&curGapSec!=null&&cBehindSec!=null)?Math.abs(cBehindSec-curGapSec):null;
+        var cGapFrente=!cAhead?'Lider cat.':(cIntAhead!=null?'+'+cIntAhead.toFixed(3)+'s':(cAhead.gap||'-'));
+        var cGapAtras=!cBehind?'Ultimo cat.':(cIntBehind!=null?'+'+cIntBehind.toFixed(3)+'s':(cBehind.gap||'-'));
+        rowHtml+='<div class="est-gaps"><div class="est-gap-box" style="background:rgba(226,35,26,0.08)"><div class="lbl">Cat '+myCat+(cAhead?' &middot; #'+cAhead.kart:'')+'</div><div class="val">'+cGapFrente+'</div></div>'+
+        '<div class="est-gap-box" style="background:rgba(226,35,26,0.08)"><div class="lbl">Cat '+myCat+(cBehind?' &middot; #'+cBehind.kart:'')+'</div><div class="val">'+cGapAtras+'</div></div></div>';
+      }
+    }
+    rowHtml+='</div>';
+    html+=rowHtml;
+  });
+  el.innerHTML=html;
+},
 /* ── Histórico de últimas voltas (equipe) ──
    Pedido em campo (23/08/2026): visão rápida da consistência de ritmo dos karts da equipe,
    volta a volta, abaixo do comparativo de Pace. Reaproveita a mesma técnica de "transição de
@@ -3677,6 +3752,7 @@ rDashGeral:function(){
   FK.rDashKartsBox('dg');
   FK.rDashBoxIntel('dg');
   FK.rDashPaceComp('dg');
+  FK.rDashGapBoard('dg');
   FK.rDashLapHistory('dg');
   FK.rDashHdrStrip();
   FK.rPilotQueue();
