@@ -240,9 +240,9 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .est-gap-box{flex:1;background:rgba(255,255,255,0.03);border-radius:8px;padding:8px 10px;text-align:center}
 .est-gap-box .lbl{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:1px}
 .est-gap-box .val{font-size:17px;font-weight:700;margin-top:2px}
-.gapboard-row{border-bottom:1px solid var(--border);padding:8px 0}
-.gapboard-row:last-child{border-bottom:none;padding-bottom:2px}
-.gapboard-row:first-child{padding-top:2px}
+.gapboard-body{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:8px}
+@media (max-width:900px){.gapboard-body{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.gapboard-row{background:var(--bg);border:1px solid rgba(226,35,26,0.3);border-radius:8px;padding:8px 10px}
 .gapboard-hdr{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .gapboard-kart{font-size:13px;font-weight:900;color:var(--acc)}
 .gapboard-pos{font-size:11px;font-weight:700;color:var(--txt);background:rgba(255,255,255,0.06);border-radius:5px;padding:1px 7px}
@@ -685,13 +685,6 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
           <tbody id="dg-rank-body"></tbody>
         </table>
       </div>
-      <div class="dash-card">
-        <div class="dash-card-hdr">
-          <h3>&#127919; Gap Board — Equipe</h3>
-          <span style="font-size:9px;color:var(--mut)">intervalo real p/ rival da frente/atras (geral e por categoria)</span>
-        </div>
-        <div id="dg-gapboard-body" style="padding:8px 12px"></div>
-      </div>
     </div>
     <!-- COL 2: HISTORICO + PACE + BOX INTEL, empilhados na mesma altura da Classificacao -->
     <div class="dash-col">
@@ -717,6 +710,16 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
         <div id="dg-bxi-body"></div>
       </div>
     </div>
+  </div>
+  <!-- GAP BOARD: faixa de largura total, cards lado a lado (pedido do Rapha 15/09/2026 --
+       antes ficava numa coluna estreita empilhado como lista, igual o problema que a Fila
+       de Pilotos jah tinha resolvido em 31/08/2026 -- mesmo padrao de grid aplicado aqui). -->
+  <div class="dash-card">
+    <div class="dash-card-hdr">
+      <h3>&#127919; Gap Board — Equipe</h3>
+      <span style="font-size:9px;color:var(--mut)">intervalo real p/ rival da frente/atras (geral e por categoria)</span>
+    </div>
+    <div class="gapboard-body" id="dg-gapboard-body"></div>
   </div>
   <!-- FILA DE PILOTOS: faixa de largura total no rodapé, 6 karts lado a lado (pedido do Rapha
        31/08/2026 -- antes ficava numa coluna estreita e dominava o espaço sozinha) -->
