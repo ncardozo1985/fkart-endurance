@@ -2638,12 +2638,16 @@ rEstrategia:function(){
   if(!myKarts.length){el.innerHTML='<p style="color:var(--mut);text-align:center;padding:24px">Configure seus karts/numeros de competidor em Config.</p>';return;}
   var html='';
   myKarts.forEach(function(knum){
-    var idx=data.findIndex(function(d){return d.kart===knum;});
-    if(idx<0){
+    /* usa FK.findKartData (tolera zero-padding, ex: "46" vs "046") em vez de comparar
+       d.kart===knum diretamente -- essa comparacao exata deixava a Estrategia inteira
+       "Nao encontrado" quando myKarts era digitado sem zero a esquerda (bug real, achado
+       15/09/2026 ao verificar o Gap Board ao vivo). */
+    var cur=FK.findKartData(data,knum);
+    if(!cur){
       html+='<div class="est-card"><div class="est-top"><div class="est-kart">#'+knum+'<small>Nao encontrado na leitura atual</small></div></div></div>';
       return;
     }
-    var cur=data[idx];
+    var idx=data.indexOf(cur);
     var ahead=idx>0?data[idx-1]:null;
     var behind=idx<data.length-1?data[idx+1]:null;
     var curGapSec=FK.parseGapSec(cur.gap);
@@ -3270,7 +3274,7 @@ rDashPaceComp:function(prefix){
     var myT=FK.parseT(my.last);
     html+='<tr><td class="row-kart">#'+k+'<br><span style="font-size:8px;color:var(--mut);font-weight:400">'+my.last+'</span></td>';
     top10.forEach(function(d){
-      if(d.kart===k){html+='<td><span class="pace-cell same">—</span></td>';return;}
+      if(String(d.kart)===String(k)||parseInt(d.kart,10)===parseInt(k,10)){html+='<td><span class="pace-cell same">—</span></td>';return;}
       var dT=FK.parseT(d.last);
       var diff=myT-dT;
       var cls=diff<-0.05?'faster':diff>0.05?'slower':'same';
@@ -3299,13 +3303,13 @@ rDashGapBoard:function(prefix){
   var catData=myCat?data.filter(function(d){return (d.cat||'').trim().toUpperCase()===myCat;}):null;
   var html='';
   myKarts.forEach(function(knum){
-    var idx=data.findIndex(function(d){return d.kart===knum;});
-    if(idx<0){
+    var cur=FK.findKartData(data,knum);
+    if(!cur){
       html+='<div class="gapboard-row"><div class="gapboard-hdr"><span class="gapboard-kart">#'+knum+'</span></div>'+
       '<p style="color:var(--mut);font-size:11px;margin:0">Nao encontrado na leitura atual</p></div>';
       return;
     }
-    var cur=data[idx];
+    var idx=data.indexOf(cur);
     var ahead=idx>0?data[idx-1]:null;
     var behind=idx<data.length-1?data[idx+1]:null;
     var curGapSec=FK.parseGapSec(cur.gap);
