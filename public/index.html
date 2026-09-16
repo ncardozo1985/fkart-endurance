@@ -475,6 +475,8 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .pq-current{display:flex;flex-direction:column;gap:1px}
 .pq-current .pq-lbl{font-size:8px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
 .pq-current-name{font-size:12px;font-weight:700;color:var(--txt)}
+.pq-undo-btn{margin-left:auto;background:transparent;border:1px solid var(--border);color:var(--mut);font-size:9px;font-weight:700;padding:3px 8px;border-radius:6px;cursor:pointer;white-space:nowrap}
+.pq-undo-btn:hover{border-color:var(--acc);color:var(--acc)}
 .pq-slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:4px}
 .pq-slot{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:5px;padding:4px 7px;min-width:0}
 .pq-slot.required{border-color:rgba(226,35,26,0.4)}
@@ -3798,7 +3800,10 @@ rPilotQueue:function(){
     var activeIdx=(FK.state.pilotQueueActiveIdx[k]!=null)?FK.state.pilotQueueActiveIdx[k]:-1;
     var doneDur=FK.state.pqSlotDur[k]||{};
     html+='<div class="pq-kart-card">';
-    html+='<div class="pq-kart-hdr"><span class="krono-badge" style="width:24px;height:24px;font-size:9px;flex-shrink:0">'+k+'</span><div class="pq-current"><span class="pq-lbl">Na pista agora</span><span class="pq-current-name" id="pq-cur-'+k+'">—</span></div></div>';
+    var undoAct=FK.state.pqLastAction;
+    var showUndo=undoAct&&undoAct.kart===k&&(Date.now()-undoAct.ts<300000);
+    var undoBtn=showUndo?'<button class="pq-undo-btn" onclick="FK.undoPilotQueueActivation()" title="Desfaz a ultima ativacao deste kart, devolve o piloto anterior">&#8617; Desfazer ativação</button>':'';
+    html+='<div class="pq-kart-hdr"><span class="krono-badge" style="width:24px;height:24px;font-size:9px;flex-shrink:0">'+k+'</span><div class="pq-current"><span class="pq-lbl">Na pista agora</span><span class="pq-current-name" id="pq-cur-'+k+'">—</span></div>'+undoBtn+'</div>';
     html+='<div class="pq-slots">';
     for(var i=0;i<slots;i++){
       var required=i<minStops;
@@ -3904,7 +3909,18 @@ activatePilotQueueSlot:function(kart,idx){
   var prevStart=ks&&ks.stintStartTs;
   var bsAntes=(FK.state.boxState&&FK.state.boxState[kart])||{};
   var havPrev=!!bsAntes.piloto;
+  /* snapshot pra "Desfazer" (destrava a decisao de ativar) -- guarda o estado de ANTES
+     desta ativacao, pra poder devolver exatamente como estava se for engano. So um nivel
+     (a ultima acao, de qualquer kart), de proposito. IMPORTANTE: o clone de bsAntes tem
+     que acontecer AQUI, antes do FK.setKartPilot -- bsAntes eh a mesma referencia de objeto
+     que FK.state.boxState[kart], entao se cloncarmos DEPOIS do setKartPilot (que muda esse
+     objeto em memoria), o "snapshot" na verdade seria uma copia do estado NOVO, e o Desfazer
+     nao desfaria nada (bug pego pelo teste isolado antes do deploy). */
+  var prevBoxStateSnapshot=JSON.parse(JSON.stringify(bsAntes));
+  var prevSlotDurEntry=(FK.state.pqSlotDur&&FK.state.pqSlotDur[kart])?FK.state.pqSlotDur[kart][prevIdx]:undefined;
+  var histLenAntes=(FK.state.stintHistory||[]).length;
   FK.setKartPilot(kart,nome);
+  var histPushed=(FK.state.stintHistory||[]).length>histLenAntes;
   if(havPrev&&prevIdx>=0&&prevStart){
     if(!FK.state.pqSlotDur)FK.state.pqSlotDur={};
     if(!FK.state.pqSlotDur[kart])FK.state.pqSlotDur[kart]={};
@@ -3912,6 +3928,45 @@ activatePilotQueueSlot:function(kart,idx){
   }
   if(!FK.state.pilotQueueActiveIdx)FK.state.pilotQueueActiveIdx={};
   FK.state.pilotQueueActiveIdx[kart]=idx;
+  FK.state.pqLastAction={
+    kart:kart,
+    prevBoxState:prevBoxStateSnapshot,
+    prevActiveIdx:prevIdx,
+    prevStintStartTs:prevStart||null,
+    prevSlotDurEntry:prevSlotDurEntry,
+    histPushed:histPushed,
+    ts:Date.now()
+  };
+  FK.rBox&&FK.rBox();
+  var el=document.getElementById('dg-pq-body');if(el)el.dataset.pqKey='';
+  FK.rPilotQueue();
+  FK.rPilotTotals&&FK.rPilotTotals();
+  FK.pushLiveToCloud&&FK.pushLiveToCloud();
+},
+/* Desfaz a ULTIMA ativacao (de qualquer kart) -- devolve boxState, pilotQueueActiveIdx,
+   stintStartTs, a duracao gravada em pqSlotDur e o registro em stintHistory (se um foi
+   criado) exatamente como estavam antes do Ativar. Valida por 5min (300000ms): depois
+   disso a corrida ja avancou o suficiente que reverter cegamente confundiria mais do que
+   ajudaria, entao a janela expira e o botao some sozinho (ver rPilotQueue). */
+undoPilotQueueActivation:function(){
+  var act=FK.state.pqLastAction;
+  if(!act)return;
+  if(Date.now()-act.ts>300000){FK.state.pqLastAction=null;FK.rPilotQueue();return;}
+  var kart=act.kart;
+  if(!FK.state.boxState)FK.state.boxState={};
+  FK.state.boxState[kart]=act.prevBoxState;
+  if(!FK.state.pilotQueueActiveIdx)FK.state.pilotQueueActiveIdx={};
+  FK.state.pilotQueueActiveIdx[kart]=act.prevActiveIdx;
+  var ks=FK.state.kronoState&&FK.state.kronoState[kart];
+  if(ks)ks.stintStartTs=act.prevStintStartTs;
+  if(FK.state.pqSlotDur&&FK.state.pqSlotDur[kart]){
+    if(act.prevSlotDurEntry===undefined)delete FK.state.pqSlotDur[kart][act.prevActiveIdx];
+    else FK.state.pqSlotDur[kart][act.prevActiveIdx]=act.prevSlotDurEntry;
+  }
+  if(act.histPushed&&FK.state.stintHistory&&FK.state.stintHistory.length){
+    FK.state.stintHistory.pop();
+  }
+  FK.state.pqLastAction=null;
   FK.rBox&&FK.rBox();
   var el=document.getElementById('dg-pq-body');if(el)el.dataset.pqKey='';
   FK.rPilotQueue();
