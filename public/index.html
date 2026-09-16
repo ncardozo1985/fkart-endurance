@@ -1283,6 +1283,13 @@ setTheme:function(mode,skipSave){
 if(!document.body)return;
 if(mode==='light')document.body.classList.add('theme-light');
 else document.body.classList.remove('theme-light');
+/* Alguns Macs/Chrome com "escurecer paginas automaticamente" ligado no SO
+   reescurecem a tela mesmo com o tema claro ja aplicado certinho no CSS --
+   deixar o <meta color-scheme> sempre igual ao tema ATUAL (em vez de
+   "dark light" fixo) e' o sinal que o Chrome respeita pra nao forcar o
+   escurecimento por cima do nosso tema claro. */
+var msc=document.querySelector('meta[name="color-scheme"]');
+if(msc)msc.setAttribute('content',mode==='light'?'light':'dark');
 var btn=document.getElementById('theme-toggle-btn');
 /* Pedido do Rapha (27/08/2026): estilo "pill" com icone (tipo o toggle de aparencia do
    iPhone) em vez do texto solto que tinha antes -- icone mostra o modo pro qual vai mudar. */
