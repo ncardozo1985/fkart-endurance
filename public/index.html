@@ -1266,6 +1266,10 @@ isLive:false,
 liveData:null,
 liveInterval:null,
 racerInterval:null,
+liveSocket:null,
+streamWanted:false,
+streamReconnectTimer:null,
+streamLastNudge:0,
 racerIdByKart:{},
 officialLaps:{},
 clockInterval:null,
@@ -1997,6 +2001,7 @@ if(FK.state.racerInterval)clearInterval(FK.state.racerInterval);
    folgada mesmo com varios karts na equipe. */
 FK.state.racerInterval=setInterval(FK.pollRacerLaps,20000);
 FK.pollRacerLaps();
+FK.startLiveStream();
 var st=document.getElementById('config-status');
 if(st)st.style.display='block';
 var sb=document.getElementById('config-status-body');
@@ -2033,6 +2038,104 @@ var sb=document.getElementById('config-status-body');
 if(sb)sb.innerHTML='<span style="color:#ff5252">&#10007; Nao foi possivel falar com /api/live (proxy indisponivel ou nao publicado)</span>';
 };
 xhr.send();
+},
+/* WebSocket de streaming da Race Monitor (GetStreamingConnection) -- pedido 18/09/2026,
+   em campo no KGV, conta paga confirmada (Low Volume ja inclui 1.000h/mes de Live Timing
+   Streaming). NAO substitui o poll de 1s (fetchLive continua rodando igual, como rede de
+   seguranca) -- so ouve o socket e, toda vez que uma volta e cravada de verdade (mensagem
+   $J do protocolo RMonitor), dispara um fetchLive() na hora em vez de esperar o proximo
+   tick do intervalo. Testado ao vivo 18/09/2026 contra a corrida real (raceId 170059):
+   volta cravada -> $J chega em bem menos de 1s -> fetchLive roda -> UI atualiza. Nao
+   reescreve o parser de estado que ja funciona (parseSession/recordHistory) -- o socket
+   so "acorda" o poll mais cedo, nunca substitui os dados dele.
+   Protocolo (RMonitor), confirmado ao vivo contra a corrida real:
+     $A,"RacerID","Number",Transponder,"Nome","","Nacionalidade",ClassID  -> cadastro (ignorado)
+     $F,LapsToGo,"TimeToGo","CurrentTime","SessionTime","FlagStatus"      -> heartbeat 1x/seg (ignorado)
+     $J,"RacerID","LapTime","TotalTime"                                  -> VOLTA CRAVADA (o gatilho usado)
+     $G,Pos,"RacerID",Laps,"TotalTime"                                   -> posicao (ignorado por ora)
+     $H,Pos,"RacerID",BestLap,"BestLapTime"                              -> melhor volta (ignorado por ora)
+   Uma mensagem do WebSocket pode trazer varias linhas RMonitor grudadas (separadas por
+   \r\n ou \n) -- por isso sempre quebra em linhas (com buffer pra fragmento incompleto)
+   antes de olhar o codigo ($X). */
+startLiveStream:function(){
+if(!FK.cfg.raceId)return;
+FK.state.streamWanted=true;
+FK.fetchStreamConnInfo(0);
+},
+stopLiveStream:function(){
+FK.state.streamWanted=false;
+if(FK.state.liveSocket){
+try{
+FK.state.liveSocket.onopen=null;
+FK.state.liveSocket.onmessage=null;
+FK.state.liveSocket.onclose=null;
+FK.state.liveSocket.onerror=null;
+FK.state.liveSocket.close();
+}catch(e){}
+FK.state.liveSocket=null;
+}
+if(FK.state.streamReconnectTimer){clearTimeout(FK.state.streamReconnectTimer);FK.state.streamReconnectTimer=null;}
+},
+fetchStreamConnInfo:function(attempt){
+if(!FK.state.streamWanted)return;
+var url='/api/live?raceId='+encodeURIComponent(FK.cfg.raceId)+'&stream=1';
+var xhr=new XMLHttpRequest();
+xhr.open('GET',url);
+xhr.onload=function(){
+if(!FK.state.streamWanted)return;
+try{
+var r=JSON.parse(xhr.responseText);
+if(r.Successful&&r.ConnectionInfo&&r.ConnectionInfo.WebsocketURL){
+FK.openLiveSocket(r.ConnectionInfo.WebsocketURL,attempt);
+}else{
+console.warn('FKART stream: GetStreamingConnection sem sucesso',r&&r.Message);
+FK.scheduleStreamReconnect(attempt);
+}
+}catch(e){
+console.warn('FKART stream: erro lendo GetStreamingConnection',e);
+FK.scheduleStreamReconnect(attempt);
+}
+};
+xhr.onerror=function(){FK.scheduleStreamReconnect(attempt);};
+xhr.send();
+},
+openLiveSocket:function(wsUrl,attempt){
+if(!FK.state.streamWanted)return;
+var ws;
+try{ws=new WebSocket(wsUrl);}catch(e){FK.scheduleStreamReconnect(attempt);return;}
+FK.state.liveSocket=ws;
+var buf='';
+ws.onmessage=function(ev){
+buf+=String(ev.data);
+var lines=buf.split(/\r\n|\n/);
+buf=lines.pop();
+for(var i=0;i<lines.length;i++)FK.handleRMonitorLine(lines[i]);
+};
+ws.onerror=function(){};
+ws.onclose=function(){
+if(FK.state.liveSocket===ws)FK.state.liveSocket=null;
+if(FK.state.streamWanted)FK.scheduleStreamReconnect(0);
+};
+},
+scheduleStreamReconnect:function(attempt){
+if(!FK.state.streamWanted)return;
+var next=Math.min(attempt+1,6);
+var delay=Math.min(1000*Math.pow(2,next),30000);
+if(FK.state.streamReconnectTimer)clearTimeout(FK.state.streamReconnectTimer);
+FK.state.streamReconnectTimer=setTimeout(function(){FK.fetchStreamConnInfo(next);},delay);
+},
+handleRMonitorLine:function(line){
+line=line.replace(/\r$/,'');
+if(!line||line.charAt(0)!=='$')return;
+var comma=line.indexOf(',');
+var code=comma>=0?line.slice(1,comma):line.slice(1);
+if(code==='J')FK.streamNudgeFetch();
+},
+streamNudgeFetch:function(){
+var now=Date.now();
+if(FK.state.streamLastNudge&&(now-FK.state.streamLastNudge)<400)return;
+FK.state.streamLastNudge=now;
+FK.fetchLive();
 },
 parseSession:function(s){
 FK.state.flagStatus=s.FlagStatus||'Verde';
