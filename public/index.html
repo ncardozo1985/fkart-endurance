@@ -2175,10 +2175,15 @@ FK.state.trackLength=s.TrackLength||'';
 FK.state.sessionName=s.SessionName||'';
 FK.state.sortMode=s.SortMode||'';
 var ttg=FK.parseHMS(s.TimeToGo);
-FK.state.timeToGoSec=(ttg!=null&&ttg<999999)?ttg:null;
-/* ancora do relogio local suave pro "Restante" -- ver comentario em startClock */
-FK.state.timeToGoAnchorSec=FK.state.timeToGoSec;
-FK.state.timeToGoAnchorWallMs=(FK.state.timeToGoSec!=null)?Date.now():null;
+var newTtg=(ttg!=null&&ttg<999999)?ttg:null;
+FK.state.timeToGoSec=newTtg;
+/* ancora do relogio local suave pro "Restante" -- ver comentario em startClock. So
+   realinha (Date.now() novo) quando o valor de verdade muda, nao a cada fetch (poll 1s +
+   nudge do WebSocket chegam bem mais que 1x/seg -- resetar sempre travava a contagem). */
+if(FK.state.timeToGoAnchorSec!==newTtg){
+FK.state.timeToGoAnchorSec=newTtg;
+FK.state.timeToGoAnchorWallMs=(newTtg!=null)?Date.now():null;
+}
 var ltg=parseInt(s.LapsToGo);
 FK.state.lapsToGo=isNaN(ltg)?null:ltg;
 var comps=[];
@@ -2226,10 +2231,15 @@ if(s.SessionTime){
 var parts=s.SessionTime.split(':');
 if(parts.length>=2){
 var h=parseInt(parts[0])||0;var m=parseInt(parts[1])||0;var sec=parts[2]?parseFloat(parts[2]):0;
-FK.state.elapsed=h*3600+m*60+Math.floor(sec);
-/* ancora do relogio local suave pro "Decorrido" -- ver comentario em startClock */
-FK.state.sessionTimeAnchorSec=FK.state.elapsed;
+var newElapsed=h*3600+m*60+Math.floor(sec);
+FK.state.elapsed=newElapsed;
+/* ancora do relogio local suave pro "Decorrido" -- ver comentario em startClock. So
+   realinha (Date.now() novo) quando o valor de verdade muda, nao a cada fetch (poll 1s +
+   nudge do WebSocket chegam bem mais que 1x/seg -- resetar sempre travava a contagem). */
+if(FK.state.sessionTimeAnchorSec!==newElapsed){
+FK.state.sessionTimeAnchorSec=newElapsed;
 FK.state.sessionTimeAnchorWallMs=Date.now();
+}
 }
 }
 FK.state.liveData=comps;
