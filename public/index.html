@@ -3863,14 +3863,14 @@ rPilotQueue:function(){
         var statusHtml=isActive
           ?'<span class="pq-slot-timer" id="pq-timer-'+k+'">00:00</span>'
           :(val?'<span class="pq-slot-status">concluído'+(doneDur[i]!=null?' · '+FK.fmtTime(Math.floor(doneDur[i]/1000)):'')+'</span>':'<span class="pq-slot-status">—</span>');
-        html+='<div class="pq-slot'+cls+'"><span class="pq-slot-num">'+(i===0?'Largada':(i+1))+'</span><span class="pq-slot-name">'+(val||'—')+'</span>'+statusHtml+'</div>';
+        html+='<div class="pq-slot'+cls+'"><span class="pq-slot-num">'+(i===0?'Largada':i)+'</span><span class="pq-slot-name">'+(val||'—')+'</span>'+statusHtml+'</div>';
       }else{
         var opts='<option value="">— vazio —</option>'+eligible.map(function(name){
           return '<option value="'+name+'"'+(val===name?' selected':'')+'>'+name+'</option>';
         }).join('');
         var isNext=(i===activeIdx+1)&&val;
         var btn=isNext?'<button class="pq-activate-btn" onclick="FK.activatePilotQueueSlot(\''+k+'\','+i+')">Ativar</button>':'';
-        html+='<div class="pq-slot'+cls+'"><span class="pq-slot-num">'+(i===0?'Largada':(i+1))+'</span><select onchange="FK.setPilotQueueSlot(\''+k+'\','+i+',this.value)">'+opts+'</select>'+btn+'</div>';
+        html+='<div class="pq-slot'+cls+'"><span class="pq-slot-num">'+(i===0?'Largada':i)+'</span><select onchange="FK.setPilotQueueSlot(\''+k+'\','+i+',this.value)">'+opts+'</select>'+btn+'</div>';
       }
     }
     html+='</div></div>';
@@ -3932,7 +3932,7 @@ rTvPilotQueue:function(){
       var required=i<minStops;
       var st=isActive?'active':'next';
       var stLbl=isActive?'Na pista':'Próximo';
-      var numLbl=(i===0?'Largada':(i+1))+(required?'':'*');
+      var numLbl=(i===0?'Largada':i)+(required?'':'*');
       html+='<div class="tv-pq-item '+st+'"><span class="tv-pq-num">'+numLbl+'</span><span class="tv-pq-pname">'+val+'</span><span class="tv-pq-status">'+stLbl+'</span></div>';
     }
     if(!shown)html+='<div style="padding:8px;color:var(--mut);font-size:12px">'+(hasAny?'Todas as paradas montadas concluídas':'Fila ainda não montada')+'</div>';
