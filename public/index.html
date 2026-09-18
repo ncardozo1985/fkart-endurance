@@ -1051,8 +1051,12 @@ Ordenar cronometros da equipe pela colocacao na corrida (senao, ordem de cadastr
 <label>Minha Categoria</label>
 <input type="text" id="cfg-my-category" placeholder="Ex: LIGHT" oninput="this.value=this.value.toUpperCase()">
 </div>
+<div class="cfg-field">
+<label>Capacidade do Box (karts reserva)</label>
+<input type="number" id="cfg-box-capacity" min="1" value="24">
 </div>
-<small style="color:var(--mut);font-size:11px;display:block">Ajuste estes campos conforme o regulamento de cada corrida (o preset "Categoria do Regulamento" acima preenche os 4 campos de paradas pro KGV -- Elite ou Challenge -- mas continuam editaveis). Para a Endurance Itu 6h (23/08/2026, Art.14&#186;): 5 paradas obrigatorias de 5min + 1 parada longa de 7min = 32min de paradas no total. As "Paradas Longas" contam separado das paradas minimas normais e entram na Proje&ccedil;&atilde;o como tempo obrigat&oacute;rio adicional descontado do tempo total de prova. As paradas cumpridas sao contadas automaticamente pela volta cronometrada detectada no feed ao vivo (duracao >= o minimo configurado acima). A categoria precisa bater com o texto da coluna CATEGORIA da fonte de dados. O stint pesado (105kg / min 40min continuos) e regra de todas as categorias e fica configurado separado, na "Heavy Window" abaixo.</small>
+</div>
+<small style="color:var(--mut);font-size:11px;display:block">Ajuste estes campos conforme o regulamento de cada corrida (o preset "Categoria do Regulamento" acima preenche os 4 campos de paradas pro KGV -- Elite ou Challenge -- mas continuam editaveis). Para a Endurance Itu 6h (23/08/2026, Art.14&#186;): 5 paradas obrigatorias de 5min + 1 parada longa de 7min = 32min de paradas no total. As "Paradas Longas" contam separado das paradas minimas normais e entram na Proje&ccedil;&atilde;o como tempo obrigat&oacute;rio adicional descontado do tempo total de prova. As paradas cumpridas sao contadas automaticamente pela volta cronometrada detectada no feed ao vivo (duracao >= o minimo configurado acima). A categoria precisa bater com o texto da coluna CATEGORIA da fonte de dados. O stint pesado (105kg / min 40min continuos) e regra de todas as categorias e fica configurado separado, na "Heavy Window" abaixo. A "Capacidade do Box" alimenta o Box Intelligence (aba Dashboard): quantidade de karts reserva sempre parados no box (padrao 24, conforme a frota do KGV -- 110 karts menos 86 equipes na pista); ajuste se outro kartodromo tiver frota reserva diferente.</small>
 </div>
 <div class="cfg-panel">
 <h3>&#128679; Janelas Especiais da Prova</h3>
@@ -1128,6 +1132,7 @@ raceId:169005,
 raceTotal:14400,
 apiToken:'',
 myKarts:['36'],
+boxCapacity:24,
 source:'demo',
 tracado:'500_milhas',
 laptimeUrl:'',
@@ -1537,6 +1542,7 @@ var epx=document.getElementById('cfg-pit-max-count');if(epx)FK.cfg.maxPitStops=p
 var eplc=document.getElementById('cfg-pit-long-count');if(eplc)FK.cfg.longPitStops=parseInt(eplc.value)||0;
 var epld=document.getElementById('cfg-pit-long-dur');if(epld)FK.cfg.longPitDurationSec=Math.round((parseFloat(epld.value)||0)*60);
 var epcl=document.getElementById('cfg-pit-close-min');if(epcl)FK.cfg.pitCloseMin=parseInt(epcl.value)||0;
+var ebxc=document.getElementById('cfg-box-capacity');if(ebxc)FK.cfg.boxCapacity=parseInt(ebxc.value)||24;
 var ehws=document.getElementById('cfg-heavy-start');if(ehws)FK.cfg.heavyWindowStartSec=Math.round((parseFloat(ehws.value)||0)*60);
 var ehwe=document.getElementById('cfg-heavy-end');if(ehwe)FK.cfg.heavyWindowEndSec=Math.round((parseFloat(ehwe.value)||0)*60);
 var esvc=document.getElementById('cfg-svc-time');if(esvc)FK.cfg.svcTimeSec=Math.round((parseFloat(esvc.value)||0)*60);
@@ -1624,7 +1630,8 @@ pushLiveToCloud:function(){
     pqSlotDur:FK.state.pqSlotDur||{},
     pilotQueueActiveIdx:FK.state.pilotQueueActiveIdx||{},
     driverByKart:driverByKart,
-    pqFlags:FK.state.pqFlags||{}
+    pqFlags:FK.state.pqFlags||{},
+    boxPool:FK.state.boxPool||[]
   };
   firebase.firestore().collection('sync').doc('live').set(payload).catch(function(e){console.error('push live erro',e);});
 },
@@ -1669,6 +1676,7 @@ applyRemoteLive:function(data){
   FK.state.pqSlotDur=data.pqSlotDur||{};
   FK.state.pilotQueueActiveIdx=data.pilotQueueActiveIdx||{};
   FK.state.pqFlags=data.pqFlags||{};
+  FK.state.boxPool=data.boxPool||FK.state.boxPool||[];
   var driverByKart=data.driverByKart||{};
   if(!FK.state.boxState)FK.state.boxState={};
   Object.keys(driverByKart).forEach(function(k){
@@ -1679,6 +1687,7 @@ applyRemoteLive:function(data){
   FK.rPilotQueue&&FK.rPilotQueue();
   FK.rPilotTotals&&FK.rPilotTotals();
   FK.updatePilotQueueCurrent&&FK.updatePilotQueueCurrent();
+  FK.rDashBoxIntel&&FK.rDashBoxIntel('dg');
   FK.rBox&&FK.rBox();
   FK.state.applyingRemote=false;
 },
@@ -1696,6 +1705,7 @@ var epx=document.getElementById('cfg-pit-max-count');if(epx)epx.value=FK.cfg.max
 var eplc=document.getElementById('cfg-pit-long-count');if(eplc)eplc.value=FK.cfg.longPitStops!=null?FK.cfg.longPitStops:0;
 var epld=document.getElementById('cfg-pit-long-dur');if(epld)epld.value=FK.cfg.longPitDurationSec!=null?(FK.cfg.longPitDurationSec/60):0;
 var epcl=document.getElementById('cfg-pit-close-min');if(epcl)epcl.value=FK.cfg.pitCloseMin!=null?FK.cfg.pitCloseMin:220;
+var ebxc=document.getElementById('cfg-box-capacity');if(ebxc)ebxc.value=FK.cfg.boxCapacity!=null?FK.cfg.boxCapacity:24;
 var ehws=document.getElementById('cfg-heavy-start');if(ehws)ehws.value=FK.cfg.heavyWindowStartSec?(FK.cfg.heavyWindowStartSec/60):210;
 var ehwe=document.getElementById('cfg-heavy-end');if(ehwe)ehwe.value=FK.cfg.heavyWindowEndSec?(FK.cfg.heavyWindowEndSec/60):300;
 var esvc=document.getElementById('cfg-svc-time');if(esvc)esvc.value=FK.cfg.svcTimeSec?(FK.cfg.svcTimeSec/60):180;
@@ -2080,6 +2090,19 @@ if(lt&&lt>0&&lt>=minDur){
 if(!FK.state.pitLapCounts[d.kart])FK.state.pitLapCounts[d.kart]={short:0,long:0};
 if(longDur>0&&lt>=longDur)FK.state.pitLapCounts[d.kart].long++;
 else FK.state.pitLapCounts[d.kart].short++;
+/* Box Intelligence (pedido 18/09/2026): a placa (numero de corrida) segue a EQUIPE,
+   nao o chassi -- quando uma equipe para, ela troca a placa pro kart fisico que
+   estava parado no box e sai com ele, deixando pra tras o kart que acabou de usar.
+   Entao o stint que acabou de terminar sob esse numero de corrida (d.kart) E a ficha
+   do kart fisico que fica no box agora. Guarda a media das ultimas 5 voltas do stint
+   (descartando a pior) numa fila por ordem de chegada, com capacidade fixa (padrao
+   24 = frota reserva real do KGV: 110 karts - 86 equipes na pista). */
+if(!FK.state.boxPool)FK.state.boxPool=[];
+var boxSnap=FK.recentAvgLapTime(d.kart,5,true);
+FK.state.boxPool.push({kart:d.kart,cat:d.cat||'',enteredAt:t,avgPace:boxSnap});
+var boxCap=FK.cfg.boxCapacity>0?FK.cfg.boxCapacity:24;
+while(FK.state.boxPool.length>boxCap)FK.state.boxPool.shift();
+FK.pushLiveToCloud&&FK.pushLiveToCloud();
 }
 /* Pedido em campo (23/08/2026): o cronômetro visual da equipe (kronoState) não deve mais
    "prever" quando a volta termina -- ele reseta pra 00:00 só quando os dados confirmam de
@@ -2098,7 +2121,7 @@ if(h.length>400)h.shift();
 }
 });
 },
-recentAvgLapTime:function(kart,n){
+recentAvgLapTime:function(kart,n,discardWorst){
 n=n||5;
 var h=(FK.state.history&&FK.state.history[kart])||[];
 var lapTimes=[];
@@ -2115,6 +2138,15 @@ if(t&&t>0&&t<pitThreshold)lapTimes.push(t);
 }
 }
 if(!lapTimes.length)return 0;
+/* Box Intelligence (18/09/2026): descarta a pior volta do grupo (ex: trafego, erro
+   pontual) pra nao penalizar a "ficha" do kart por 1 volta ruim isolada -- pedido
+   explicito do Rapha. So aplica quando o chamador pede (discardWorst=true); os outros
+   usos de recentAvgLapTime (Estrategia) continuam com a media simples de sempre. */
+if(discardWorst&&lapTimes.length>1){
+var maxIdx=0;
+for(var k=1;k<lapTimes.length;k++){if(lapTimes[k]>lapTimes[maxIdx])maxIdx=k;}
+lapTimes.splice(maxIdx,1);
+}
 var sum=0;for(var j=0;j<lapTimes.length;j++)sum+=lapTimes[j];
 return sum/lapTimes.length;
 },
@@ -3516,34 +3548,22 @@ loadWxHourly:function(){
 rDashBoxIntel:function(prefix){
   prefix=prefix||'d';
   var el=document.getElementById(prefix+'-bxi-body');if(!el)return;
-  var data=FK.getData();
+  var cap=FK.cfg.boxCapacity>0?FK.cfg.boxCapacity:24;
   var elapsed=FK.state.elapsed||0;
-  var hist=FK.state.history||{};
-  /* melhor tempo dos karts da equipe em pista */
-  var myBest=999;
-  FK.cfg.myKarts.forEach(function(k){
-    var kd=FK.findKartData(data,k);
-    if(kd){var t=FK.parseT(kd.best);if(t<myBest)myBest=t;}
-  });
-  var pool=data.map(function(d){
-    var t=FK.parseT(d.best);
-    var lapTime=(t&&t<999)?t:60;
-    var h=hist[d.kart]||[];
-    var lastChangeTs=elapsed;
-    for(var i=h.length-1;i>=1;i--){
-      if(h[i].laps!==h[i-1].laps){lastChangeTs=h[i].ts;break;}
-      if(i===1)lastChangeTs=h[0].ts;
-    }
-    var idleSec=Math.max(0,elapsed-lastChangeTs);
-    return {kart:d.kart,best:t,bestStr:d.best,pos:d.pos,idleSec:idleSec,probablyInBox:h.length>1&&idleSec>lapTime*1.8};
-  }).filter(function(k){return k.probablyInBox;});
-  /* ordenar por ordem de chegada: parado há mais tempo = chegou primeiro = sai primeiro */
-  pool.sort(function(a,b){return b.idleSec-a.idleSec;});
-  /* cor = velocidade (melhor volta), independente da ordem de exibição — pedido explícito:
-     mais verde = kart mais rápido, mais vermelho = kart mais lento. Calcula o percentil
-     num array separado ordenado por tempo, e aplica o grade de volta nos mesmos objetos
-     (mesma referência) que estão em "pool", já ordenado por chegada. */
-  var byPace=pool.slice().sort(function(a,b){return a.best-b.best;});
+  var cntEl=document.getElementById(prefix+'-bxi-count');
+  /* pool ja vem em ordem de chegada (FK.state.boxPool.push em recordHistory = mais novo
+     no fim); nao reordena por velocidade -- Rapha pediu explicitamente manter a ordem
+     de chegada na tela (18/09/2026), já que é a fila real de quem sai primeiro do box. */
+  var pool=(FK.state.boxPool||[]).slice();
+  if(cntEl)cntEl.textContent=pool.length+'/'+cap+' karts com ficha conhecida';
+  if(!pool.length){
+    el.innerHTML='<div style="padding:24px;color:var(--mut);text-align:center;font-size:12px">Nenhum kart com ficha ainda — o mapa começa vazio e enche conforme as paradas acontecem (o kart que cada equipe deixa pra trás no box só vira "conhecido" depois de rodar um stint).</div>';
+    return;
+  }
+  /* cor = ritmo, calculado por PERCENTIL DENTRO do proprio pool atual (nao contra o campo
+     todo) -- o box mistura karts que vieram de qualquer categoria (Elite/Challenge correm
+     em ritmos diferentes), entao comparar tempo cru entre eles nao faria sentido. */
+  var byPace=pool.slice().sort(function(a,b){return (a.avgPace||999)-(b.avgPace||999);});
   var n=byPace.length;
   byPace.forEach(function(k,i){
     var pct=i/Math.max(n-1,1);
@@ -3553,40 +3573,37 @@ rDashBoxIntel:function(prefix){
     else if(pct<0.80)k.grade='q2';
     else k.grade='q1';
   });
-  var cntEl=document.getElementById(prefix+'-bxi-count');
-  if(cntEl)cntEl.textContent=pool.length+' kart'+(pool.length===1?'':'s')+' no box agora';
-  /* MATRIZ — ordem = chegada (1º a chegar = próximo a sair); cor = velocidade (verde=rápido, vermelho=lento) */
+  /* MATRIZ — ordem = chegada no box (1º = mais antigo = provável próximo a sair);
+     cor = ritmo (verde=rápido, vermelho=lento), independente da ordem de exibição. */
   var matrixHtml='<div class="bxi-matrix">';
   pool.forEach(function(bk,i){
-    var isTeam=FK.isMy(bk.kart);
-    var style=isTeam?' style="box-shadow:0 0 0 2px #E2231A,0 0 10px rgba(226,35,26,0.4)"':'';
-    matrixHtml+='<div class="bxi-cell '+bk.grade+'"'+style+' title="Kart #'+bk.kart+' | melhor '+bk.bestStr+' | '+(i+1)+'º na fila">'+
-    '<span class="bxi-cell-num">'+(isTeam?'★':'')+bk.kart+'</span>'+
-    '<span class="bxi-cell-time">'+(i+1)+'º · '+FK.fmtMs(bk.idleSec)+'</span>'+
+    var waitSec=Math.max(0,elapsed-(bk.enteredAt||elapsed));
+    var paceStr=bk.avgPace?FK.fmtLap(bk.avgPace):'--:--';
+    matrixHtml+='<div class="bxi-cell '+(bk.grade||'q3')+'" title="Ritmo (média últimas voltas, melhor 4 de 5): '+paceStr+' | veio do número '+bk.kart+' | '+(i+1)+'º a chegar no box | parado há '+FK.fmtMs(waitSec)+'">'+
+    '<span class="bxi-cell-num">'+(i+1)+'&#186;</span>'+
+    '<span class="bxi-cell-time">'+paceStr+'</span>'+
     '<span class="bxi-cell-dot"></span>'+
     '</div>';
   });
   matrixHtml+='</div>';
-  /* Legenda — cor = velocidade; a posição na fila e o tempo parado aparecem no texto de cada célula */
   matrixHtml+='<div class="bxi-legend">'+
   '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#4caf50"></span>Top 20% mais rápidos</span>'+
   '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#8bc34a"></span>Bom ritmo</span>'+
   '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#ffc107"></span>Ritmo médio</span>'+
   '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#ff5722"></span>Ritmo fraco</span>'+
   '<span class="bxi-leg-item"><span class="bxi-leg-dot" style="background:#ef5350"></span>Mais lentos</span>'+
-  '<span class="bxi-leg-item" style="margin-left:8px">nº = posição na fila de saída · ★ = Nosso</span>'+
+  '<span class="bxi-leg-item" style="margin-left:8px">nº = ordem de chegada no box (1º = mais antigo)</span>'+
   '</div>';
-  /* Recomendação — agora fala de congestionamento, não de troca por velocidade */
-  var reco='';
-  if(!pool.length){
-    reco='<div class="bxi-reco go">✅ Box livre agora — bom momento para parar</div>';
-  }else if(pool.length<=2){
-    reco='<div class="bxi-reco go">🅿️ Box com pouco movimento ('+pool.length+' kart'+(pool.length===1?'':'s')+') — bom momento para parar</div>';
-  }else if(pool.length>=5){
-    reco='<div class="bxi-reco wait">⚠️ Box congestionado — '+pool.length+' karts na fila agora</div>';
-  }else{
-    reco='<div class="bxi-reco hold">⚖️ Movimento moderado no box ('+pool.length+' karts)</div>';
-  }
+  /* Recomendação: fala do kart mais antigo do box (o que provavelmente sai primeiro numa
+     fila FIFO), nao de congestionamento -- a pergunta que o Box Intelligence responde
+     agora é "o kart que devo pegar se eu parar agora é bom ou ruim", nao "tem gente
+     parando agora". */
+  var next=pool[0];
+  var goodNext=next.grade==='q5'||next.grade==='q4';
+  var badNext=next.grade==='q1'||next.grade==='q2';
+  var recoCls=goodNext?'go':(badNext?'wait':'hold');
+  var recoIcon=goodNext?'✅':(badNext?'⚠️':'⚖️');
+  var reco='<div class="bxi-reco '+recoCls+'">'+recoIcon+' Kart mais antigo no box (provável próximo a sair): ritmo '+FK.fmtLap(next.avgPace||0)+' · parado há '+FK.fmtMs(Math.max(0,elapsed-(next.enteredAt||elapsed)))+'</div>';
   el.innerHTML=matrixHtml+reco;
 },
 /* ── Karts no Box (equipe) ── */
