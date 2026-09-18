@@ -100,7 +100,7 @@ body{background:radial-gradient(ellipse 1100px 700px at 12% -8%,rgba(79,179,224,
 body.tv-mode .wa-toast{top:64px;font-size:15px;padding:12px 22px}
 /* Pedido do Rapha: previsao do tempo sai de cima da linha azul (topbar) e desce pra altura dos
    botoes de aba, do lado direito da barra de abas. */
-.tabs-wx{flex:1;min-width:140px;display:flex;align-items:center;gap:4px;padding:0 12px;flex-shrink:1;overflow:hidden;border-left:1px solid var(--border)}
+.tabs-wx{flex:1;min-width:140px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;padding:0 12px;flex-shrink:1;overflow:hidden;border-left:1px solid var(--border)}
 .tabs{display:flex;flex-wrap:wrap;gap:4px;flex-shrink:0}
 .tab{display:flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;cursor:pointer;border-radius:10px;background:var(--glass);border:1px solid var(--border);color:var(--txt);font-size:9px;font-weight:700;white-space:nowrap;transition:all .2s;user-select:none;font-family:var(--font-head);letter-spacing:.2px}
 .tab-ic{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:box-shadow .2s,transform .2s}
@@ -679,18 +679,18 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
 <div class="hdr-stack">
 <div class="hdr-stack-row"><span class="hs-lbl">Decorrido</span><span class="hs-val" id="elapsed">00:00:00</span></div>
 <div class="hdr-stack-row"><span class="hs-lbl">Restante</span><span class="hs-val" id="remaining">--:--:--</span></div>
-<div class="hdr-stack-row" title="Equipes que parecem estar parando agora (tempo parado > 1.8x a melhor volta do kart -- estimativa, nao vem direto do Race Monitor)"><span class="hs-lbl">No Box Agora</span><span class="hs-val" id="hdr-box-count">--</span></div>
-<div class="hdr-stack-row" id="hdr-wa-row" onclick="FK.toggleWaPanel()" title="Ultimo aviso do WhatsApp que citou kart da equipe -- clique pra ver o historico"><span class="hs-lbl">&#128681; Aviso</span><span class="hs-val" id="hdr-wa-val">&mdash;</span></div>
 <div class="hdr-stack-row acc"><span class="hs-lbl">Fecha o box</span><span class="hs-val" id="hdr-cd-pitclose">--:--:--</span></div>
 <div class="hdr-stack-row" id="hdr-heavy-row" onclick="FK.toggleHeavyStint()" style="cursor:pointer" title="Clique para marcar o inicio do Stint Obrigatorio Pesado (105kg / 40min). Clique de novo pra reiniciar."><span class="hs-lbl">Stint Pesado</span><span class="hs-val" id="hdr-cd-heavy">--:--:--</span></div>
 </div>
 <div class="hdr-leader">
 <div class="hdr-stack-row"><span class="hs-lbl">Volta (líder)</span><span class="hs-val" id="hdr-lap-num">--</span></div>
 <span class="hs-leader" id="leader-info">-</span>
+<div class="hdr-stack-row" title="Equipes que parecem estar parando agora (tempo parado > 1.8x a melhor volta do kart -- estimativa, nao vem direto do Race Monitor)"><span class="hs-lbl">No Box Agora</span><span class="hs-val" id="hdr-box-count">--</span></div>
+<div class="hdr-stack-row" id="hdr-wa-row" onclick="FK.toggleWaPanel()" title="Ultimo aviso do WhatsApp que citou kart da equipe -- clique pra ver o historico"><span class="hs-lbl">&#128681; Aviso</span><span class="hs-val" id="hdr-wa-val">&mdash;</span></div>
 </div>
 <div class="tabs-wx">
 <div class="wx-bar" id="wxbar">Carregando...</div>
-<div id="wx-topbar-forecast" style="display:flex;align-items:center;gap:4px;margin-left:8px"></div>
+<div id="wx-topbar-forecast" style="display:flex;align-items:center;gap:4px;margin-left:0"></div>
 <canvas id="wx-hourly-canvas" height="28" style="width:160px;border-radius:3px;display:none;vertical-align:middle;margin-left:4px"></canvas>
 </div>
 <div class="tabs" id="tabs">
@@ -1907,7 +1907,14 @@ dot.className='status-dot status-demo';lbl.textContent='DEMO';
 startClock:function(){
 if(FK.state.clockInterval)clearInterval(FK.state.clockInterval);
 FK.state.clockInterval=setInterval(function(){
-if(FK.cfg.source==='demo')FK.state.elapsed++;
+/* pedido 18/09/2026 em campo: Decorrido/Restante/Fecha o box/Stint pesado pareciam
+   "travados", so pulando de uns 5 em 5s -- porque antes so contavam localmente em modo
+   demo; em live/mylaptime o valor ficava parado esperando o Race Monitor mandar um
+   SessionTime novo (que nao chega exatamente a cada segundo). Agora conta local todo
+   segundo em QUALQUER fonte, e o valor real (parseSession ao vivo / paste do LapTime) so
+   corrige o relogio quando chega -- fica suave sempre, sem depender do timing do servidor. */
+FK.state.elapsed=(FK.state.elapsed||0)+1;
+if(FK.cfg.source==='live'&&FK.state.timeToGoSec!=null)FK.state.timeToGoSec=Math.max(0,FK.state.timeToGoSec-1);
 var e=FK.state.elapsed;
 /* prefere o TimeToGo que o proprio Race Monitor calcula (fonte ao vivo) em vez de so
    subtrair do total configurado -- mais confiavel se a duracao da prova no Config estiver
