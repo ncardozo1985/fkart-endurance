@@ -82,6 +82,21 @@ body{background:radial-gradient(ellipse 1100px 700px at 12% -8%,rgba(79,179,224,
 .theme-toggle-btn{-webkit-appearance:none;appearance:none;margin:0}
 .theme-toggle-btn:hover{border-color:var(--acc2)}
 .theme-toggle-btn .tab-ic{background:var(--grad);font-size:15px;line-height:1}
+.wa-badge{-webkit-appearance:none;appearance:none;margin:0;position:relative}
+.wa-badge .wa-dot{position:absolute;top:3px;right:3px;width:8px;height:8px;border-radius:50%;background:var(--red);border:1.5px solid var(--bg);display:none}
+.wa-badge.has-unread .wa-dot{display:block}
+.wa-panel{position:fixed;top:58px;right:12px;width:300px;max-height:60vh;overflow-y:auto;background:var(--glass-strong);backdrop-filter:blur(16px) saturate(150%);-webkit-backdrop-filter:blur(16px) saturate(150%);border:1px solid var(--border-strong);border-radius:12px;box-shadow:0 10px 30px -6px rgba(0,0,0,0.5);z-index:9999;display:none}
+.wa-panel.open{display:block}
+.wa-panel-hdr{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-bottom:1px solid var(--border);font-size:11px;font-weight:800;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}
+.wa-panel-hdr button{background:none;border:none;color:var(--acc2);font-size:10px;font-weight:700;cursor:pointer;padding:2px 4px}
+.wa-item{padding:9px 12px;border-bottom:1px solid var(--border);font-size:12px;line-height:1.5}
+.wa-item:last-child{border-bottom:none}
+.wa-item-kart{display:inline-block;background:var(--acc);color:#fff;border-radius:5px;padding:1px 6px;font-weight:800;font-size:10px;margin-right:5px;vertical-align:middle}
+.wa-item-text{color:var(--txt)}
+.wa-item-meta{color:var(--mut);font-size:9px;margin-top:3px}
+.wa-item-empty{padding:18px;color:var(--mut);font-size:11px;text-align:center}
+.wa-toast{position:fixed;top:60px;left:50%;transform:translateX(-50%);background:#25d366;color:#fff;padding:10px 18px;border-radius:9px;font-size:12px;font-weight:700;z-index:10000;box-shadow:0 8px 24px rgba(0,0,0,.4);cursor:pointer;max-width:min(90vw,420px);display:none;align-items:center;gap:6px}
+body.tv-mode .wa-toast{top:64px;font-size:15px;padding:12px 22px}
 /* Pedido do Rapha: previsao do tempo sai de cima da linha azul (topbar) e desce pra altura dos
    botoes de aba, do lado direito da barra de abas. */
 .tabs-wx{flex:1;min-width:140px;display:flex;align-items:center;gap:4px;padding:0 12px;flex-shrink:1;overflow:hidden;border-left:1px solid var(--border)}
@@ -672,8 +687,14 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
 <div class="tab" data-tab="config" title="Config"><span class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a7.97 7.97 0 0 0 0-2l2.1-1.6-2-3.4-2.5 1a8 8 0 0 0-1.7-1L14.9 3h-4l-.4 2.9a8 8 0 0 0-1.7 1l-2.5-1-2 3.4L6.6 11a7.97 7.97 0 0 0 0 2l-2.1 1.6 2 3.4 2.5-1a8 8 0 0 0 1.7 1l.4 3h4l.4-2.9a8 8 0 0 0 1.7-1l2.5 1 2-3.4-2.1-1.6z"/></svg></span><span class="tab-lbl">Config</span></div>
 <div class="tab hidden-tab" data-tab="users" id="tab-users" title="Usuarios"><span class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.5" cy="8" r="3"/><path d="M2.5 19c1.2-3.3 4-5 6-5s4.8 1.7 6 5"/><circle cx="16.5" cy="9" r="2.3"/><path d="M15 13.2c2 .2 4 1.6 5 4.8"/></svg></span><span class="tab-lbl">Usuarios</span></div>
 <button id="theme-toggle-btn" class="tab theme-toggle-btn" onclick="FK.toggleTheme()" title="Alternar entre tema escuro e tema claro (util contra claridade/sol)"><span class="tab-ic">&#9728;&#65039;</span><span class="tab-lbl">Claro</span></button>
+<button id="wa-badge-btn" class="tab wa-badge" onclick="FK.toggleWaPanel()" title="Avisos do WhatsApp da equipe (mensagens que citam os karts cadastrados)"><span class="tab-ic">&#128172;</span><span class="tab-lbl">Avisos</span><span class="wa-dot"></span></button>
 </div>
 </div>
+<div class="wa-panel" id="wa-panel">
+<div class="wa-panel-hdr"><span>Avisos do WhatsApp</span><button onclick="FK.toggleWaPanel()">Fechar</button></div>
+<div id="wa-panel-body"></div>
+</div>
+<div class="wa-toast" id="wa-toast" onclick="FK.toggleWaPanel()"></div>
 <div class="content">
 <div class="pane on" id="pane-dashgeral">
 <div class="dash-root">
@@ -1590,6 +1611,68 @@ alert('Configuracao salva! Karts: '+FK.cfg.myKarts.join(', ')||'nenhum');
    se dois aparelhos gravarem quase ao mesmo tempo em cima do MESMO documento, o ultimo a
    gravar "ganha". Pra uso normal de chefe de equipe (uma decisao por vez) isso nao e
    problema; edicoes simultaneas no mesmo campo por pessoas diferentes sao raras na pratica. */
+escHtml:function(s){
+  return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+},
+pushWhatsappAlert:function(text,karts,from){
+  if(typeof firebase==='undefined')return;
+  var alert={text:String(text||'').slice(0,300),karts:karts||[],from:from||'',ts:Date.now()};
+  var db=firebase.firestore();
+  db.collection('sync').doc('whatsapp').get().then(function(snap){
+    var cur=(snap.exists&&snap.data()&&snap.data().alerts)||[];
+    cur.push(alert);
+    while(cur.length>20)cur.shift();
+    return db.collection('sync').doc('whatsapp').set({alerts:cur});
+  }).catch(function(e){console.error('push whatsapp erro',e);});
+},
+applyRemoteWhatsapp:function(data){
+  var alerts=(data&&data.alerts)||[];
+  FK.state.waAlerts=alerts;
+  var lastToasted=FK.state.waLastToastedTs||0;
+  var newest=alerts.length?alerts[alerts.length-1]:null;
+  if(newest&&newest.ts>lastToasted){
+    FK.state.waLastToastedTs=newest.ts;
+    FK.showWaToast(newest);
+  }
+  FK.rWaPanel();
+},
+showWaToast:function(alert){
+  var el=document.getElementById('wa-toast');if(!el)return;
+  var kartsTxt=(alert.karts&&alert.karts.length)?('Kart '+alert.karts.join(', ')+': '):'';
+  el.textContent='\uD83D\uDCAC '+kartsTxt+(alert.text||'');
+  el.style.display='flex';
+  clearTimeout(FK.state.waToastTimer);
+  FK.state.waToastTimer=setTimeout(function(){el.style.display='none';},8000);
+},
+rWaPanel:function(){
+  var body=document.getElementById('wa-panel-body');
+  var badge=document.getElementById('wa-badge-btn');
+  var alerts=(FK.state.waAlerts||[]).slice().reverse();
+  var lastSeen=0;
+  try{lastSeen=parseInt(localStorage.getItem('fkart_wa_seen')||'0',10);}catch(e){}
+  var unread=alerts.filter(function(a){return (a.ts||0)>lastSeen;}).length;
+  if(badge)badge.classList.toggle('has-unread',unread>0);
+  if(!body)return;
+  if(!alerts.length){body.innerHTML='<div class="wa-item-empty">Nenhum aviso ainda.</div>';return;}
+  body.innerHTML=alerts.map(function(a){
+    var kartsHtml=(a.karts&&a.karts.length)?a.karts.map(function(k){return '<span class="wa-item-kart">'+FK.escHtml(k)+'</span>';}).join(''):'';
+    var when=a.ts?new Date(a.ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'';
+    return '<div class="wa-item">'+kartsHtml+'<span class="wa-item-text">'+FK.escHtml(a.text)+'</span><div class="wa-item-meta">'+(a.from?FK.escHtml(a.from)+' &middot; ':'')+when+'</div></div>';
+  }).join('');
+},
+toggleWaPanel:function(){
+  var el=document.getElementById('wa-panel');if(!el)return;
+  var opening=!el.classList.contains('open');
+  el.classList.toggle('open',opening);
+  if(opening){
+    var alerts=FK.state.waAlerts||[];
+    var maxTs=alerts.length?Math.max.apply(null,alerts.map(function(a){return a.ts||0;})):Date.now();
+    try{localStorage.setItem('fkart_wa_seen',String(maxTs));}catch(e){}
+    FK.rWaPanel();
+  }
+},
 initSync:function(){
   if(FK.state.syncInited)return;
   if(typeof firebase==='undefined')return;
@@ -1605,6 +1688,9 @@ initSync:function(){
   FK.state.syncUnsubs.push(db.collection('sync').doc('live').onSnapshot(function(snap){
     if(snap.exists)FK.applyRemoteLive(snap.data());
   },function(e){console.error('sync live erro',e);}));
+  FK.state.syncUnsubs.push(db.collection('sync').doc('whatsapp').onSnapshot(function(snap){
+    if(snap.exists)FK.applyRemoteWhatsapp(snap.data());
+  },function(e){console.error('sync whatsapp erro',e);}));
 },
 stopSync:function(){
   (FK.state.syncUnsubs||[]).forEach(function(u){try{u();}catch(e){}});
