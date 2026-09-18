@@ -491,7 +491,11 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .pq-slot.extra{border-style:dashed;opacity:0.8}
 .pq-slot.done{opacity:.6}
 .pq-slot.active{border-color:var(--acc);border-width:1px;grid-column:span 2}
-.pq-slot-num{font-size:9px;font-weight:900;color:var(--acc);min-width:12px;text-align:center;flex-shrink:0}
+.pq-slot-num{font-size:9px;font-weight:900;color:var(--acc);min-width:12px;text-align:center;flex-shrink:0;white-space:nowrap}
+.pq-flags{display:flex;gap:5px;padding:0 0 8px 0;flex-wrap:wrap}
+.pq-flag-chip{background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--mut);font-size:9px;font-weight:700;padding:3px 7px;border-radius:6px;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s,color .15s}
+.pq-flag-chip:hover{border-color:var(--acc)}
+.pq-flag-chip.on{background:rgba(102,187,106,0.18);border-color:var(--green);color:var(--green)}
 .pq-slot select{background:#0c0d0f;color:var(--txt);border:1px solid var(--border);border-radius:4px;font-size:10px;padding:2px 4px;min-width:0;flex:1}
 .pq-slot-name{font-size:11px;font-weight:700;color:var(--txt);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .pq-slot-status{font-size:9px;color:#5DCAA5;white-space:nowrap;flex-shrink:0}
@@ -579,6 +583,9 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
 .tv-dash .tv-pq-pname{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tv-dash .tv-pq-status{font-size:10px}
 .tv-dash .tv-pq-item{padding:4px 8px}
+.tv-dash .tv-pq-summary{font-size:12px;color:var(--mut);padding:2px 2px 6px}
+.tv-dash .tv-pq-summary b{color:var(--txt)}
+.tv-dash .tv-pq-summary .tv-pq-extra{color:var(--acc2);font-weight:700}
 .pq-activate-btn{background:var(--acc);color:#fff;border:none;border-radius:5px;padding:4px 9px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap}
 /* Config: Setup — pilotos por kart */
 .kp-setup-kart{margin-bottom:12px}
@@ -1007,6 +1014,14 @@ Ordenar cronometros da equipe pela colocacao na corrida (senao, ordem de cadastr
 <h3>&#127942; Regras da Prova</h3>
 <div class="cfg-grid">
 <div class="cfg-field">
+<label>Categoria do Regulamento (preenche as 4 regras abaixo)</label>
+<select id="cfg-pit-preset" onchange="FK.applyPitRulePreset(this.value)">
+<option value="">— manual —</option>
+<option value="ELITE">Elite (5 paradas de 6min + 1 de 10min)</option>
+<option value="CHALLENGE">Challenge (6 paradas de 6min + 1 de 10min)</option>
+</select>
+</div>
+<div class="cfg-field">
 <label>Paradas Obrigatorias (minimo)</label>
 <input type="number" id="cfg-pit-min-count" min="0" value="5">
 </div>
@@ -1035,7 +1050,7 @@ Ordenar cronometros da equipe pela colocacao na corrida (senao, ordem de cadastr
 <input type="text" id="cfg-my-category" placeholder="Ex: LIGHT" oninput="this.value=this.value.toUpperCase()">
 </div>
 </div>
-<small style="color:var(--mut);font-size:11px;display:block">Ajuste estes campos conforme o regulamento de cada corrida. Para a Endurance Itu 6h (23/08/2026, Art.14&#186;): 5 paradas obrigatorias de 5min + 1 parada longa de 7min = 32min de paradas no total. As "Paradas Longas" contam separado das paradas minimas normais e entram na Proje&ccedil;&atilde;o como tempo obrigat&oacute;rio adicional descontado do tempo total de prova. As paradas cumpridas sao contadas automaticamente pela volta cronometrada detectada no feed ao vivo (duracao >= o minimo configurado acima). A categoria precisa bater com o texto da coluna CATEGORIA da fonte de dados.</small>
+<small style="color:var(--mut);font-size:11px;display:block">Ajuste estes campos conforme o regulamento de cada corrida (o preset "Categoria do Regulamento" acima preenche os 4 campos de paradas pro KGV -- Elite ou Challenge -- mas continuam editaveis). Para a Endurance Itu 6h (23/08/2026, Art.14&#186;): 5 paradas obrigatorias de 5min + 1 parada longa de 7min = 32min de paradas no total. As "Paradas Longas" contam separado das paradas minimas normais e entram na Proje&ccedil;&atilde;o como tempo obrigat&oacute;rio adicional descontado do tempo total de prova. As paradas cumpridas sao contadas automaticamente pela volta cronometrada detectada no feed ao vivo (duracao >= o minimo configurado acima). A categoria precisa bater com o texto da coluna CATEGORIA da fonte de dados. O stint pesado (105kg / min 40min continuos) e regra de todas as categorias e fica configurado separado, na "Heavy Window" abaixo.</small>
 </div>
 <div class="cfg-panel">
 <h3>&#128679; Janelas Especiais da Prova</h3>
@@ -1494,6 +1509,19 @@ var s=localStorage.getItem('fkart_cfg');
 if(s){var c=JSON.parse(s);FK.cfg=Object.assign(FK.cfg,c);}
 }catch(e){}
 },
+applyPitRulePreset:function(preset){
+  var presets={
+    ELITE:{min:5,minDur:6,long:1,longDur:10},
+    CHALLENGE:{min:6,minDur:6,long:1,longDur:10}
+  };
+  var p=presets[preset];
+  if(!p)return;
+  var setVal=function(id,val){var el=document.getElementById(id);if(el)el.value=val;};
+  setVal('cfg-pit-min-count',p.min);
+  setVal('cfg-pit-min-dur',p.minDur);
+  setVal('cfg-pit-long-count',p.long);
+  setVal('cfg-pit-long-dur',p.longDur);
+},
 saveConfig:function(){
 FK.cfg.raceName=document.getElementById('cfg-race-name').value||'Corrida';
 FK.cfg.raceId=parseInt(document.getElementById('cfg-race-id').value)||169005;
@@ -1593,7 +1621,8 @@ pushLiveToCloud:function(){
     pilotQueue:FK.state.pilotQueue||{},
     pqSlotDur:FK.state.pqSlotDur||{},
     pilotQueueActiveIdx:FK.state.pilotQueueActiveIdx||{},
-    driverByKart:driverByKart
+    driverByKart:driverByKart,
+    pqFlags:FK.state.pqFlags||{}
   };
   firebase.firestore().collection('sync').doc('live').set(payload).catch(function(e){console.error('push live erro',e);});
 },
@@ -1637,6 +1666,7 @@ applyRemoteLive:function(data){
   FK.state.pilotQueue=data.pilotQueue||{};
   FK.state.pqSlotDur=data.pqSlotDur||{};
   FK.state.pilotQueueActiveIdx=data.pilotQueueActiveIdx||{};
+  FK.state.pqFlags=data.pqFlags||{};
   var driverByKart=data.driverByKart||{};
   if(!FK.state.boxState)FK.state.boxState={};
   Object.keys(driverByKart).forEach(function(k){
@@ -3815,6 +3845,12 @@ rPilotQueue:function(){
     var showUndo=undoAct&&undoAct.kart===k&&(Date.now()-undoAct.ts<300000);
     var undoBtn=showUndo?'<button class="pq-undo-btn" onclick="FK.undoPilotQueueActivation()" title="Desfaz a ultima ativacao deste kart, devolve o piloto anterior">&#8617; Desfazer ativação</button>':'';
     html+='<div class="pq-kart-hdr"><span class="krono-badge" style="width:24px;height:24px;font-size:9px;flex-shrink:0">'+k+'</span><div class="pq-current"><span class="pq-lbl">Na pista agora</span><span class="pq-current-name" id="pq-cur-'+k+'">—</span></div>'+undoBtn+'</div>';
+    var flags=(FK.state.pqFlags&&FK.state.pqFlags[k])||{};
+    html+='<div class="pq-flags">'+
+      '<button class="pq-flag-chip'+(flags.heavy?' on':'')+'" id="pq-flag-'+k+'-heavy" onclick="FK.togglePqFlag(\''+k+'\',\'heavy\')" title="Stint pesado (40min continuos, kart lastreado) cumprido -- marcacao manual">'+(flags.heavy?'&#10003;':'&#9675;')+' Pesado</button>'+
+      '<button class="pq-flag-chip'+(flags.short?' on':'')+'" id="pq-flag-'+k+'-short" onclick="FK.togglePqFlag(\''+k+'\',\'short\')" title="Todas as paradas obrigatorias de 6min ja cumpridas -- marcacao manual">'+(flags.short?'&#10003;':'&#9675;')+' Paradas 6min</button>'+
+      '<button class="pq-flag-chip'+(flags.long?' on':'')+'" id="pq-flag-'+k+'-long" onclick="FK.togglePqFlag(\''+k+'\',\'long\')" title="Parada longa (10min) cumprida -- marcacao manual">'+(flags.long?'&#10003;':'&#9675;')+' Parada 10min</button>'+
+    '</div>';
     html+='<div class="pq-slots">';
     for(var i=0;i<slots;i++){
       var required=i<minStops;
@@ -3827,14 +3863,14 @@ rPilotQueue:function(){
         var statusHtml=isActive
           ?'<span class="pq-slot-timer" id="pq-timer-'+k+'">00:00</span>'
           :(val?'<span class="pq-slot-status">concluído'+(doneDur[i]!=null?' · '+FK.fmtTime(Math.floor(doneDur[i]/1000)):'')+'</span>':'<span class="pq-slot-status">—</span>');
-        html+='<div class="pq-slot'+cls+'"><span class="pq-slot-num">'+(i+1)+'</span><span class="pq-slot-name">'+(val||'—')+'</span>'+statusHtml+'</div>';
+        html+='<div class="pq-slot'+cls+'"><span class="pq-slot-num">'+(i===0?'Largada':(i+1))+'</span><span class="pq-slot-name">'+(val||'—')+'</span>'+statusHtml+'</div>';
       }else{
         var opts='<option value="">— vazio —</option>'+eligible.map(function(name){
           return '<option value="'+name+'"'+(val===name?' selected':'')+'>'+name+'</option>';
         }).join('');
         var isNext=(i===activeIdx+1)&&val;
         var btn=isNext?'<button class="pq-activate-btn" onclick="FK.activatePilotQueueSlot(\''+k+'\','+i+')">Ativar</button>':'';
-        html+='<div class="pq-slot'+cls+'"><span class="pq-slot-num">'+(i+1)+'</span><select onchange="FK.setPilotQueueSlot(\''+k+'\','+i+',this.value)">'+opts+'</select>'+btn+'</div>';
+        html+='<div class="pq-slot'+cls+'"><span class="pq-slot-num">'+(i===0?'Largada':(i+1))+'</span><select onchange="FK.setPilotQueueSlot(\''+k+'\','+i+',this.value)">'+opts+'</select>'+btn+'</div>';
       }
     }
     html+='</div></div>';
@@ -3876,22 +3912,30 @@ rTvPilotQueue:function(){
     var activeIdx=(FK.state.pilotQueueActiveIdx&&FK.state.pilotQueueActiveIdx[k]!=null)?FK.state.pilotQueueActiveIdx[k]:-1;
     var doneDur=(FK.state.pqSlotDur&&FK.state.pqSlotDur[k])||{};
     var curName=(bs[k]&&bs[k].piloto)||'—';
+    var reqDone=0,extraDone=0;
+    for(var j=0;j<slots;j++){
+      if(j<activeIdx||doneDur[j]!=null){if(j<minStops)reqDone++;else extraDone++;}
+    }
     html+='<div class="tv-pq-kart">';
     html+='<div class="tv-pq-hdr"><span class="krono-badge" style="width:34px;height:34px;font-size:13px">'+k+'</span><div class="tv-pq-current"><span class="tv-pq-lbl">Na pista agora</span><span class="tv-pq-name">'+curName+'</span></div></div>';
+    html+='<div class="tv-pq-summary">Paradas: <b>'+reqDone+'/'+minStops+'</b>'+(extraDone?' <span class="tv-pq-extra">+'+extraDone+' extra</span>':'')+'</div>';
     html+='<div class="tv-pq-list">';
-    var any=false;
+    var shown=false,hasAny=false;
     for(var i=0;i<slots;i++){
       var val=queue[i]||'';
       if(!val)continue;
-      any=true;
-      var required=i<minStops;
-      var isPast=i<activeIdx||doneDur[i]!=null;
+      hasAny=true;
       var isActive=i===activeIdx;
-      var st=isPast?'done':(isActive?'active':(i===activeIdx+1?'next':'pending'));
-      var stLbl=isPast?('Concluído'+(doneDur[i]!=null?' · '+FK.fmtTime(Math.floor(doneDur[i]/1000)):'')):(isActive?'Na pista':(i===activeIdx+1?'Próximo':'Na fila'));
-      html+='<div class="tv-pq-item '+st+'"><span class="tv-pq-num">'+(i+1)+(required?'':'*')+'</span><span class="tv-pq-pname">'+val+'</span><span class="tv-pq-status">'+stLbl+'</span></div>';
+      var isNext=i===activeIdx+1;
+      if(!isActive&&!isNext)continue;
+      shown=true;
+      var required=i<minStops;
+      var st=isActive?'active':'next';
+      var stLbl=isActive?'Na pista':'Próximo';
+      var numLbl=(i===0?'Largada':(i+1))+(required?'':'*');
+      html+='<div class="tv-pq-item '+st+'"><span class="tv-pq-num">'+numLbl+'</span><span class="tv-pq-pname">'+val+'</span><span class="tv-pq-status">'+stLbl+'</span></div>';
     }
-    if(!any)html+='<div style="padding:8px;color:var(--mut);font-size:12px">Fila ainda não montada</div>';
+    if(!shown)html+='<div style="padding:8px;color:var(--mut);font-size:12px">'+(hasAny?'Todas as paradas montadas concluídas':'Fila ainda não montada')+'</div>';
     html+='</div></div>';
   });
   el.innerHTML=html;
@@ -3959,6 +4003,19 @@ activatePilotQueueSlot:function(kart,idx){
    criado) exatamente como estavam antes do Ativar. Valida por 5min (300000ms): depois
    disso a corrida ja avancou o suficiente que reverter cegamente confundiria mais do que
    ajudaria, entao a janela expira e o botao some sozinho (ver rPilotQueue). */
+togglePqFlag:function(kart,key){
+  if(!FK.state.pqFlags)FK.state.pqFlags={};
+  if(!FK.state.pqFlags[kart])FK.state.pqFlags[kart]={};
+  var newVal=!FK.state.pqFlags[kart][key];
+  FK.state.pqFlags[kart][key]=newVal;
+  var el=document.getElementById('pq-flag-'+kart+'-'+key);
+  if(el){
+    el.classList.toggle('on',newVal);
+    var label=el.textContent.replace(/^[\u2713\u25cb]\s*/,'');
+    el.innerHTML=(newVal?'&#10003;':'&#9675;')+' '+label;
+  }
+  FK.pushLiveToCloud&&FK.pushLiveToCloud();
+},
 undoPilotQueueActivation:function(){
   var act=FK.state.pqLastAction;
   if(!act)return;
