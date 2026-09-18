@@ -1774,6 +1774,7 @@ applyRemoteCfg:function(data){
   FK.renderKartPilotsSetup&&FK.renderKartPilotsSetup();
   FK.rStintPlan&&FK.rStintPlan();
   FK.state.applyingRemote=false;
+  FK.resumeLiveIfNeeded&&FK.resumeLiveIfNeeded();
 },
 applyRemotePilotos:function(data){
   if(!data)return;
@@ -1981,6 +1982,14 @@ html+='<tr class="'+(my?'my-kart':'')+'">'+'\n'+
 var el=document.getElementById('placar-body');if(el)el.innerHTML=html;
 var l=data[0];if(l){var li=document.getElementById('leader-info');if(li)li.textContent=l.kart+' - '+l.t+' ('+l.laps+'v)';}
 var fl=document.getElementById('flag-status');if(fl)fl.textContent=FK.cfg.source!=='demo'&&FK.state.flagStatus?FK.state.flagStatus:'Verde';
+},
+resumeLiveIfNeeded:function(){
+if(FK.cfg.source==='live'&&FK.cfg.raceId&&!FK.state.liveInterval){
+FK.updateSrcBadge();FK.fetchLive();
+FK.state.liveInterval=setInterval(FK.fetchLive,1000);
+if(!FK.state.racerInterval){FK.state.racerInterval=setInterval(FK.pollRacerLaps,20000);FK.pollRacerLaps();}
+FK.startLiveStream();
+}
 },
 startLive:function(){
 FK.cfg.source='live';FK.state.elapsed=0;
@@ -4577,6 +4586,7 @@ FK.updateTopbar();FK.updateSrcBadge();FK.rPlacar();
 FK.rPilotos();FK.rEstrategia();
 FK.loadWxHourly();FK.loadWx();FK.startClock();FK.startKronoInterval();
 FK.rDashGeral();FK.rDashMobile();setTimeout(function(){FK.drawWxChart();},100);
+FK.resumeLiveIfNeeded();
 }
 };
 document.querySelectorAll('.tab').forEach(function(t){
