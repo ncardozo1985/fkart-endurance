@@ -82,9 +82,10 @@ body{background:radial-gradient(ellipse 1100px 700px at 12% -8%,rgba(79,179,224,
 .theme-toggle-btn{-webkit-appearance:none;appearance:none;margin:0}
 .theme-toggle-btn:hover{border-color:var(--acc2)}
 .theme-toggle-btn .tab-ic{background:var(--grad);font-size:15px;line-height:1}
-.wa-badge{-webkit-appearance:none;appearance:none;margin:0;position:relative}
-.wa-badge .wa-dot{position:absolute;top:3px;right:3px;width:8px;height:8px;border-radius:50%;background:var(--red);border:1.5px solid var(--bg);display:none}
-.wa-badge.has-unread .wa-dot{display:block}
+#hdr-wa-row{cursor:pointer}
+#hdr-wa-row .hs-val{color:var(--mut)}
+#hdr-wa-row.wa-active .hs-val{color:var(--red);animation:waPulse 1.4s ease-in-out infinite}
+@keyframes waPulse{0%,100%{opacity:1}50%{opacity:.55}}
 .wa-panel{position:fixed;top:58px;right:12px;width:300px;max-height:60vh;overflow-y:auto;background:var(--glass-strong);backdrop-filter:blur(16px) saturate(150%);-webkit-backdrop-filter:blur(16px) saturate(150%);border:1px solid var(--border-strong);border-radius:12px;box-shadow:0 10px 30px -6px rgba(0,0,0,0.5);z-index:9999;display:none}
 .wa-panel.open{display:block}
 .wa-panel-hdr{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-bottom:1px solid var(--border);font-size:11px;font-weight:800;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}
@@ -666,6 +667,7 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
 <div class="hdr-stack-row"><span class="hs-lbl">Decorrido</span><span class="hs-val" id="elapsed">00:00:00</span></div>
 <div class="hdr-stack-row"><span class="hs-lbl">Restante</span><span class="hs-val" id="remaining">--:--:--</span></div>
 <div class="hdr-stack-row" title="Equipes que parecem estar parando agora (tempo parado > 1.8x a melhor volta do kart -- estimativa, nao vem direto do Race Monitor)"><span class="hs-lbl">No Box Agora</span><span class="hs-val" id="hdr-box-count">--</span></div>
+<div class="hdr-stack-row" id="hdr-wa-row" onclick="FK.toggleWaPanel()" title="Ultimo aviso do WhatsApp que citou kart da equipe -- clique pra ver o historico"><span class="hs-lbl">&#128681; Aviso</span><span class="hs-val" id="hdr-wa-val">&mdash;</span></div>
 <div class="hdr-stack-row acc"><span class="hs-lbl">Fecha o box</span><span class="hs-val" id="hdr-cd-pitclose">--:--:--</span></div>
 <div class="hdr-stack-row" id="hdr-heavy-row" onclick="FK.toggleHeavyStint()" style="cursor:pointer" title="Clique para marcar o inicio do Stint Obrigatorio Pesado (105kg / 40min). Clique de novo pra reiniciar."><span class="hs-lbl">Stint Pesado</span><span class="hs-val" id="hdr-cd-heavy">--:--:--</span></div>
 </div>
@@ -687,7 +689,6 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
 <div class="tab" data-tab="config" title="Config"><span class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a7.97 7.97 0 0 0 0-2l2.1-1.6-2-3.4-2.5 1a8 8 0 0 0-1.7-1L14.9 3h-4l-.4 2.9a8 8 0 0 0-1.7 1l-2.5-1-2 3.4L6.6 11a7.97 7.97 0 0 0 0 2l-2.1 1.6 2 3.4 2.5-1a8 8 0 0 0 1.7 1l.4 3h4l.4-2.9a8 8 0 0 0 1.7-1l2.5 1 2-3.4-2.1-1.6z"/></svg></span><span class="tab-lbl">Config</span></div>
 <div class="tab hidden-tab" data-tab="users" id="tab-users" title="Usuarios"><span class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.5" cy="8" r="3"/><path d="M2.5 19c1.2-3.3 4-5 6-5s4.8 1.7 6 5"/><circle cx="16.5" cy="9" r="2.3"/><path d="M15 13.2c2 .2 4 1.6 5 4.8"/></svg></span><span class="tab-lbl">Usuarios</span></div>
 <button id="theme-toggle-btn" class="tab theme-toggle-btn" onclick="FK.toggleTheme()" title="Alternar entre tema escuro e tema claro (util contra claridade/sol)"><span class="tab-ic">&#9728;&#65039;</span><span class="tab-lbl">Claro</span></button>
-<button id="wa-badge-btn" class="tab wa-badge" onclick="FK.toggleWaPanel()" title="Avisos do WhatsApp da equipe (mensagens que citam os karts cadastrados)"><span class="tab-ic">&#128172;</span><span class="tab-lbl">Avisos</span><span class="wa-dot"></span></button>
 </div>
 </div>
 <div class="wa-panel" id="wa-panel">
@@ -1648,12 +1649,7 @@ showWaToast:function(alert){
 },
 rWaPanel:function(){
   var body=document.getElementById('wa-panel-body');
-  var badge=document.getElementById('wa-badge-btn');
   var alerts=(FK.state.waAlerts||[]).slice().reverse();
-  var lastSeen=0;
-  try{lastSeen=parseInt(localStorage.getItem('fkart_wa_seen')||'0',10);}catch(e){}
-  var unread=alerts.filter(function(a){return (a.ts||0)>lastSeen;}).length;
-  if(badge)badge.classList.toggle('has-unread',unread>0);
   if(!body)return;
   if(!alerts.length){body.innerHTML='<div class="wa-item-empty">Nenhum aviso ainda.</div>';return;}
   body.innerHTML=alerts.map(function(a){
@@ -3742,6 +3738,14 @@ countBoxNow:function(){
   });
   return n;
 },
+fmtWaAgo:function(ms){
+  var s=Math.max(0,Math.floor(ms/1000));
+  if(s<60)return s+'s';
+  var m=Math.floor(s/60);
+  var rem=s%60;
+  if(m<60)return m+'m'+(rem?rem+'s':'');
+  return FK.fmtTime(s);
+},
 rDashHdrStrip:function(){
   var data=FK.getData();
   var lapVal=(data[0]&&data[0].laps!=null)?data[0].laps:'--';
@@ -3752,6 +3756,19 @@ rDashHdrStrip:function(){
   });
   var boxCountEl=document.getElementById('hdr-box-count');
   if(boxCountEl)boxCountEl.textContent=FK.countBoxNow();
+  (function(){
+    var valEl=document.getElementById('hdr-wa-val'),rowEl=document.getElementById('hdr-wa-row');
+    if(!valEl||!rowEl)return;
+    var alerts=FK.state.waAlerts||[];
+    var last=alerts.length?alerts[alerts.length-1]:null;
+    if(!last){valEl.textContent='\u2014';rowEl.classList.remove('wa-active');return;}
+    var kartsTxt=(last.karts&&last.karts.length)?last.karts.join('/'):'?';
+    var ageMs=Date.now()-(last.ts||Date.now());
+    valEl.textContent=kartsTxt+' \u00b7 '+FK.fmtWaAgo(ageMs);
+    /* "ativo"/piscando so nos primeiros 2min apos o aviso -- depois disso fica so
+       informativo (ultimo aviso conhecido), sem chamar atencao pra sempre. */
+    rowEl.classList.toggle('wa-active', ageMs<120000);
+  })();
   var e=FK.state.elapsed||0;
   var pitCloseSec=(FK.cfg.pitCloseMin||0)*60;
   var remPit=pitCloseSec-e;
