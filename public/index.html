@@ -1982,10 +1982,15 @@ startLive:function(){
 FK.cfg.source='live';FK.state.elapsed=0;
 FK.updateSrcBadge();FK.fetchLive();
 if(FK.state.liveInterval)clearInterval(FK.state.liveInterval);
-/* 3s (era 15s) — a pedido da equipe pra sentir a corrida mais "ao vivo".
-   Folga enorme na cota da API (plano Low Volume: 200k req/mês; a 3s isso é
-   ~1200 req/hora, ~7.2k numa prova de 6h — bem abaixo do limite). */
-FK.state.liveInterval=setInterval(FK.fetchLive,3000);
+/* 1s (era 3s, antes disso 15s) — pedido em campo 18/09/2026, "quero o mais
+   atualizado possivel". Cota da API segue folgada (plano Low Volume: 200k
+   req/mês; a 1s isso é ~3600 req/hora, ~21.6k numa prova de 6h — ainda bem
+   abaixo do limite). Real-time de verdade (push via WebSocket) existe na API
+   do Race Monitor -- GetStreamingConnection, /v2/Live -- mas exige forma de
+   pagamento cadastrada na conta do Race Monitor e ainda nao foi implementado
+   aqui (ver functions/index.js). Por enquanto isso aqui (poll mais rapido) e
+   o que da pra fazer sem depender de mudar de plano la. */
+FK.state.liveInterval=setInterval(FK.fetchLive,1000);
 if(FK.state.racerInterval)clearInterval(FK.state.racerInterval);
 /* GetRacer (historico oficial de voltas, so pros karts da equipe) -- 20s e mais
    que suficiente (nao precisa da urgencia do placar geral) e mantem a cota bem
