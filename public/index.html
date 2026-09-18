@@ -437,6 +437,11 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .mob-audio-btn.on{background:var(--red)}
 .mob-audio-status{font-size:11px;color:var(--mut);line-height:1.4}
 .mob-audio-last{font-size:13px;color:var(--txt);font-weight:700;min-height:18px}
+.mob-krono-picker{padding:8px 12px 0 12px}
+.mob-krono-picker-lbl{font-size:9px;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px}
+.mob-krono-picker-chips{display:flex;flex-wrap:wrap;gap:6px}
+.mob-krono-chip{-webkit-appearance:none;appearance:none;cursor:pointer;min-width:34px;padding:6px 8px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--mut);font-weight:800;font-size:12px;font-family:var(--font-head)}
+.mob-krono-chip.on{background:var(--acc);border-color:var(--acc);color:#fff;box-shadow:0 0 10px rgba(226,35,26,0.35)}
 /* Box Intelligence */
 /* Box Intelligence — matriz visual */
 .bxi-matrix{display:flex;flex-wrap:wrap;gap:5px;padding:10px}
@@ -833,6 +838,7 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
       <h3>&#9201; Cronômetros da Equipe</h3>
       <span style="font-size:9px;color:var(--mut)">Volta atual</span>
     </div>
+    <div class="mob-krono-picker" id="mob-krono-picker"></div>
     <div class="krono-grid grid-mob" id="mob-krono-grid"></div>
   </div>
   <div class="dash-card" id="mob-audio-card">
@@ -1606,7 +1612,7 @@ FK.rPilotos();
 FK.rDashKartsBox&&FK.rDashKartsBox();
 FK.rDashKartsBox&&FK.rDashKartsBox('dg');
 FK.rDashCrono&&FK.rDashCrono('dg-krono-grid','-dg');
-FK.rDashCrono&&FK.rDashCrono('mob-krono-grid','-mob');
+FK.rDashCrono&&FK.rDashCrono('mob-krono-grid','-mob',FK.getMobKronoFilter&&FK.getMobKronoFilter());
 FK.rPilotQueue&&FK.rPilotQueue();
 FK.renderKartPilotsSetup&&FK.renderKartPilotsSetup();
 FK.rStintPlan&&FK.rStintPlan();
@@ -1755,7 +1761,7 @@ applyRemoteCfg:function(data){
   FK.rDashKartsBox&&FK.rDashKartsBox();
   FK.rDashKartsBox&&FK.rDashKartsBox('dg');
   FK.rDashCrono&&FK.rDashCrono('dg-krono-grid','-dg');
-  FK.rDashCrono&&FK.rDashCrono('mob-krono-grid','-mob');
+  FK.rDashCrono&&FK.rDashCrono('mob-krono-grid','-mob',FK.getMobKronoFilter&&FK.getMobKronoFilter());
   FK.rDashCrono&&FK.rDashCrono('tv-krono-grid','-tv');
   var pqEl=document.getElementById('dg-pq-body');if(pqEl)pqEl.dataset.pqKey='';
   FK.rPilotQueue&&FK.rPilotQueue();
@@ -1928,7 +1934,7 @@ if(dashGeralPane&&dashGeralPane.classList.contains('on')){
   if(FK.rPilotQueue)FK.rPilotQueue();
   FK.rPilotTotals&&FK.rPilotTotals();
 }else if(mobilePane&&mobilePane.classList.contains('on')){
-  FK.updateKronoPos();FK.rDashCrono('mob-krono-grid','-mob');
+  FK.updateKronoPos();FK.rDashCrono('mob-krono-grid','-mob',FK.getMobKronoFilter());
 }else if(tvPane&&tvPane.classList.contains('on')){
   FK.rDashRanking('tv');FK.updateKronoPos();FK.rDashLapHistory('tv');
   FK.rDashCrono('tv-krono-grid','-tv');
@@ -3464,7 +3470,35 @@ startKronoInterval:function(){
     });
   },50);
 },
-rDashCrono:function(gridId,idSuffix){
+getMobKronoFilter:function(){
+var raw=null;
+try{raw=localStorage.getItem('fkart_mob_krono_karts');}catch(e){}
+if(raw==null)return null;
+try{var arr=JSON.parse(raw);return Array.isArray(arr)?arr:null;}catch(e){return null;}
+},
+rMobKronoPicker:function(){
+var el=document.getElementById('mob-krono-picker');if(!el)return;
+var all=FK.cfg.myKarts||[];
+if(!all.length){el.innerHTML='';return;}
+var filter=FK.getMobKronoFilter();
+var active=filter==null?all:filter;
+el.innerHTML='<div class="mob-krono-picker-lbl">Cronometro de:</div><div class="mob-krono-picker-chips">'+
+all.map(function(k){
+var on=active.indexOf(k)>=0;
+return '<button type="button" class="mob-krono-chip'+(on?' on':'')+'" onclick="FK.toggleMobKronoKart(\''+k+'\')">'+k+'</button>';
+}).join('')+'</div>';
+},
+toggleMobKronoKart:function(k){
+var all=FK.cfg.myKarts||[];
+var filter=FK.getMobKronoFilter();
+var active=(filter==null?all.slice():filter.slice());
+var idx=active.indexOf(k);
+if(idx>=0)active.splice(idx,1);else active.push(k);
+try{localStorage.setItem('fkart_mob_krono_karts',JSON.stringify(active));}catch(e){}
+FK.rMobKronoPicker();
+FK.rDashCrono('mob-krono-grid','-mob',FK.getMobKronoFilter());
+},
+rDashCrono:function(gridId,idSuffix,filterKarts){
   gridId=gridId||'dg-krono-grid';idSuffix=idSuffix||'-dg';
   var el=document.getElementById(gridId);if(!el)return;
   if(!FK.cfg.myKarts.length){el.innerHTML='<div style="padding:20px;color:var(--mut);text-align:center;font-size:12px">Nenhum kart configurado</div>';return;}
@@ -3472,7 +3506,10 @@ rDashCrono:function(gridId,idSuffix){
   /* pedido em campo (23/08/2026): opção de ordenar os cards de cronômetro pela colocação
      atual na corrida, em vez da ordem fixa de cadastro em Config. Só reordena aqui -- não
      mexe em FK.cfg.myKarts, que continua sendo a "ordem de cadastro" original. */
-  var karts=FK.cfg.myKarts.slice();
+  /* pedido 18/09/2026: filtro por tela (ex: aba Celular) de quais desses karts ganham card
+     aqui -- filterKarts null/undefined = sem filtro (todos, igual sempre foi). */
+  var karts=(filterKarts!=null)?FK.cfg.myKarts.filter(function(k){return filterKarts.indexOf(k)>=0;}):FK.cfg.myKarts.slice();
+  if(!karts.length){el.innerHTML='<div style="padding:20px;color:var(--mut);text-align:center;font-size:12px">Nenhum kart selecionado pra cronometro aqui. Escolha acima.</div>';el.dataset.kartKey='';return;}
   if(FK.cfg.kronoSortByPos){
     karts.sort(function(a,b){
       var da=FK.findKartData(data,a),db=FK.findKartData(data,b);
@@ -4039,7 +4076,8 @@ drawDashRainChart:function(){
    pra quem acompanha pelo celular fora do box durante uma parada. ── */
 rDashMobile:function(){
   FK.rDashHdrStrip();
-  FK.rDashCrono('mob-krono-grid','-mob');
+  FK.rMobKronoPicker();
+  FK.rDashCrono('mob-krono-grid','-mob',FK.getMobKronoFilter());
   FK.updateKronoPos();
   FK.initAudioPilot();
   var elEl=document.getElementById('mob-elapsed');if(elEl)elEl.textContent=FK.fmtTime(FK.state.elapsed||0);
