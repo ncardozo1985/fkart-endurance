@@ -586,6 +586,8 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
 .tv-dash .tv-pq-summary{font-size:12px;color:var(--mut);padding:2px 2px 6px}
 .tv-dash .tv-pq-summary b{color:var(--txt)}
 .tv-dash .tv-pq-summary .tv-pq-extra{color:var(--acc2);font-weight:700}
+.tv-dash .tv-pq-summary .tv-pq-long-ok{color:var(--green);font-weight:700}
+.tv-dash .tv-pq-summary .tv-pq-long-pending{color:var(--acc);font-weight:700}
 .pq-activate-btn{background:var(--acc);color:#fff;border:none;border-radius:5px;padding:4px 9px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap}
 /* Config: Setup — pilotos por kart */
 .kp-setup-kart{margin-bottom:12px}
@@ -3916,9 +3918,16 @@ rTvPilotQueue:function(){
     for(var j=0;j<slots;j++){
       if(j<activeIdx||doneDur[j]!=null){if(j<minStops)reqDone++;else extraDone++;}
     }
+    /* a parada longa (10min) nao tem uma vaga fixa na fila -- eh a flag manual que o
+       operador marca (mesma fonte do Dashboard), entao o status aqui vem de la e nunca
+       diverge. Mostrar "Curtas" + "Longa" separados evita o "5/5" passar a falsa
+       impressao de regulamento ja cumprido (Elite: 5x6min + 1x10min / Challenge: 6x6min
+       + 1x10min -- sao dois requisitos distintos). */
+    var flags=(FK.state.pqFlags&&FK.state.pqFlags[k])||{};
+    var longStatus=flags.long?'<span class="tv-pq-long-ok">&#10003; longa feita</span>':'<span class="tv-pq-long-pending">&#9679; longa pendente</span>';
     html+='<div class="tv-pq-kart">';
     html+='<div class="tv-pq-hdr"><span class="krono-badge" style="width:34px;height:34px;font-size:13px">'+k+'</span><div class="tv-pq-current"><span class="tv-pq-lbl">Na pista agora</span><span class="tv-pq-name">'+curName+'</span></div></div>';
-    html+='<div class="tv-pq-summary">Paradas: <b>'+reqDone+'/'+minStops+'</b>'+(extraDone?' <span class="tv-pq-extra">+'+extraDone+' extra</span>':'')+'</div>';
+    html+='<div class="tv-pq-summary">Curtas: <b>'+reqDone+'/'+minStops+'</b>'+(extraDone?' <span class="tv-pq-extra">+'+extraDone+' extra</span>':'')+' &middot; '+longStatus+'</div>';
     html+='<div class="tv-pq-list">';
     var shown=false,hasAny=false;
     for(var i=0;i<slots;i++){
