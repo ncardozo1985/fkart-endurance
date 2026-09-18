@@ -429,6 +429,14 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .mob-root .kr-cell{align-items:center}
 .mob-root .kr-cell .kl{font-size:7px}
 .mob-root .kr-cell .kv{font-size:10px}
+.mob-audio-body{display:flex;flex-direction:column;gap:10px;padding:10px 12px}
+.mob-audio-row{display:flex;align-items:center;gap:8px}
+.mob-audio-row label{font-size:12px;color:var(--mut);font-weight:700;white-space:nowrap}
+.mob-audio-row select{flex:1;padding:9px 8px;border-radius:8px;border:1px solid var(--border);background:#0c0d0f;color:var(--txt);font-size:13px}
+.mob-audio-btn{-webkit-appearance:none;appearance:none;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:800;cursor:pointer;background:var(--grad);color:#fff}
+.mob-audio-btn.on{background:var(--red)}
+.mob-audio-status{font-size:11px;color:var(--mut);line-height:1.4}
+.mob-audio-last{font-size:13px;color:var(--txt);font-weight:700;min-height:18px}
 /* Box Intelligence */
 /* Box Intelligence — matriz visual */
 .bxi-matrix{display:flex;flex-wrap:wrap;gap:5px;padding:10px}
@@ -826,6 +834,21 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
       <span style="font-size:9px;color:var(--mut)">Volta atual</span>
     </div>
     <div class="krono-grid grid-mob" id="mob-krono-grid"></div>
+  </div>
+  <div class="dash-card" id="mob-audio-card">
+    <div class="dash-card-hdr">
+      <h3>&#128264; Audio para o Piloto</h3>
+      <span style="font-size:9px;color:var(--mut)">fala a cada volta</span>
+    </div>
+    <div class="mob-audio-body">
+      <div class="mob-audio-row">
+        <label for="mob-audio-kart">Kart</label>
+        <select id="mob-audio-kart"></select>
+      </div>
+      <button type="button" id="mob-audio-toggle" class="mob-audio-btn" onclick="FK.toggleAudioPilot()">Ativar Voz</button>
+      <div class="mob-audio-status" id="mob-audio-status">Selecione o kart e ative antes de ir pra pista.</div>
+      <div class="mob-audio-last" id="mob-audio-last"></div>
+    </div>
   </div>
 </div>
 </div>
@@ -2150,6 +2173,90 @@ var sb=document.getElementById('config-status-body');
 if(sb)sb.innerHTML='<span style="color:#66bb6a">&#10003; '+rows.length+' karts lidos do LapTime as '+new Date().toLocaleTimeString('pt-BR')+'</span>';
 },
 /* === HISTORICO DE LEITURAS (base para a aba Estrategia) === */
+initAudioPilot:function(){
+var sel=document.getElementById('mob-audio-kart');
+if(!sel)return;
+var karts=FK.cfg.myKarts||[];
+var saved=null;
+try{saved=localStorage.getItem('fkart_audio_kart');}catch(e){}
+var want=sel.value||FK.state.audioPilotKart||saved;
+sel.innerHTML=karts.length?karts.map(function(k){return '<option value="'+k+'">Kart '+k+'</option>';}).join(''):'<option value="">Nenhum kart configurado</option>';
+if(want&&karts.indexOf(want)>=0)sel.value=want;
+var btn=document.getElementById('mob-audio-toggle');
+var statusEl=document.getElementById('mob-audio-status');
+if(btn){
+btn.textContent=FK.state.audioPilotOn?'Desativar Voz':'Ativar Voz';
+btn.classList.toggle('on',!!FK.state.audioPilotOn);
+}
+if(statusEl&&!FK.state.audioPilotOn){
+statusEl.textContent='Selecione o kart e ative antes de ir pra pista.';
+}
+},
+toggleAudioPilot:function(){
+var sel=document.getElementById('mob-audio-kart');
+var btn=document.getElementById('mob-audio-toggle');
+var statusEl=document.getElementById('mob-audio-status');
+if(!sel||!btn)return;
+if(!FK.state.audioPilotOn){
+var kart=sel.value;
+if(!kart){alert('Selecione um kart primeiro.');return;}
+if(typeof window.speechSynthesis==='undefined'){
+if(statusEl)statusEl.textContent='Este navegador nao suporta voz (speechSynthesis).';
+return;
+}
+FK.state.audioPilotOn=true;
+FK.state.audioPilotKart=kart;
+try{localStorage.setItem('fkart_audio_kart',kart);}catch(e){}
+btn.textContent='Desativar Voz';
+btn.classList.add('on');
+if(statusEl)statusEl.textContent='Ativo -- vai falar a cada volta completa do kart '+kart+'.';
+FK.speakAudioPilot('Audio ativado. Monitorando kart '+kart+'.');
+}else{
+FK.state.audioPilotOn=false;
+if(window.speechSynthesis)window.speechSynthesis.cancel();
+btn.textContent='Ativar Voz';
+btn.classList.remove('on');
+if(statusEl)statusEl.textContent='Desativado.';
+}
+},
+speakAudioPilot:function(text){
+if(!text||typeof window.speechSynthesis==='undefined')return;
+try{
+window.speechSynthesis.cancel();
+var u=new SpeechSynthesisUtterance(text);
+u.lang='pt-BR';
+u.rate=1;
+window.speechSynthesis.speak(u);
+var lastEl=document.getElementById('mob-audio-last');
+if(lastEl)lastEl.textContent=text;
+}catch(e){console.warn('FKART audio piloto erro',e);}
+},
+buildAudioMsg:function(data,cur){
+var idx=data.indexOf(cur);
+var ahead=idx>0?data[idx-1]:null;
+var behind=idx<data.length-1?data[idx+1]:null;
+var msg='Kart '+cur.kart+', posicao '+cur.pos+'. ';
+msg+=FK.audioGapPhrase(cur,ahead,'frente')+' ';
+msg+=FK.audioGapPhrase(cur,behind,'atras');
+return msg;
+},
+audioGapPhrase:function(cur,rival,dir){
+var label=dir==='frente'?'Da frente':'De tras';
+if(!rival)return dir==='frente'?'Voce e o lider.':'Ultima posicao.';
+var lapDiff=dir==='frente'?((rival.laps||0)-(cur.laps||0)):((cur.laps||0)-(rival.laps||0));
+if(lapDiff>0){
+return label+', kart '+rival.kart+', '+lapDiff+(lapDiff===1?' volta.':' voltas.');
+}
+var curGapSec=FK.parseGapSec(cur.gap);
+var rivalGapSec=FK.parseGapSec(rival.gap);
+var interval=(curGapSec!=null&&rivalGapSec!=null)?Math.abs(curGapSec-rivalGapSec):null;
+if(interval!=null){
+var rounded=Math.round(interval);
+var secTxt=rounded<1?'menos de 1 segundo':(rounded+(rounded===1?' segundo':' segundos'));
+return label+', kart '+rival.kart+', '+secTxt+'.';
+}
+return label+', kart '+rival.kart+'.';
+},
 recordHistory:function(data){
 if(!data||!data.length)return;
 if(!FK.state.history)FK.state.history={};
@@ -2168,6 +2275,9 @@ var h=FK.state.history[d.kart];
 var prev=h[h.length-1];
 if(!prev||prev.ts!==t){
 if(prev&&d.laps>prev.laps){
+if(FK.state.audioPilotOn&&FK.state.audioPilotKart&&d.kart===FK.state.audioPilotKart){
+FK.speakAudioPilot(FK.buildAudioMsg(data,d));
+}
 var lt=FK.parseT(d.last);
 if(lt&&lt>0&&lt>=minDur){
 if(!FK.state.pitLapCounts[d.kart])FK.state.pitLapCounts[d.kart]={short:0,long:0};
@@ -3931,6 +4041,7 @@ rDashMobile:function(){
   FK.rDashHdrStrip();
   FK.rDashCrono('mob-krono-grid','-mob');
   FK.updateKronoPos();
+  FK.initAudioPilot();
   var elEl=document.getElementById('mob-elapsed');if(elEl)elEl.textContent=FK.fmtTime(FK.state.elapsed||0);
   var total=FK.cfg.raceTotal||10800;
   var rem=(FK.cfg.source==='live'&&FK.state.timeToGoSec!=null)?FK.state.timeToGoSec:Math.max(0,total-(FK.state.elapsed||0));
