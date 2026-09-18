@@ -1033,6 +1033,7 @@ Ordenar cronometros da equipe pela colocacao na corrida (senao, ordem de cadastr
 <button class="btn-primary" onclick="FK.saveConfig()">&#10003; Salvar e Aplicar</button>
 <button class="btn-secondary" onclick="FK.resetDemo()">&#8635; Carregar Demo</button>
 <button class="btn-secondary" id="btn-live" onclick="FK.startLive()" style="border-color:rgba(102,187,106,0.4);color:#66bb6a">&#9654; Iniciar Ao Vivo</button>
+<button class="btn-secondary" onclick="FK.resetPilotKartLinks()" style="border-color:rgba(255,167,38,0.5);color:#ffa726" title="Limpa quem esta marcado como piloto ativo em cada kart (o que aparece no cronometro), a contagem de paradas curtas/longas feitas e as flags manuais. NAO mexe na ordem/fila de pilotos configurada -- so em quem esta 'na pista agora'.">&#129529; Limpar Piloto Ativo por Kart</button>
 </div>
 </div>
 <div class="cfg-panel">
@@ -4255,6 +4256,29 @@ setPilotQueueSlot:function(kart,idx,value){
 /* Ativa o próximo piloto da fila (sempre em ordem): fecha o stint do piloto atual
    (duração calculada a partir de stintStartTs, guardada em pqSlotDur pra mostrar
    "concluído · duração" na vaga) e coloca o novo piloto na pista via setKartPilot. */
+resetPilotKartLinks:function(){
+if(!confirm('Limpar o piloto ativo marcado em cada kart da equipe?\n\nIsso zera: quem aparece como piloto no cronometro, quantas paradas curtas/longas cada kart ja fez, e as flags manuais (tipo "longa feita"). Cada kart volta a ficar "disponivel", sem piloto.\n\nA ORDEM/FILA de pilotos configurada (quem pode dirigir cada kart) NAO muda -- so quem esta marcado como dirigindo agora.\n\nIsso afeta todos os aparelhos da equipe (estado compartilhado). Confirma?'))return;
+var karts=FK.cfg.myKarts||[];
+if(!FK.state.boxState)FK.state.boxState={};
+if(!FK.state.pilotQueueActiveIdx)FK.state.pilotQueueActiveIdx={};
+if(!FK.state.pqSlotDur)FK.state.pqSlotDur={};
+if(!FK.state.pqFlags)FK.state.pqFlags={};
+karts.forEach(function(k){
+FK.state.boxState[k]={status:'disponivel',piloto:''};
+delete FK.state.pilotQueueActiveIdx[k];
+delete FK.state.pqSlotDur[k];
+delete FK.state.pqFlags[k];
+});
+FK.state.pqLastAction=null;
+FK.rBox&&FK.rBox();
+var pqEl=document.getElementById('dg-pq-body');if(pqEl)pqEl.dataset.pqKey='';
+FK.rPilotQueue&&FK.rPilotQueue();
+FK.rTvPilotQueue&&FK.rTvPilotQueue();
+FK.rPilotTotals&&FK.rPilotTotals();
+FK.updatePilotQueueCurrent&&FK.updatePilotQueueCurrent();
+FK.pushLiveToCloud&&FK.pushLiveToCloud();
+alert('Pronto -- todos os karts da equipe estao "disponivel", sem piloto ativo. A fila/ordem configurada continua igual.');
+},
 activatePilotQueueSlot:function(kart,idx){
   if(!FK.state.pilotQueue)FK.state.pilotQueue={};
   var queue=FK.state.pilotQueue[kart]||[];
