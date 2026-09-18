@@ -1908,13 +1908,22 @@ startClock:function(){
 if(FK.state.clockInterval)clearInterval(FK.state.clockInterval);
 FK.state.clockInterval=setInterval(function(){
 /* pedido 18/09/2026 em campo: Decorrido/Restante/Fecha o box/Stint pesado pareciam
-   "travados", so pulando de uns 5 em 5s -- porque antes so contavam localmente em modo
-   demo; em live/mylaptime o valor ficava parado esperando o Race Monitor mandar um
-   SessionTime novo (que nao chega exatamente a cada segundo). Agora conta local todo
-   segundo em QUALQUER fonte, e o valor real (parseSession ao vivo / paste do LapTime) so
-   corrige o relogio quando chega -- fica suave sempre, sem depender do timing do servidor. */
+   "travados", so pulando de uns 5 em 5s. Causa raiz (achada testando ao vivo contra a
+   corrida real): o SessionTime que a API do Race Monitor manda NAO anda 1s por 1s no
+   servidor deles, e a gente sobrescrevia FK.state.elapsed com esse valor toda resposta
+   (1x/seg ou mais rapido com o WebSocket) -- qualquer incremento local tentado antes era
+   apagado quase todo tick pela mesma correcao. Fix de verdade: ancorar no relogio do
+   PROPRIO NAVEGADOR (Date.now(), guardado em parseSession como sessionTimeAnchorSec/
+   AnchorWallMs e timeToGoAnchorSec/AnchorWallMs) e contar a partir dali -- sempre 1s por
+   1s de verdade, e a proxima correcao so realinha a ancora, nunca trava a contagem. */
+if(FK.cfg.source==='live'&&FK.state.sessionTimeAnchorWallMs!=null){
+FK.state.elapsed=FK.state.sessionTimeAnchorSec+Math.floor((Date.now()-FK.state.sessionTimeAnchorWallMs)/1000);
+}else{
 FK.state.elapsed=(FK.state.elapsed||0)+1;
-if(FK.cfg.source==='live'&&FK.state.timeToGoSec!=null)FK.state.timeToGoSec=Math.max(0,FK.state.timeToGoSec-1);
+}
+if(FK.cfg.source==='live'&&FK.state.timeToGoAnchorWallMs!=null){
+FK.state.timeToGoSec=Math.max(0,FK.state.timeToGoAnchorSec-Math.floor((Date.now()-FK.state.timeToGoAnchorWallMs)/1000));
+}
 var e=FK.state.elapsed;
 /* prefere o TimeToGo que o proprio Race Monitor calcula (fonte ao vivo) em vez de so
    subtrair do total configurado -- mais confiavel se a duracao da prova no Config estiver
@@ -2167,6 +2176,9 @@ FK.state.sessionName=s.SessionName||'';
 FK.state.sortMode=s.SortMode||'';
 var ttg=FK.parseHMS(s.TimeToGo);
 FK.state.timeToGoSec=(ttg!=null&&ttg<999999)?ttg:null;
+/* ancora do relogio local suave pro "Restante" -- ver comentario em startClock */
+FK.state.timeToGoAnchorSec=FK.state.timeToGoSec;
+FK.state.timeToGoAnchorWallMs=(FK.state.timeToGoSec!=null)?Date.now():null;
 var ltg=parseInt(s.LapsToGo);
 FK.state.lapsToGo=isNaN(ltg)?null:ltg;
 var comps=[];
@@ -2215,6 +2227,9 @@ var parts=s.SessionTime.split(':');
 if(parts.length>=2){
 var h=parseInt(parts[0])||0;var m=parseInt(parts[1])||0;var sec=parts[2]?parseFloat(parts[2]):0;
 FK.state.elapsed=h*3600+m*60+Math.floor(sec);
+/* ancora do relogio local suave pro "Decorrido" -- ver comentario em startClock */
+FK.state.sessionTimeAnchorSec=FK.state.elapsed;
+FK.state.sessionTimeAnchorWallMs=Date.now();
 }
 }
 FK.state.liveData=comps;
