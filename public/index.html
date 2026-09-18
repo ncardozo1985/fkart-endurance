@@ -1345,6 +1345,23 @@ if(FK.cfg.source!=='demo'&&FK.state.liveData&&FK.state.liveData.length)return FK
 return FK.demo_data;
 },
 /* busca um kart nos dados tolerando zero-padding (ex: '36' vs '036'), igual FK.isMy */
+/* Igual FK.findKartData, mas pra objeto/mapa indexado por numero de kart (FK.state.history,
+   FK.state.officialLaps, FK.state.racerIdByKart) em vez de array de competidores -- devolve
+   a CHAVE real do mapa que bate com k (exata primeiro, senao numerica ignorando zero a
+   esquerda), pra karts configurados sem zero a esquerda (ex.: "58") acharem o dado que a
+   Race Monitor guardou com zero a esquerda (ex.: "058"). */
+findKartKey:function(map,k){
+if(!map)return null;
+var ks=String(k);
+if(Object.prototype.hasOwnProperty.call(map,ks))return ks;
+var kn=parseInt(ks,10);
+if(isNaN(kn))return null;
+var keys=Object.keys(map);
+for(var i=0;i<keys.length;i++){
+if(parseInt(keys[i],10)===kn)return keys[i];
+}
+return null;
+},
 findKartData:function(data,k){
 var ks=String(k);
 var found=data.find(function(d){return String(d.kart)===ks;});
@@ -2255,7 +2272,8 @@ if(FK.cfg.source!=='live')return;
 (FK.cfg.myKarts||[]).forEach(function(k){FK.fetchRacerLaps(k);});
 },
 fetchRacerLaps:function(kart){
-var racerId=FK.state.racerIdByKart&&FK.state.racerIdByKart[kart];
+var racerIdKey=FK.findKartKey(FK.state.racerIdByKart,kart);
+var racerId=racerIdKey?FK.state.racerIdByKart[racerIdKey]:null;
 if(!racerId)return;
 var url='/api/live?raceId='+encodeURIComponent(FK.cfg.raceId)+'&racerId='+encodeURIComponent(racerId);
 var xhr=new XMLHttpRequest();
@@ -3811,8 +3829,10 @@ rDashGapBoard:function(prefix){
    o objetivo aqui é o histórico bruto, não uma média de ritmo pra projeção. */
 lastNLaps:function(kart,n){
   n=n||10;
-  var h=(FK.state.history&&FK.state.history[kart])||[];
-  var off=(FK.state.officialLaps&&FK.state.officialLaps[kart])||[];
+  var hKey=FK.findKartKey(FK.state.history,kart);
+  var offKey=FK.findKartKey(FK.state.officialLaps,kart);
+  var h=(hKey&&FK.state.history[hKey])||[];
+  var off=(offKey&&FK.state.officialLaps[offKey])||[];
   var laps=[];
   for(var i=1;i<h.length&&laps.length<n;i++){
     var cur=h[h.length-i],prev=h[h.length-i-1];
