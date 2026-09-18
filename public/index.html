@@ -2475,7 +2475,8 @@ FK.pushLiveToCloud&&FK.pushLiveToCloud();
    "prever" quando a volta termina -- ele reseta pra 00:00 só quando os dados confirmam de
    verdade que o kart cruzou a linha (Laps aumentou aqui). kronoState só existe pros karts
    da equipe (FK.cfg.myKarts, criado em initKrono), então esse "if(ks)" já filtra pra eles. */
-var ks=FK.state.kronoState&&FK.state.kronoState[d.kart];
+var ksKey=FK.findKartKey(FK.state.kronoState,d.kart);
+var ks=ksKey?FK.state.kronoState[ksKey]:null;
 if(ks){
 ks.lapStartTs=Date.now();
 ks.stintLaps=(ks.stintLaps||0)+1;
