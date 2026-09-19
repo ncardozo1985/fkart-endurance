@@ -324,6 +324,7 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .box-pilot-row.active{background:rgba(226,35,26,0.1);border:1px solid rgba(226,35,26,0.3)}
 .box-pilot-name{flex:1;font-size:13px;font-weight:600;color:var(--txt)}
 .box-pilot-badge{font-size:10px;color:var(--mut);background:var(--border);padding:2px 6px;border-radius:4px}
+.box-pit-log-title{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
 .swap-btn{background:var(--acc2);color:#fff;border:none;border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;white-space:nowrap}
 .swap-btn:hover{background:#aa1800}
 .box-actions{display:flex;gap:6px;margin-top:4px;padding-top:8px;border-top:1px solid var(--border)}
@@ -2491,6 +2492,22 @@ else FK.state.pitLapCounts[d.kart].short++;
    stint de endurance inteiro). */
 if(!FK.state.lastPitExitTs)FK.state.lastPitExitTs={};
 FK.state.lastPitExitTs[d.kart]=t;
+/* Log de paradas com horario de relogio real (pedido 19/09/2026: "a que horas ele entrou
+   nos boxes"). O endpoint /api/live?racerId= do Race Monitor so devolve a janela das
+   ultimas ~25 voltas de cada kart -- paradas mais antigas somem de la. Aqui a gente guarda
+   pra sempre (dentro da sessao/aba aberta) com hora de saida e hora estimada de entrada
+   (saida menos a duracao da volta), pra todo kart, nao so os nossos. */
+if(!FK.state.pitStopLog)FK.state.pitStopLog={};
+if(!FK.state.pitStopLog[d.kart])FK.state.pitStopLog[d.kart]=[];
+var pExitMs=Date.now();
+FK.state.pitStopLog[d.kart].push({
+lap:d.laps,
+tipo:(longDur>0&&lt>=longDur)?'longa':'curta',
+durSec:lt,
+enterMs:pExitMs-Math.round(lt*1000),
+exitMs:pExitMs
+});
+if(FK.state.pitStopLog[d.kart].length>60)FK.state.pitStopLog[d.kart].shift();
 /* Box Intelligence (pedido 18/09/2026): a placa (numero de corrida) segue a EQUIPE,
    nao o chassi -- quando uma equipe para, ela troca a placa pro kart fisico que
    estava parado no box e sai com ele, deixando pra tras o kart que acabou de usar.
@@ -3290,6 +3307,22 @@ rBox:function(){
     html+='<div class="box-info-row"><span class="box-lbl">Voltas</span><span class="box-val">'+laps+'</span></div>';
     html+='<div class="box-info-row"><span class="box-lbl">Melhor</span><span class="box-val" style="color:var(--acc)">'+best+'</span></div>';
     html+='<div class="box-info-row"><span class="box-lbl">Ultima</span><span class="box-val">'+lastT+'</span></div>';
+
+    // Historico de paradas (detectado automaticamente via volta longa do Race Monitor) --
+    // guarda hora de relogio real, ao contrario da janela curta que a API do Race Monitor expoe.
+    var pslKey=FK.findKartKey(FK.state.pitStopLog,knum);
+    var psl=pslKey?FK.state.pitStopLog[pslKey]:null;
+    if(psl&&psl.length){
+      html+='<div class="box-pilots-list">';
+      html+='<div class="box-pit-log-title">Historico de paradas</div>';
+      psl.slice(-5).reverse().forEach(function(ps){
+        var hEnter=new Date(ps.enterMs).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+        var hExit=new Date(ps.exitMs).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+        var tipoLbl=ps.tipo==='longa'?'Longa':'Curta';
+        html+='<div class="box-pilot-row"><span class="box-pilot-name">V'+ps.lap+' &middot; '+hEnter+'&ndash;'+hExit+'</span><span class="box-pilot-badge">'+tipoLbl+' ('+Math.round(ps.durSec)+'s)</span></div>';
+      });
+      html+='</div>';
+    }
 
     // Pilot assignment list with swap button
     if(assigned.length>0){
