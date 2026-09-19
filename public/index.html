@@ -227,6 +227,13 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .pit-cell{text-align:center}
 .pit6-badge{display:inline-block;background:#1a3a1a;color:var(--green);border:1px solid #2d5a2d;border-radius:4px;padding:2px 7px;font-size:12px;font-weight:700;min-width:20px;text-align:center}
 .pit10-badge{display:inline-block;background:#1a1a3a;color:#90caf9;border:1px solid #2d2d7a;border-radius:4px;padding:2px 7px;font-size:12px;font-weight:700;min-width:20px;text-align:center}
+.heavy-ok-badge{display:inline-block;background:#1a3a1a;color:var(--green);border:1px solid #2d5a2d;border-radius:4px;padding:2px 7px;font-size:11px;font-weight:700;text-align:center}
+.heavy-pending-badge{color:var(--mut);font-size:12px}
+/* quadradinho "G" no card do cronometro -- pedido 19/09/2026, mesmo dado da coluna Gorda do
+   Top 10 (parenteses inicial do FirstName da Race Monitor), mas por kart da equipe. Apagado
+   por padrao (perna gorda pendente), acende verde quando confirmado. */
+.krono-g-badge{width:14px;height:14px;line-height:14px;border-radius:3px;font-size:9px;font-weight:900;text-align:center;background:#222;color:var(--mut);border:1px solid #333;flex-shrink:0}
+.krono-g-badge.on{background:#1a3a1a;color:var(--green);border-color:#2d5a2d}
 .pilots-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
 .pilot-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;overflow:hidden}
 .pilot-card-header{display:flex;align-items:center;gap:12px;padding:14px 16px;background:rgba(255,255,255,0.03);border-bottom:1px solid var(--border)}
@@ -733,7 +740,7 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
         <table class="dr-table" id="dg-rank-table">
           <thead><tr>
             <th>Pos</th><th>Kart</th><th>Piloto / Equipe</th><th>Cat</th>
-            <th>Última</th><th>Gap</th><th title="Paradas curtas (volta cronometrada a partir da duracao minima configurada)">P.Curta</th><th title="Paradas longas (volta cronometrada a partir da duracao longa configurada)">P.Longa</th><th>Proj</th>
+            <th>Última</th><th>Gap</th><th title="Paradas curtas (volta cronometrada a partir da duracao minima configurada)">P.Curta</th><th title="Paradas longas (volta cronometrada a partir da duracao longa configurada)">P.Longa</th><th title="Perna gorda (stint obrigatorio pesado) ja cumprida, segundo a Race Monitor">Gorda</th><th>Proj</th>
           </tr></thead>
           <tbody id="dg-rank-body"></tbody>
         </table>
@@ -881,7 +888,7 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
         <table class="dr-table" id="tv-rank-table">
           <thead><tr>
             <th>Pos</th><th>Kart</th><th>Piloto / Equipe</th><th>Cat</th>
-            <th>Última</th><th>Gap</th><th>P.Curta</th><th>P.Longa</th><th>Proj</th>
+            <th>Última</th><th>Gap</th><th>P.Curta</th><th>P.Longa</th><th>Gorda</th><th>Proj</th>
           </tr></thead>
           <tbody id="tv-rank-body"></tbody>
         </table>
@@ -2217,6 +2224,7 @@ var kartNum=c.Number||k;
 FK.state.racerIdByKart[kartNum]=k;
 var pit6Match=/6M\[(\d*)\]/.exec(c.FirstName||'');
 var pit10Match=/10M\[(\d*)\]/.exec(c.FirstName||'');
+var heavyMatch=/^\(([^)]*)\)/.exec(c.FirstName||'');
 comps.push({
 pos:parseInt(c.Position)||999,
 kart:kartNum,
@@ -2233,6 +2241,9 @@ pit10:pit10Match?(parseInt(pit10Match[1])||0):0,
    dado nenhum" (usado no rDashRanking pra decidir se confia no pit6/pit10 aqui ou cai pra
    deteccao propria por duracao de volta). */
 pitOficial:!!(pit6Match||pit10Match),
+/* true so quando o parenteses inicial existe E tem "G" dentro -- equipe que ainda nao fez
+   a perna gorda manda "( )" (parenteses vazio), nao ausencia do campo */
+heavyDone:!!(heavyMatch&&/G/.test(heavyMatch[1])),
 cat:(s.Classes&&s.Classes[c.ClassID])?s.Classes[c.ClassID].Description:'',
 laps:parseInt(c.Laps)||0,
 best:c.BestLapTime||'--:--.---',
@@ -3552,12 +3563,13 @@ rDashRanking:function(prefix){
     '<td style="font-size:10px;color:var(--mut)">'+d.gap+'</td>'+
     '<td><span class="pit6-badge" title="Paradas curtas (a partir de '+((FK.cfg.minPitDurationSec||300)/60)+'min)">'+(pc0.short)+'</span></td>'+
     '<td><span class="pit10-badge" title="Paradas longas (a partir de '+((FK.cfg.longPitDurationSec||0)/60)+'min)">'+(pc0.long)+'</span></td>'+
+    '<td>'+(d.heavyDone?'<span class="heavy-ok-badge" title="Perna gorda cumprida">OK</span>':'<span class="heavy-pending-badge">&mdash;</span>')+'</td>'+
     '<td>'+arrow+'</td>'+
     '</tr>';
   }
   top10.forEach(function(d){html+=rowHtml(d,false);});
   if(teamExtra.length){
-    html+='<tr class="dr-sep"><td colspan="9" style="background:rgba(226,35,26,0.05);color:var(--acc);font-size:9px;text-transform:uppercase;letter-spacing:2px;padding:3px 8px;font-weight:700">— Equipe fora do top '+topN+' —</td></tr>';
+    html+='<tr class="dr-sep"><td colspan="10" style="background:rgba(226,35,26,0.05);color:var(--acc);font-size:9px;text-transform:uppercase;letter-spacing:2px;padding:3px 8px;font-weight:700">— Equipe fora do top '+topN+' —</td></tr>';
     teamExtra.forEach(function(d){html+=rowHtml(d,false);});
   }
   tbody.innerHTML=html;
@@ -3721,7 +3733,7 @@ rDashCrono:function(gridId,idSuffix,filterKarts){
     var bs=(FK.state.boxState&&FK.state.boxState[k])||{};
     var pilotoNome=bs.piloto||'—';
     html+='<div class="krono-card">'+
-    '<div class="krono-top"><div class="krono-left"><div class="krono-badge">'+k+'</div><div class="krono-pos-info" id="kp-'+k+idSuffix+'">P'+pos+'</div></div><div class="krono-name" id="kn-'+k+idSuffix+'">'+pilotoNome+'</div></div>'+
+    '<div class="krono-top"><div class="krono-left"><div class="krono-badge">'+k+'</div><div class="krono-pos-info" id="kp-'+k+idSuffix+'">P'+pos+'</div><div class="krono-g-badge'+(kd&&kd.heavyDone?' on':'')+'" id="kg-'+k+idSuffix+'" title="Perna gorda">G</div></div><div class="krono-name" id="kn-'+k+idSuffix+'">'+pilotoNome+'</div></div>'+
     '<div class="krono-timer" id="kt-'+k+idSuffix+'">00:00.000</div>'+
     '<div class="krono-row">'+
     '<div class="kr-cell"><span class="kl">Melhor</span><span class="kv acc" id="kbest-'+k+idSuffix+'">'+best+'</span></div>'+
@@ -3740,6 +3752,11 @@ updateKronoPos:function(){
     ['kp-'+k,'kp-'+k+'-dg','kp-'+k+'-mob','kp-'+k+'-tv'].forEach(function(id){
       var el=document.getElementById(id);
       if(el)el.textContent=txt;
+    });
+    var gOn=!!(kd&&kd.heavyDone);
+    ['kg-'+k,'kg-'+k+'-dg','kg-'+k+'-mob','kg-'+k+'-tv'].forEach(function(id){
+      var el=document.getElementById(id);
+      if(el)el.classList.toggle('on',gOn);
     });
   });
 },
