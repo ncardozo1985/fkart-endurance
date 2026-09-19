@@ -2522,6 +2522,30 @@ FK.state.boxPool.push({kart:d.kart,cat:d.cat||'',enteredAt:t,avgPace:boxSnap});
 var boxCap=FK.cfg.boxCapacity>0?FK.cfg.boxCapacity:24;
 while(FK.state.boxPool.length>boxCap)FK.state.boxPool.shift();
 FK.pushLiveToCloud&&FK.pushLiveToCloud();
+}else if(lt&&lt>0){
+/* Ritmo de referencia pra Projecao (pedido 19/09/2026: "ta oscilando muito o resultado,
+   nao ta dando visao estrategica pro final"). Antes a Estrategia usava so a media simples
+   das ultimas 5 voltas (FK.recentAvgLapTime) recalculada do zero a cada render -- uma unica
+   volta de trafego/incidente derrubava a media inteira, e como esse ritmo e multiplicado
+   pelo tempo restante (horas, numa endurance), qualquer ruido de 1-2s virava uma posicao
+   projetada inteira de diferenca a cada volta fechada.
+   Agora mantem uma media movel exponencial (EMA) por kart, persistente pra corrida toda,
+   atualizada so quando uma volta de corrida de verdade fecha (nao a cada tick de 1s) --
+   com rejeicao de outlier: uma volta muito mais lenta que a EMA atual (>60% mais lenta,
+   tipico de trafego/incidente sem ser parada) nao entra na media, so e descartada. Isso
+   da um ritmo que reage a mudanca real de pace (pista esquentando, pneu degradando) mas
+   nao pula a cada volta ruim isolada -- equivalente ao que ferramentas de timing/estrategia
+   profissionais de endurance usam em vez de media simples de janela curta. */
+if(!FK.state.paceEma)FK.state.paceEma={};
+var prevEma=FK.state.paceEma[d.kart];
+if(prevEma==null){
+FK.state.paceEma[d.kart]=lt;
+}else if(lt<=prevEma*1.6){
+var alpha=0.2;
+FK.state.paceEma[d.kart]=alpha*lt+(1-alpha)*prevEma;
+}
+/* outlier (lt>prevEma*1.6): ignora pra EMA, mas a volta continua normalmente no
+   historico/recentAvgLapTime de sempre (usado como fallback abaixo). */
 }
 /* Pedido em campo (23/08/2026): o cronômetro visual da equipe (kronoState) não deve mais
    "prever" quando a volta termina -- ele reseta pra 00:00 só quando os dados confirmam de
@@ -3538,10 +3562,17 @@ rDashRanking:function(prefix){
      do tempo total de prova, gerando um "tempo de prova efetivo" — é esse tempo (menos o
      decorrido) que entra na conta de voltas restantes, igual pra todos os karts.
      Ex. Itu 6h: 5 paradas de 5min + 1 parada de 7min = 32min → 6h-32min = 5h28min efetivos.
-     Ritmo de referência: em vez da melhor volta (que fica otimista demais numa prova longa
-     com a pista esquentando e o ritmo caindo), usa a média das últimas voltas reais do kart
-     (FK.recentAvgLapTime, construído a partir do próprio histórico de polling), caindo pra
-     melhor volta e depois um fallback fixo só se ainda não tiver voltas suficientes registradas. */
+     Ritmo de referência (revisto 19/09/2026 -- pedido do Rapha, "ta oscilando muito, nao
+     da visao estrategica pro final"): antes era só a média simples das últimas 5 voltas,
+     recalculada do zero a cada render -- 1 volta de tráfego derrubava a média inteira, e
+     multiplicado pelas horas restantes virava posição projetada pulando toda hora.
+     Agora usa em 1º lugar FK.state.paceEma[kart] -- média móvel exponencial persistente,
+     atualizada só quando uma volta de corrida fecha de verdade (não a cada tick) e com
+     rejeição de outlier (ver recordHistory) -- reage a mudança real de ritmo (pista
+     esquentando, pneu degradando) sem pular a cada volta ruim isolada. Se ainda não tem
+     EMA (kart ainda não fechou volta de corrida nesta sessão), cai pra janela maior de
+     8 voltas com a pior descartada (mais estável que a janela de 5 de antes), depois
+     melhor volta, depois um fallback fixo. */
   var minStops=FK.cfg.minPitStops||0;
   var minDurSec=FK.cfg.minPitDurationSec||0;
   var longStops=FK.cfg.longPitStops||0;
@@ -3550,11 +3581,15 @@ rDashRanking:function(prefix){
   var effectiveTotal=Math.max(0,total-totalMandatoryStopSec);
   var remainingForPace=Math.max(0,effectiveTotal-elapsed);
   var proj=data.map(function(d){
-    var lt=FK.recentAvgLapTime(d.kart,5)||FK.parseT(d.best)||55;
+    var lt=(FK.state.paceEma&&FK.state.paceEma[d.kart])||FK.recentAvgLapTime(d.kart,8,true)||FK.parseT(d.best)||55;
     var projLaps=d.laps+Math.floor(remainingForPace/lt);
-    return {kart:d.kart,projLaps:projLaps};
+    return {kart:d.kart,pos:d.pos,projLaps:projLaps};
   });
-  proj.sort(function(a,b){return b.projLaps-a.projLaps;});
+  /* desempate estável (19/09/2026): quando 2 karts empatam em voltas projetadas, usa a
+     posição atual como critério fixo em vez de deixar a ordem flutuar tick a tick por
+     diferenças de milissegundos no ritmo -- é isso que dava a sensação de "flicker" na
+     coluna Proj mesmo quando a projeção real mal tinha mudado. */
+  proj.sort(function(a,b){return (b.projLaps-a.projLaps)||((a.pos||999)-(b.pos||999));});
   var projPos={};proj.forEach(function(p,i){projPos[p.kart]=i+1;});
   /* top N (pedido 27/08/2026: voltou pra 10 -- o "top 20" deixava a tabela grande demais na
      telona do box; equipe fora do top N continua aparecendo destacada logo abaixo) */
