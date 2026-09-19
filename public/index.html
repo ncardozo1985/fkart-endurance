@@ -2215,11 +2215,24 @@ var kartNum=c.Number||k;
    chamar GetRacer (historico oficial de voltas) por racerID depois (pedido 27/08/2026,
    ainda nao validado com dado ao vivo real -- conferir na proxima corrida). */
 FK.state.racerIdByKart[kartNum]=k;
+var pit6Match=/6M\[(\d*)\]/.exec(c.FirstName||'');
+var pit10Match=/10M\[(\d*)\]/.exec(c.FirstName||'');
 comps.push({
 pos:parseInt(c.Position)||999,
 kart:kartNum,
 racerId:k,
-t:(c.FirstName||'')+' '+(c.LastName||''),
+/* motivo do fallback: nem toda corrida/organizador usa essa convencao -- se Nationality
+   vier vazio (dado sem esse padrao), volta pro comportamento antigo (FirstName+LastName)
+   em vez de mostrar o nome do piloto em branco. */
+t:(c.Nationality&&c.Nationality.trim())||((c.FirstName||'')+' '+(c.LastName||'')).trim(),
+equipe:c.LastName||'',
+pit6:pit6Match?(parseInt(pit6Match[1])||0):0,
+pit10:pit10Match?(parseInt(pit10Match[1])||0):0,
+/* true quando o padrao "NM[...]" foi achado no FirstName -- diferencia "corrida que manda
+   contador oficial de paradas, e esse contador hoje e 0" de "corrida que nao manda esse
+   dado nenhum" (usado no rDashRanking pra decidir se confia no pit6/pit10 aqui ou cai pra
+   deteccao propria por duracao de volta). */
+pitOficial:!!(pit6Match||pit10Match),
 cat:(s.Classes&&s.Classes[c.ClassID])?s.Classes[c.ClassID].Description:'',
 laps:parseInt(c.Laps)||0,
 best:c.BestLapTime||'--:--.---',
@@ -3522,7 +3535,7 @@ rDashRanking:function(prefix){
        partir das voltas cronometradas de parada no historico ao vivo; se ainda nao houver
        nenhuma parada detectada (ex: fonte demo, ou corrida ainda nao teve nenhuma parada),
        cai pros campos estaticos pit6/pit10 do dado (so tem valor real no array demo). */
-    var pc0=(FK.state.pitLapCounts&&FK.state.pitLapCounts[d.kart])||{short:d.pit6||0,long:d.pit10||0};
+    var pc0=d.pitOficial?{short:d.pit6||0,long:d.pit10||0}:((FK.state.pitLapCounts&&FK.state.pitLapCounts[d.kart])||{short:d.pit6||0,long:d.pit10||0});
     /* mostra a posição final projetada (não o delta) — a cor indica se melhora, piora ou mantém frente à posição atual */
     var pPos=projPos[d.kart]||d.pos;var delta=d.pos-pPos;
     var projCls=delta>0?'proj-up':delta<0?'proj-dn':'proj-eq';
