@@ -416,7 +416,12 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
 .krono-pos-info{font-size:10px;color:var(--mut)}
 .krono-timer{font-size:19px;font-weight:900;font-family:'Courier New',monospace;color:var(--acc);letter-spacing:-1px;line-height:1;text-align:center;padding:2px 0}
 .krono-timer.late{color:var(--red);animation:blink 0.8s infinite}
-.krono-row{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:2px}
+/* pedido 19/09/2026: card pisca fundo amarelo quando o kart da equipe esta "no box agora"
+   (mesma deteccao automatica que ja alimenta o contador do topbar) -- chama atencao sem
+   depender de ninguem clicar em nada. */
+@keyframes kronoBoxPulse{0%,100%{background:rgba(255,193,7,0.32)}50%{background:rgba(255,193,7,0.06)}}
+.krono-card.in-box{animation:kronoBoxPulse 1s ease-in-out infinite;border-color:#ffc107}
+.krono-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:2px}
 .kr-cell{display:flex;flex-direction:column;gap:1px}
 .kr-cell .kl{font-size:8px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
 .kr-cell .kv{font-size:11px;font-weight:700;color:var(--txt)}
@@ -3732,12 +3737,13 @@ rDashCrono:function(gridId,idSuffix,filterKarts){
     var last=ks?ks.last:'--:--';
     var bs=(FK.state.boxState&&FK.state.boxState[k])||{};
     var pilotoNome=bs.piloto||'—';
-    html+='<div class="krono-card">'+
+    html+='<div class="krono-card" id="kcard-'+k+idSuffix+'">'+
     '<div class="krono-top"><div class="krono-left"><div class="krono-badge">'+k+'</div><div class="krono-pos-info" id="kp-'+k+idSuffix+'">P'+pos+'</div><div class="krono-g-badge'+(kd&&kd.heavyDone?' on':'')+'" id="kg-'+k+idSuffix+'" title="Perna gorda">G</div></div><div class="krono-name" id="kn-'+k+idSuffix+'">'+pilotoNome+'</div></div>'+
     '<div class="krono-timer" id="kt-'+k+idSuffix+'">00:00.000</div>'+
     '<div class="krono-row">'+
     '<div class="kr-cell"><span class="kl">Melhor</span><span class="kv acc" id="kbest-'+k+idSuffix+'">'+best+'</span></div>'+
     '<div class="kr-cell"><span class="kl">Última</span><span class="kv" id="klast-'+k+idSuffix+'">'+last+'</span></div>'+
+    '<div class="kr-cell"><span class="kl">Em Pista</span><span class="kv" id="ktrack-'+k+idSuffix+'" title="Tempo desde a ultima parada detectada">--:--</span></div>'+
     '</div>'+
     '</div>';
   });
@@ -3757,6 +3763,19 @@ updateKronoPos:function(){
     ['kg-'+k,'kg-'+k+'-dg','kg-'+k+'-mob','kg-'+k+'-tv'].forEach(function(id){
       var el=document.getElementById(id);
       if(el)el.classList.toggle('on',gOn);
+    });
+    /* pedido 19/09/2026: pisca o card inteiro quando o kart esta "no box agora" (deteccao
+       automatica) + atualiza o cronometro de tempo em pista (desde a ultima parada). Entra
+       no mesmo loop de 1s que ja atualiza posicao/G, sem precisar de outro interval. */
+    var boxNow=FK.isKartInBoxNow(k);
+    ['kcard-'+k,'kcard-'+k+'-dg','kcard-'+k+'-mob','kcard-'+k+'-tv'].forEach(function(id){
+      var el=document.getElementById(id);
+      if(el)el.classList.toggle('in-box',boxNow);
+    });
+    var trackTxt=FK.fmtTime(FK.trackTimeSec(k));
+    ['ktrack-'+k,'ktrack-'+k+'-dg','ktrack-'+k+'-mob','ktrack-'+k+'-tv'].forEach(function(id){
+      var el=document.getElementById(id);
+      if(el)el.textContent=trackTxt;
     });
   });
 },
@@ -4066,6 +4085,45 @@ rDashKartsBox:function(prefix){
    Antes ficavam duplicados numa faixa própria por aba (dash-hdr-strip) e incluíam
    "Fim da prova", que é a mesma conta de "Restante" no topbar — redundante.
    Agora são elementos únicos no topbar, atualizados independente da aba ativa. */
+/* pedido 19/09/2026: mesma logica do countBoxNow (idle > 1.8x melhor volta = kart parado
+   ha tempo demais pra ainda estar rodando -- assumido "no box"), so que pra 1 kart so, pra
+   poder piscar o card do cronometro dele. */
+isKartInBoxNow:function(kart){
+  var data=FK.getData();
+  var kd=FK.findKartData(data,kart);
+  if(!kd)return false;
+  var hist=(FK.state.history&&FK.state.history[kd.kart])||[];
+  if(hist.length<=1)return false;
+  var elapsed=FK.state.elapsed||0;
+  var t=FK.parseT(kd.best);
+  var lapTime=(t&&t<999)?t:60;
+  var lastChangeTs=elapsed;
+  for(var i=hist.length-1;i>=1;i--){
+    if(hist[i].laps!==hist[i-1].laps){lastChangeTs=hist[i].ts;break;}
+    if(i===1)lastChangeTs=hist[0].ts;
+  }
+  var idleSec=Math.max(0,elapsed-lastChangeTs);
+  return idleSec>lapTime*1.8;
+},
+/* pedido 19/09/2026: "tempo em pista" -- segundos desde a ULTIMA volta que bateu o criterio
+   de parada (mesma classificacao de duracao que ja alimenta o contador de paradas 6min/10min
+   em recordHistory). Sem parada detectada ainda nesta corrida, conta desde a largada
+   (elapsed=0) -- kart ainda nao parou, entao "em pista" = tempo de prova todo. */
+trackTimeSec:function(kart){
+  var data=FK.getData();
+  var kd=FK.findKartData(data,kart);
+  var elapsed=FK.state.elapsed||0;
+  if(!kd)return elapsed;
+  var hist=(FK.state.history&&FK.state.history[kd.kart])||[];
+  var minDur=FK.cfg.minPitDurationSec>0?FK.cfg.minPitDurationSec:300;
+  for(var i=hist.length-1;i>=1;i--){
+    if(hist[i].laps>hist[i-1].laps){
+      var lt=FK.parseT(hist[i].last);
+      if(lt&&lt>0&&lt>=minDur)return Math.max(0,elapsed-hist[i].ts);
+    }
+  }
+  return elapsed;
+},
 countBoxNow:function(){
   var data=FK.getData();
   var elapsed=FK.state.elapsed||0;
@@ -4354,19 +4412,15 @@ rPilotQueue:function(){
       var isPast=i<activeIdx||doneDur[i]!=null;
       var isActive=i===activeIdx;
       if(isPast)cls+=' done';else if(isActive)cls+=' active';
-      if(isPast||isActive){
-        var statusHtml=isActive
-          ?'<span class="pq-slot-timer" id="pq-timer-'+k+'">00:00</span>'
-          :(val?'<span class="pq-slot-status">concluído'+(doneDur[i]!=null?' · '+FK.fmtTime(Math.floor(doneDur[i]/1000)):'')+'</span>':'<span class="pq-slot-status">—</span>');
-        html+='<div class="pq-slot'+cls+'"><span class="pq-slot-num">'+(i===0?'Largada':i)+'</span><span class="pq-slot-name">'+(val||'—')+'</span>'+statusHtml+'</div>';
-      }else{
-        var opts='<option value="">— vazio —</option>'+eligible.map(function(name){
-          return '<option value="'+name+'"'+(val===name?' selected':'')+'>'+name+'</option>';
-        }).join('');
-        var isNext=(i===activeIdx+1)&&val;
-        var btn=isNext?'<button class="pq-activate-btn" onclick="FK.activatePilotQueueSlot(\''+k+'\','+i+')">Ativar</button>':'';
-        html+='<div class="pq-slot'+cls+'"><span class="pq-slot-num">'+(i===0?'Largada':i)+'</span><select onchange="FK.setPilotQueueSlot(\''+k+'\','+i+',this.value)">'+opts+'</select>'+btn+'</div>';
-      }
+      var opts='<option value="">— vazio —</option>'+eligible.map(function(name){
+        return '<option value="'+name+'"'+(val===name?' selected':'')+'>'+name+'</option>';
+      }).join('');
+      var isNext=(i===activeIdx+1)&&val;
+      var btn=isNext?'<button class="pq-activate-btn" onclick="FK.activatePilotQueueSlot(\''+k+'\','+i+')">Ativar</button>':'';
+      var statusHtml=isActive
+        ?'<span class="pq-slot-timer" id="pq-timer-'+k+'">00:00</span>'
+        :(isPast?'<span class="pq-slot-status">concluído'+(doneDur[i]!=null?' · '+FK.fmtTime(Math.floor(doneDur[i]/1000)):'')+'</span>':'');
+      html+='<div class="pq-slot'+cls+'"><span class="pq-slot-num">'+(i===0?'Largada':i)+'</span><select onchange="FK.setPilotQueueSlot(\''+k+'\','+i+',this.value)">'+opts+'</select>'+statusHtml+btn+'</div>';
     }
     html+='</div></div>';
   });
@@ -4446,8 +4500,16 @@ setPilotQueueSlot:function(kart,idx,value){
   if(!FK.state.pilotQueue)FK.state.pilotQueue={};
   if(!FK.state.pilotQueue[kart])FK.state.pilotQueue[kart]=[];
   FK.state.pilotQueue[kart][idx]=value;
-  /* o select só existe pra vagas ainda não ativadas -- mudar o valor não afeta
-     concluídas/ativa, então basta atualizar o botão Ativar (se essa vaga virou a "próxima") */
+  /* pedido 19/09/2026: fila agora fica aberta pra editar qualquer vaga (passada, ativa ou
+     futura), pra corrigir erros de registro. Se a vaga corrigida for a que esta NA PISTA
+     AGORA, atualiza tambem o nome "ao vivo" (boxState.piloto) -- senao a correcao só mudaria
+     o numero em Tempo por Piloto, e o card do cronometro/"na pista agora" continuariam
+     mostrando o nome errado antigo. */
+  var activeIdx=(FK.state.pilotQueueActiveIdx&&FK.state.pilotQueueActiveIdx[kart]!=null)?FK.state.pilotQueueActiveIdx[kart]:-1;
+  if(idx===activeIdx&&FK.state.boxState&&FK.state.boxState[kart]){
+    FK.state.boxState[kart].piloto=value;
+    FK.updatePilotQueueCurrent&&FK.updatePilotQueueCurrent();
+  }
   var el=document.getElementById('dg-pq-body');if(el)el.dataset.pqKey='';
   FK.rPilotQueue();
   FK.rPilotTotals&&FK.rPilotTotals();
