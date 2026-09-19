@@ -2486,6 +2486,11 @@ if(lt&&lt>0&&lt>=minDur){
 if(!FK.state.pitLapCounts[d.kart])FK.state.pitLapCounts[d.kart]={short:0,long:0};
 if(longDur>0&&lt>=longDur)FK.state.pitLapCounts[d.kart].long++;
 else FK.state.pitLapCounts[d.kart].short++;
+/* "tempo em pista" (FK.trackTimeSec) le daqui -- mapa sem limite de tamanho/tempo, ao
+   contrario de FK.state.history (capado em 400 entradas, ~6.5min, curto demais pra um
+   stint de endurance inteiro). */
+if(!FK.state.lastPitExitTs)FK.state.lastPitExitTs={};
+FK.state.lastPitExitTs[d.kart]=t;
 /* Box Intelligence (pedido 18/09/2026): a placa (numero de corrida) segue a EQUIPE,
    nao o chassi -- quando uma equipe para, ela troca a placa pro kart fisico que
    estava parado no box e sai com ele, deixando pra tras o kart que acabou de usar.
@@ -4114,14 +4119,12 @@ trackTimeSec:function(kart){
   var kd=FK.findKartData(data,kart);
   var elapsed=FK.state.elapsed||0;
   if(!kd)return elapsed;
-  var hist=(FK.state.history&&FK.state.history[kd.kart])||[];
-  var minDur=FK.cfg.minPitDurationSec>0?FK.cfg.minPitDurationSec:300;
-  for(var i=hist.length-1;i>=1;i--){
-    if(hist[i].laps>hist[i-1].laps){
-      var lt=FK.parseT(hist[i].last);
-      if(lt&&lt>0&&lt>=minDur)return Math.max(0,elapsed-hist[i].ts);
-    }
-  }
+  /* fix 19/09/2026: antes varria FK.state.history (capado em 400 entradas, ~6.5min) -- uma
+     parada de endurance normalmente aconteceu ha muito mais tempo que isso, entao nunca
+     achava e sempre caia no fallback "desde a largada". Agora le de FK.state.lastPitExitTs,
+     gravado em recordHistory sem limite de tamanho/tempo. */
+  var lastTs=FK.state.lastPitExitTs&&FK.state.lastPitExitTs[kd.kart];
+  if(lastTs!=null)return Math.max(0,elapsed-lastTs);
   return elapsed;
 },
 countBoxNow:function(){
