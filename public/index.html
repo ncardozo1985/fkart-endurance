@@ -521,6 +521,11 @@ footer{text-align:center;padding:8px;color:#2a2d38;font-size:10px;border-top:1px
    melhorar a disposição visual" -- era grid6 (6 karts numa linha só, cards bem apertados) */
 .pq-body.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
 @media (max-width:900px){.pq-body.grid4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* pedido 19/09/2026: aba dedicada de tela cheia pra Fila de Pilotos -- usa auto-fit em vez de
+   coluna fixa, pra aproveitar a largura inteira disponivel (mais espaco por kart do que o
+   grid4 apertado que sobrava no rodape do Dashboard Geral entre outros 5 widgets). */
+.pq-body.grid-full{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}
+.pcl-empty{color:var(--mut);text-align:center;padding:16px;font-size:12px}
 .pq-kart-card{background:var(--bg);border:1px solid rgba(226,35,26,0.3);border-radius:8px;padding:8px 10px}
 .pq-kart-hdr{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .pq-current{display:flex;flex-direction:column;gap:1px}
@@ -712,6 +717,7 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
 <div class="tab" data-tab="mobile" title="Dashboard Celular"><span class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg></span><span class="tab-lbl">Celular</span></div>
 <div class="tab" data-tab="tvpilotos" title="TV Pilotos"><span class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="13" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="18" x2="12" y2="21"/></svg></span><span class="tab-lbl">TV Pilotos</span></div>
 <div class="tab" data-tab="pilotos" title="Pilotos"><span class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M4.5 20c1.5-4 5-6 7.5-6s6 2 7.5 6"/></svg></span><span class="tab-lbl">Pilotos</span></div>
+<div class="tab" data-tab="filapilotos" title="Fila de Pilotos"><span class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="14" y2="18"/></svg></span><span class="tab-lbl">Fila</span></div>
 <div class="tab" data-tab="estrategia" title="Estrategia"><span class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.9" fill="currentColor" stroke="none"/></svg></span><span class="tab-lbl">Estrategia</span></div>
 <div class="tab" data-tab="config" title="Config"><span class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a7.97 7.97 0 0 0 0-2l2.1-1.6-2-3.4-2.5 1a8 8 0 0 0-1.7-1L14.9 3h-4l-.4 2.9a8 8 0 0 0-1.7 1l-2.5-1-2 3.4L6.6 11a7.97 7.97 0 0 0 0 2l-2.1 1.6 2 3.4 2.5-1a8 8 0 0 0 1.7 1l.4 3h4l.4-2.9a8 8 0 0 0 1.7-1l2.5 1 2-3.4-2.1-1.6z"/></svg></span><span class="tab-lbl">Config</span></div>
 <div class="tab hidden-tab" data-tab="users" id="tab-users" title="Usuarios"><span class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.5" cy="8" r="3"/><path d="M2.5 19c1.2-3.3 4-5 6-5s4.8 1.7 6 5"/><circle cx="16.5" cy="9" r="2.3"/><path d="M15 13.2c2 .2 4 1.6 5 4.8"/></svg></span><span class="tab-lbl">Usuarios</span></div>
@@ -747,7 +753,7 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
         <table class="dr-table" id="dg-rank-table">
           <thead><tr>
             <th>Pos</th><th>Kart</th><th>Piloto / Equipe</th><th>Cat</th>
-            <th>Última</th><th>Gap</th><th title="Paradas curtas (volta cronometrada a partir da duracao minima configurada)">P.Curta</th><th title="Paradas longas (volta cronometrada a partir da duracao longa configurada)">P.Longa</th><th title="Perna gorda (stint obrigatorio pesado) ja cumprida, segundo a Race Monitor">Gorda</th><th>Proj</th>
+            <th>Última</th><th>Gap</th><th title="Paradas curtas (volta cronometrada a partir da duracao minima configurada)">P.Curta</th><th title="Paradas longas (volta cronometrada a partir da duracao longa configurada)">P.Longa</th><th title="Perna gorda (stint obrigatorio pesado) ja cumprida, segundo a Race Monitor">Gorda</th><th title="Projecao com desconto igual pra todos (assume que todo mundo ainda vai cumprir as paradas)">Proj</th><th title="Projecao descontando so as paradas que FALTAM pra esse kart especifico -- quem ja terminou de parar ganha posicao aqui">Proj·Paradas</th>
           </tr></thead>
           <tbody id="dg-rank-body"></tbody>
         </table>
@@ -788,27 +794,48 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
     </div>
     <div class="gapboard-body" id="dg-gapboard-body"></div>
   </div>
-  <!-- FILA DE PILOTOS: faixa de largura total no rodapé, 6 karts lado a lado (pedido do Rapha
-       31/08/2026 -- antes ficava numa coluna estreita e dominava o espaço sozinha) -->
+</div>
+</div>
+<!-- FILA DE PILOTOS -- tela cheia dedicada (pedido 19/09/2026: "tela adicional so pra fila
+     dos pilotos, ocupando a tela inteira bem disposta"). Antes vivia espremida no rodape do
+     Dashboard Geral junto de mais 5 outros widgets; agora tem aba propria com mais espaco por
+     kart. Os ids (dg-pq-body/dg-pt-body) continuam os mesmos de antes -- so mudaram de aba,
+     entao nenhuma das dezenas de chamadas existentes (rPilotQueue, setPilotQueueSlot,
+     activatePilotQueueSlot, applyRemote*, etc.) precisou mudar. -->
+<div class="pane" id="pane-filapilotos">
+<div class="dash-root">
   <div class="dash-card">
     <div class="dash-card-hdr">
       <h3>&#128101; Fila de Pilotos</h3>
       <span style="font-size:9px;color:var(--mut)">clique Ativar pra colocar o próximo</span>
     </div>
-    <div class="pq-body grid4" id="dg-pq-body"></div>
+    <div class="pq-body grid-full" id="dg-pq-body"></div>
   </div>
-  <!-- TEMPO TOTAL POR PILOTO: pedido 15/09/2026 -- "tabela abaixo da fila de pilotos... por
-       nome de piloto, quanto tempo correu, baseado nos tempos totalizados da fila de
-       pilotos". Soma os stints concluidos (+ o stint em andamento, se houver) por piloto. -->
-  <div class="dash-card">
-    <div class="dash-card-hdr">
-      <h3>&#9201; Tempo Total por Piloto</h3>
-      <span style="font-size:9px;color:var(--mut)">soma dos stints da fila de pilotos</span>
+  <div class="dash-cols">
+    <div class="dash-col">
+      <div class="dash-card">
+        <div class="dash-card-hdr">
+          <h3>&#9201; Tempo Total por Piloto</h3>
+          <span style="font-size:9px;color:var(--mut)">soma dos stints da fila de pilotos</span>
+        </div>
+        <table class="dr-table" style="width:100%">
+          <thead><tr><th>Piloto</th><th style="text-align:right">Tempo</th></tr></thead>
+          <tbody id="dg-pt-body"></tbody>
+        </table>
+      </div>
     </div>
-    <table class="dr-table" style="width:100%;max-width:420px">
-      <thead><tr><th>Piloto</th><th style="text-align:right">Tempo</th></tr></thead>
-      <tbody id="dg-pt-body"></tbody>
-    </table>
+    <div class="dash-col">
+      <div class="dash-card">
+        <div class="dash-card-hdr">
+          <h3>&#128337; Histórico de Trocas</h3>
+          <span style="font-size:9px;color:var(--mut)">hora real de cada confirmação de troca (botão Ativar)</span>
+        </div>
+        <table class="dr-table" style="width:100%">
+          <thead><tr><th>Hora</th><th>Kart</th><th>Piloto</th></tr></thead>
+          <tbody id="dg-pcl-body"></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </div>
 </div>
@@ -895,7 +922,7 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
         <table class="dr-table" id="tv-rank-table">
           <thead><tr>
             <th>Pos</th><th>Kart</th><th>Piloto / Equipe</th><th>Cat</th>
-            <th>Última</th><th>Gap</th><th>P.Curta</th><th>P.Longa</th><th>Gorda</th><th>Proj</th>
+            <th>Última</th><th>Gap</th><th>P.Curta</th><th>P.Longa</th><th>Gorda</th><th>Proj</th><th>Proj·Paradas</th>
           </tr></thead>
           <tbody id="tv-rank-body"></tbody>
         </table>
@@ -1459,6 +1486,7 @@ if(name==='dashgeral'){FK.rDashGeral();}
 if(name==='mobile'){FK.rDashMobile();}
 if(name==='tvpilotos'){FK.rTvPilotos();}
 if(name==='pilotos')FK.rPilotos();
+if(name==='filapilotos'){var fpEl=document.getElementById('dg-pq-body');if(fpEl)fpEl.dataset.pqKey='';FK.rPilotQueue();FK.rPilotTotals&&FK.rPilotTotals();FK.rPilotChangeLog&&FK.rPilotChangeLog();}
 if(name==='estrategia'){FK.rEstrategia();FK.rStintPlan&&FK.rStintPlan();}
 if(name==='config'){FK.renderConfig();FK.renderKartPilotsSetup();}
 if(name==='users'){FK.rUsersAdmin();}
@@ -1472,7 +1500,7 @@ ADMIN_EMAIL:'gomescardozodasilva@gmail.com',
    data ou o horario de largada mudar (confirmado com o Rapha: sabado 19/09, largada ~9h). */
 SAT_RACE_DATE:'2026-09-19',
 SAT_RACE_START_H:9,
-ALL_TABS:['dashgeral','mobile','tvpilotos','pilotos','estrategia','config'],
+ALL_TABS:['dashgeral','mobile','tvpilotos','pilotos','filapilotos','estrategia','config'],
 tabAllowed:function(name){
 if(name==='users')return !!(FK.state.authProfile&&FK.state.authProfile.isAdmin);
 if(!FK.state.authProfile||!FK.state.authProfile.approved)return false;
@@ -1567,7 +1595,7 @@ var rows=[];
 qs.forEach(function(doc){
 var d=doc.data(),uid=doc.id;
 var perms=d.permissions||{};
-var lblMap={dashgeral:'Dashboard',mobile:'Dash. Celular',tvpilotos:'TV Pilotos',pilotos:'Pilotos',estrategia:'Estrategia',config:'Config'};
+var lblMap={dashgeral:'Dashboard',mobile:'Dash. Celular',tvpilotos:'TV Pilotos',pilotos:'Pilotos',filapilotos:'Fila de Pilotos',estrategia:'Estrategia',config:'Config'};
 var chips=FK.ALL_TABS.map(function(t){
 return '<label><input type="checkbox" data-uid="'+uid+'" data-perm="'+t+'" '+(perms[t]?'checked':'')+' '+(d.isAdmin?'disabled':'')+'> '+(lblMap[t]||t)+'</label>';
 }).join('');
@@ -1752,6 +1780,15 @@ initSync:function(){
   FK.state.syncUnsubs.push(db.collection('sync').doc('whatsapp').onSnapshot(function(snap){
     if(snap.exists)FK.applyRemoteWhatsapp(snap.data());
   },function(e){console.error('sync whatsapp erro',e);}));
+  /* pedido 19/09/2026 ("esta perdendo o historico... banco de dados"): historico de paradas
+     e log de troca de piloto agora sao docs proprios no Firestore, sincronizados igual ao
+     resto -- sobrevivem a reload de pagina e aparecem em qualquer aparelho da equipe. */
+  FK.state.syncUnsubs.push(db.collection('sync').doc('pitlog').onSnapshot(function(snap){
+    if(snap.exists)FK.applyRemotePitlog(snap.data());
+  },function(e){console.error('sync pitlog erro',e);}));
+  FK.state.syncUnsubs.push(db.collection('sync').doc('pilotlog').onSnapshot(function(snap){
+    if(snap.exists)FK.applyRemotePilotlog(snap.data());
+  },function(e){console.error('sync pilotlog erro',e);}));
 },
 stopSync:function(){
   (FK.state.syncUnsubs||[]).forEach(function(u){try{u();}catch(e){}});
@@ -1838,6 +1875,40 @@ applyRemoteLive:function(data){
   FK.updatePilotQueueCurrent&&FK.updatePilotQueueCurrent();
   FK.rDashBoxIntel&&FK.rDashBoxIntel('dg');
   FK.rBox&&FK.rBox();
+  FK.state.applyingRemote=false;
+},
+/* doc sync/pitlog: {pitStopLog:{<kart>:[{lap,tipo,durSec,enterMs,exitMs},...]}}, gravado via
+   arrayUnion (recordHistory) -- pode ter entradas quase-duplicadas se 2 aparelhos detectarem
+   a mesma parada real em ticks de poll levemente diferentes (exitMs nao bate exato, entao o
+   arrayUnion do Firestore nao dedupa sozinho). Dedupa aqui por volta+tipo antes de aplicar. */
+applyRemotePitlog:function(data){
+  if(!data||!data.pitStopLog)return;
+  FK.state.applyingRemote=true;
+  var merged={};
+  Object.keys(data.pitStopLog).forEach(function(k){
+    var arr=data.pitStopLog[k]||[];
+    var seen={},out=[];
+    arr.forEach(function(e){
+      var key=e.lap+'|'+e.tipo;
+      if(seen[key])return;
+      seen[key]=true;out.push(e);
+    });
+    out.sort(function(a,b){return (a.exitMs||0)-(b.exitMs||0);});
+    merged[k]=out;
+  });
+  FK.state.pitStopLog=merged;
+  FK.updateKronoPos&&FK.updateKronoPos();
+  FK.state.applyingRemote=false;
+},
+/* doc sync/pilotlog: {changes:[{kart,piloto,slotIdx,ts},...]}, gravado via arrayUnion quando
+   o chefe de equipe confirma uma troca de piloto (FK.activatePilotQueueSlot). */
+applyRemotePilotlog:function(data){
+  if(!data)return;
+  FK.state.applyingRemote=true;
+  var arr=(data.changes||[]).slice();
+  arr.sort(function(a,b){return (a.ts||0)-(b.ts||0);});
+  FK.state.pilotChangeLog=arr;
+  FK.rPilotChangeLog&&FK.rPilotChangeLog();
   FK.state.applyingRemote=false;
 },
 renderConfig:function(){
@@ -2488,27 +2559,34 @@ if(lt&&lt>0&&lt>=minDur){
 if(!FK.state.pitLapCounts[d.kart])FK.state.pitLapCounts[d.kart]={short:0,long:0};
 if(longDur>0&&lt>=longDur)FK.state.pitLapCounts[d.kart].long++;
 else FK.state.pitLapCounts[d.kart].short++;
-/* "tempo em pista" (FK.trackTimeSec) le daqui -- mapa sem limite de tamanho/tempo, ao
-   contrario de FK.state.history (capado em 400 entradas, ~6.5min, curto demais pra um
-   stint de endurance inteiro). */
-if(!FK.state.lastPitExitTs)FK.state.lastPitExitTs={};
-FK.state.lastPitExitTs[d.kart]=t;
 /* Log de paradas com horario de relogio real (pedido 19/09/2026: "a que horas ele entrou
    nos boxes"). O endpoint /api/live?racerId= do Race Monitor so devolve a janela das
    ultimas ~25 voltas de cada kart -- paradas mais antigas somem de la. Aqui a gente guarda
-   pra sempre (dentro da sessao/aba aberta) com hora de saida e hora estimada de entrada
-   (saida menos a duracao da volta), pra todo kart, nao so os nossos. */
+   com hora de saida e hora estimada de entrada (saida menos a duracao da volta), pra todo
+   kart, nao so os nossos. "tempo em pista" (FK.trackTimeSec) tambem le direto daqui.
+   v2 (19/09/2026, "esta perdendo o historico... banco de dados"): alem do cache local,
+   agora persiste no Firestore (doc sync/pitlog) via arrayUnion -- sobrevive a reload de
+   pagina e troca de aparelho, ao contrario do mapa que so vivia em FK.state antes. Usa
+   arrayUnion (nao o .set() que sobrescreve o doc inteiro, como pushLiveToCloud faz) porque
+   2 aparelhos diferentes podem detectar paradas quase ao mesmo tempo -- arrayUnion soma os
+   dois sem um apagar o do outro. */
 if(!FK.state.pitStopLog)FK.state.pitStopLog={};
 if(!FK.state.pitStopLog[d.kart])FK.state.pitStopLog[d.kart]=[];
 var pExitMs=Date.now();
-FK.state.pitStopLog[d.kart].push({
+var pEntry={
 lap:d.laps,
 tipo:(longDur>0&&lt>=longDur)?'longa':'curta',
 durSec:lt,
 enterMs:pExitMs-Math.round(lt*1000),
 exitMs:pExitMs
-});
+};
+FK.state.pitStopLog[d.kart].push(pEntry);
 if(FK.state.pitStopLog[d.kart].length>60)FK.state.pitStopLog[d.kart].shift();
+if(typeof firebase!=='undefined'&&FK.state.authUser&&!FK.state.applyingRemote){
+var pitFieldObj={};
+pitFieldObj[d.kart]=firebase.firestore.FieldValue.arrayUnion(pEntry);
+firebase.firestore().collection('sync').doc('pitlog').set({pitStopLog:pitFieldObj},{merge:true}).catch(function(e){console.error('push pitlog erro',e);});
+}
 /* Box Intelligence (pedido 18/09/2026): a placa (numero de corrida) segue a EQUIPE,
    nao o chassi -- quando uma equipe para, ela troca a placa pro kart fisico que
    estava parado no box e sai com ele, deixando pra tras o kart que acabou de usar.
@@ -3580,10 +3658,30 @@ rDashRanking:function(prefix){
   var totalMandatoryStopSec=(minStops*minDurSec)+(longStops*longDurSec);
   var effectiveTotal=Math.max(0,total-totalMandatoryStopSec);
   var remainingForPace=Math.max(0,effectiveTotal-elapsed);
+  /* paradas curtas/longas cumpridas por kart: contador cumulativo real (FK.state.pitLapCounts),
+     detectado a partir das voltas cronometradas de parada no historico ao vivo; se ainda nao
+     houver nenhuma parada detectada (ex: fonte demo, ou corrida ainda nao teve nenhuma
+     parada), cai pros campos estaticos pit6/pit10 do dado (so tem valor real no array demo).
+     Extraido aqui (era so inline em rowHtml) pra poder ser reusado tambem na Proj·Paradas. */
+  function pitCountsFor(d){
+    return d.pitOficial?{short:d.pit6||0,long:d.pit10||0}:((FK.state.pitLapCounts&&FK.state.pitLapCounts[d.kart])||{short:d.pit6||0,long:d.pit10||0});
+  }
   var proj=data.map(function(d){
     var lt=(FK.state.paceEma&&FK.state.paceEma[d.kart])||FK.recentAvgLapTime(d.kart,8,true)||FK.parseT(d.best)||55;
     var projLaps=d.laps+Math.floor(remainingForPace/lt);
-    return {kart:d.kart,pos:d.pos,projLaps:projLaps};
+    /* Proj·Paradas (pedido 19/09/2026): em vez do desconto flat igual pra todos (que assume
+       que todo mundo ainda vai cumprir as paradas por inteiro), desconta do tempo restante
+       SO as paradas que aquele kart especifico ainda deve -- quem ja cumpriu mais paradas
+       tem mais tempo de corrida "livre" pela frente que quem ainda deve varias. Ex: kart 67
+       com 3 paradas curtas feitas e kart 58 com 2 curtas + 1 longa -- cada um desconta so o
+       que falta pro proprio regulamento, nao o total da prova. */
+    var pc=pitCountsFor(d);
+    var shortLeft=Math.max(0,minStops-(pc.short||0));
+    var longLeft=Math.max(0,longStops-(pc.long||0));
+    var kartStopSecLeft=(shortLeft*minDurSec)+(longLeft*longDurSec);
+    var remainingForPace2=Math.max(0,(total-elapsed)-kartStopSecLeft);
+    var projLaps2=d.laps+Math.floor(remainingForPace2/lt);
+    return {kart:d.kart,pos:d.pos,projLaps:projLaps,projLaps2:projLaps2};
   });
   /* desempate estável (19/09/2026): quando 2 karts empatam em voltas projetadas, usa a
      posição atual como critério fixo em vez de deixar a ordem flutuar tick a tick por
@@ -3591,6 +3689,8 @@ rDashRanking:function(prefix){
      coluna Proj mesmo quando a projeção real mal tinha mudado. */
   proj.sort(function(a,b){return (b.projLaps-a.projLaps)||((a.pos||999)-(b.pos||999));});
   var projPos={};proj.forEach(function(p,i){projPos[p.kart]=i+1;});
+  var proj2Sorted=proj.slice().sort(function(a,b){return (b.projLaps2-a.projLaps2)||((a.pos||999)-(b.pos||999));});
+  var projPos2={};proj2Sorted.forEach(function(p,i){projPos2[p.kart]=i+1;});
   /* top N (pedido 27/08/2026: voltou pra 10 -- o "top 20" deixava a tabela grande demais na
      telona do box; equipe fora do top N continua aparecendo destacada logo abaixo) */
   var topN=10;
@@ -3621,15 +3721,16 @@ rDashRanking:function(prefix){
   function rowHtml(d,sep){
     var my=FK.isMy(d.kart);
     var pc=d.pos===1?'p1':d.pos===2?'p2':d.pos===3?'p3':'';
-    /* paradas curtas/longas: contador cumulativo real (FK.state.pitLapCounts), detectado a
-       partir das voltas cronometradas de parada no historico ao vivo; se ainda nao houver
-       nenhuma parada detectada (ex: fonte demo, ou corrida ainda nao teve nenhuma parada),
-       cai pros campos estaticos pit6/pit10 do dado (so tem valor real no array demo). */
-    var pc0=d.pitOficial?{short:d.pit6||0,long:d.pit10||0}:((FK.state.pitLapCounts&&FK.state.pitLapCounts[d.kart])||{short:d.pit6||0,long:d.pit10||0});
+    var pc0=pitCountsFor(d);
     /* mostra a posição final projetada (não o delta) — a cor indica se melhora, piora ou mantém frente à posição atual */
     var pPos=projPos[d.kart]||d.pos;var delta=d.pos-pPos;
     var projCls=delta>0?'proj-up':delta<0?'proj-dn':'proj-eq';
     var arrow='<span class="proj-arrow '+projCls+'">P'+pPos+'</span>';
+    /* Proj·Paradas: mesma logica de cor, mas comparando contra a posicao da Proj flat (nao a
+       atual) -- o que importa aqui e ver se considerar as paradas em aberto muda o quadro. */
+    var pPos2=projPos2[d.kart]||pPos;var delta2=pPos-pPos2;
+    var projCls2=delta2>0?'proj-up':delta2<0?'proj-dn':'proj-eq';
+    var arrow2='<span class="proj-arrow '+projCls2+'">P'+pPos2+'</span>';
     var fp=d.pos+'|'+d.laps+'|'+d.last+'|'+d.gap;
     var pulsed=prevFp[d.kart]!==undefined&&prevFp[d.kart]!==fp;
     prevFp[d.kart]=fp;
@@ -3644,11 +3745,12 @@ rDashRanking:function(prefix){
     '<td><span class="pit10-badge" title="Paradas longas (a partir de '+((FK.cfg.longPitDurationSec||0)/60)+'min)">'+(pc0.long)+'</span></td>'+
     '<td>'+(d.heavyDone?'<span class="heavy-ok-badge" title="Perna gorda cumprida">OK</span>':'<span class="heavy-pending-badge">&mdash;</span>')+'</td>'+
     '<td>'+arrow+'</td>'+
+    '<td>'+arrow2+'</td>'+
     '</tr>';
   }
   top10.forEach(function(d){html+=rowHtml(d,false);});
   if(teamExtra.length){
-    html+='<tr class="dr-sep"><td colspan="10" style="background:rgba(226,35,26,0.05);color:var(--acc);font-size:9px;text-transform:uppercase;letter-spacing:2px;padding:3px 8px;font-weight:700">— Equipe fora do top '+topN+' —</td></tr>';
+    html+='<tr class="dr-sep"><td colspan="11" style="background:rgba(226,35,26,0.05);color:var(--acc);font-size:9px;text-transform:uppercase;letter-spacing:2px;padding:3px 8px;font-weight:700">— Equipe fora do top '+topN+' —</td></tr>';
     teamExtra.forEach(function(d){html+=rowHtml(d,false);});
   }
   tbody.innerHTML=html;
@@ -4204,18 +4306,24 @@ isKartInBoxNow:function(kart){
 /* pedido 19/09/2026: "tempo em pista" -- segundos desde a ULTIMA volta que bateu o criterio
    de parada (mesma classificacao de duracao que ja alimenta o contador de paradas 6min/10min
    em recordHistory). Sem parada detectada ainda nesta corrida, conta desde a largada
-   (elapsed=0) -- kart ainda nao parou, entao "em pista" = tempo de prova todo. */
+   (elapsed=0) -- kart ainda nao parou, entao "em pista" = tempo de prova todo.
+   fix 19/09/2026 (v2) -- "esta perdendo o historico": antes lia de FK.state.lastPitExitTs,
+   um mapa so em memoria da aba aberta (some em reload/troca de aparelho). Agora le direto de
+   FK.state.pitStopLog (o mesmo log com hora real de entrada/saida das paradas), que a partir
+   deste commit fica sincronizado no Firestore (doc sync/pitlog, ver recordHistory + initSync)
+   -- sobrevive a reload e aparece igual em qualquer tela da equipe. Usa hora de RELOGIO real
+   (exitMs) em vez de segundos decorridos de corrida, exatamente pra nao depender do estado
+   local de FK.state.elapsed ter sido re-inicializado certinho apos um reload. */
 trackTimeSec:function(kart){
   var data=FK.getData();
   var kd=FK.findKartData(data,kart);
   var elapsed=FK.state.elapsed||0;
   if(!kd)return elapsed;
-  /* fix 19/09/2026: antes varria FK.state.history (capado em 400 entradas, ~6.5min) -- uma
-     parada de endurance normalmente aconteceu ha muito mais tempo que isso, entao nunca
-     achava e sempre caia no fallback "desde a largada". Agora le de FK.state.lastPitExitTs,
-     gravado em recordHistory sem limite de tamanho/tempo. */
-  var lastTs=FK.state.lastPitExitTs&&FK.state.lastPitExitTs[kd.kart];
-  if(lastTs!=null)return Math.max(0,elapsed-lastTs);
+  var psl=FK.state.pitStopLog&&FK.state.pitStopLog[kd.kart];
+  if(psl&&psl.length){
+    var lastExitMs=psl[psl.length-1].exitMs;
+    if(lastExitMs!=null)return Math.max(0,Math.floor((Date.now()-lastExitMs)/1000));
+  }
   return elapsed;
 },
 countBoxNow:function(){
@@ -4677,6 +4785,19 @@ activatePilotQueueSlot:function(kart,idx){
   var el=document.getElementById('dg-pq-body');if(el)el.dataset.pqKey='';
   FK.rPilotQueue();
   FK.rPilotTotals&&FK.rPilotTotals();
+  /* pedido 19/09/2026: "quando eu dou ok da mudanca de piloto, registra a hora da mudanca" --
+     este e' o unico ponto que confirma uma troca (botao "Ativar" da fila). Grava local +
+     Firestore (doc sync/pilotlog, arrayUnion -- mesmo motivo do pitlog: 2 aparelhos podem
+     confirmar quase junto, arrayUnion soma sem um apagar o outro), pra alimentar a tela
+     dedicada de Fila de Pilotos com o historico real de horarios de troca. */
+  if(!FK.state.pilotChangeLog)FK.state.pilotChangeLog=[];
+  var pcEntry={kart:kart,piloto:nome,slotIdx:idx,ts:Date.now()};
+  FK.state.pilotChangeLog.push(pcEntry);
+  if(FK.state.pilotChangeLog.length>200)FK.state.pilotChangeLog.shift();
+  FK.rPilotChangeLog&&FK.rPilotChangeLog();
+  if(typeof firebase!=='undefined'&&FK.state.authUser&&!FK.state.applyingRemote){
+    firebase.firestore().collection('sync').doc('pilotlog').set({changes:firebase.firestore.FieldValue.arrayUnion(pcEntry)},{merge:true}).catch(function(e){console.error('push pilotlog erro',e);});
+  }
   FK.pushLiveToCloud&&FK.pushLiveToCloud();
 },
 /* Desfaz a ULTIMA ativacao (de qualquer kart) -- devolve boxState, pilotQueueActiveIdx,
@@ -4752,6 +4873,21 @@ rPilotTotals:function(){
   var html='';
   order.forEach(function(name){
     html+='<tr><td>'+name+'</td><td style="text-align:right;font-variant-numeric:tabular-nums">'+FK.fmtTime(Math.floor(totals[name]/1000))+'</td></tr>';
+  });
+  el.innerHTML=html;
+},
+/* Historico de Trocas (pedido 19/09/2026, aba Fila de Pilotos): lista FK.state.pilotChangeLog
+   -- um registro por confirmacao de troca (botao Ativar em activatePilotQueueSlot), com hora
+   de relogio real. Persistido no Firestore (doc sync/pilotlog) desde 19/09/2026, entao
+   sobrevive a reload/troca de aparelho igual ao historico de paradas. Mais recente primeiro. */
+rPilotChangeLog:function(){
+  var el=document.getElementById('dg-pcl-body');if(!el)return;
+  var log=(FK.state.pilotChangeLog||[]).slice().reverse();
+  if(!log.length){el.innerHTML='<tr><td colspan="3" class="pcl-empty">Nenhuma troca confirmada ainda</td></tr>';return;}
+  var html='';
+  log.slice(0,50).forEach(function(e){
+    var hora=new Date(e.ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    html+='<tr><td style="font-variant-numeric:tabular-nums">'+hora+'</td><td><span class="d-kart my">'+e.kart+'</span></td><td>'+e.piloto+'</td></tr>';
   });
   el.innerHTML=html;
 },
