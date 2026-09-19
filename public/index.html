@@ -4396,11 +4396,11 @@ rDashHdrStrip:function(){
     var HEAVY_DUR=2400; /* 40min, fixo pelo regulamento */
     var hs=FK.state.heavyStintStartSec;
     if(FK.state.heavyStintDone){
-      val.textContent='CUMPRIDO ✓';row.classList.add('heavy-done');
+      val.textContent='CONCLUÍDO';row.classList.add('heavy-done');
     }else if(hs!=null){
       var remStint=HEAVY_DUR-((FK.state.elapsed||0)-hs);
       if(remStint<=0){
-        FK.state.heavyStintDone=true;val.textContent='CUMPRIDO ✓';row.classList.add('heavy-done');
+        FK.state.heavyStintDone=true;val.textContent='CONCLUÍDO';row.classList.add('heavy-done');
       }else{
         val.textContent=FK.fmtTime(remStint);row.classList.add('heavy-active');
       }
