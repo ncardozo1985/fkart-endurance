@@ -740,10 +740,7 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
     </div>
     <div class="krono-grid grid-fit" id="dg-krono-grid"></div>
   </div>
-  <div class="dash-card" id="dg-radio-chief-card">
-    <div class="dash-card-hdr"><h3>&#128226; Chamadas para o piloto</h3><span style="font-size:9px;color:var(--mut)">toca no fone do piloto</span></div>
-    <div id="dg-radio-chief"></div>
-  </div>
+
   <!-- COLUNAS PRINCIPAIS -->
   <div class="dash-cols">
     <!-- COL 1: RANKING -->
@@ -757,7 +754,7 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
         <table class="dr-table" id="dg-rank-table">
           <thead><tr>
             <th>Pos</th><th>Kart</th><th>Piloto / Equipe</th><th>Cat</th>
-            <th>Última</th><th>Gap</th><th title="Paradas curtas (volta cronometrada a partir da duracao minima configurada)">P.Curta</th><th title="Paradas longas (volta cronometrada a partir da duracao longa configurada)">P.Longa</th><th title="Perna gorda (stint obrigatorio pesado) ja cumprida, segundo a Race Monitor">Gorda</th><th title="Posicao projetada de chegada NA CATEGORIA (modelo 23/09/2026: ultima passagem + ritmo + so as paradas que faltam, com custo real de box)">Proj Cat</th><th title="Voltas projetadas na bandeirada, com faixa de confianca">Voltas Proj</th>
+            <th>Última</th><th title="Intervalo para o kart imediatamente a frente">Int.</th><th title="Paradas curtas (volta cronometrada a partir da duracao minima configurada)">P.Curta</th><th title="Paradas longas (volta cronometrada a partir da duracao longa configurada)">P.Longa</th><th title="Perna gorda (stint obrigatorio pesado) ja cumprida, segundo a Race Monitor">Gorda</th><th title="Posicao projetada de chegada NA CATEGORIA (modelo 23/09/2026: ultima passagem + ritmo + so as paradas que faltam, com custo real de box)">Proj Cat</th><th title="Voltas projetadas na bandeirada, com faixa de confianca">Voltas Proj</th>
           </tr></thead>
           <tbody id="dg-rank-body"></tbody>
         </table>
@@ -788,15 +785,10 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
       </div>
     </div>
   </div>
-  <!-- GAP BOARD: faixa de largura total, cards lado a lado (pedido do Rapha 15/09/2026 --
-       antes ficava numa coluna estreita empilhado como lista, igual o problema que a Fila
-       de Pilotos jah tinha resolvido em 31/08/2026 -- mesmo padrao de grid aplicado aqui). -->
-  <div class="dash-card">
-    <div class="dash-card-hdr">
-      <h3>&#127919; Gap Board — Equipe</h3>
-      <span style="font-size:9px;color:var(--mut)">intervalo real p/ rival da frente/atras (geral e por categoria)</span>
-    </div>
-    <div class="gapboard-body" id="dg-gapboard-body"></div>
+  <!-- CHAMADAS PARA O PILOTO (24/09/2026: substitui o Gap Board) -->
+  <div class="dash-card" id="dg-radio-chief-card">
+    <div class="dash-card-hdr"><h3>&#128226; Chamadas para o piloto</h3><span style="font-size:9px;color:var(--mut)">toca no fone do piloto</span></div>
+    <div id="dg-radio-chief"></div>
   </div>
 </div>
 </div>
@@ -931,7 +923,7 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
         <table class="dr-table" id="tv-rank-table">
           <thead><tr>
             <th>Pos</th><th>Kart</th><th>Piloto / Equipe</th><th>Cat</th>
-            <th>Última</th><th>Gap</th><th>P.Curta</th><th>P.Longa</th><th>Gorda</th><th>Proj Cat</th><th>Voltas Proj</th>
+            <th>Última</th><th title="Intervalo para o kart imediatamente a frente">Int.</th><th>P.Curta</th><th>P.Longa</th><th>Gorda</th><th>Proj Cat</th><th>Voltas Proj</th>
           </tr></thead>
           <tbody id="tv-rank-body"></tbody>
         </table>
@@ -2645,7 +2637,8 @@ FK.state.paceEma[d.kart]=alpha*lt+(1-alpha)*prevEma;
 var ksKey=FK.findKartKey(FK.state.kronoState,d.kart);
 var ks=ksKey?FK.state.kronoState[ksKey]:null;
 if(ks){
-ks.lapStartTs=Date.now();
+/* v2 23/09/2026: parte do instante real da passagem (TotalTime + deslocamento do streaming) quando disponivel -- ver FK.kronoRT */
+ks.lapStartTs=(FK.kronoRT&&FK.kronoRT.anchor(d))||Date.now();
 ks.stintLaps=(ks.stintLaps||0)+1;
 ks.last=d.last;
 ks.best=d.best;
@@ -3681,6 +3674,7 @@ rDashRanking:function(prefix){
   }
   /* Projecao v3 (23/09/2026) -- ver bloco FK.proj no fim do arquivo */
   var PJ=(FK.proj&&FK.proj.projectFinish)?FK.proj.projectFinish(data):{};
+  var INT=(FK.ui3&&FK.ui3.intervals)?FK.ui3.intervals(data):{};
   /* top N (pedido 27/08/2026: voltou pra 10 -- o "top 20" deixava a tabela grande demais na
      telona do box; equipe fora do top N continua aparecendo destacada logo abaixo) */
   var topN=10;
@@ -3724,7 +3718,7 @@ rDashRanking:function(prefix){
     '<td><div style="line-height:'+(tvRow?'1.05':'1.3')+'"><span style="font-weight:'+(my?700:400)+'">'+d.t+(my?' ★':'')+'</span><br><span style="font-size:9px;color:var(--mut)">'+( d.equipe||'')+'</span></div></td>'+
     '<td><span style="font-size:10px;color:var(--mut)">'+d.cat+'</span><span style="font-size:9px;color:#555;margin-left:3px">'+d.catPos+'º</span></td>'+
     '<td style="color:'+(my?'var(--acc)':'var(--txt)')+'">'+d.last+'</td>'+
-    '<td style="font-size:10px;color:var(--mut)">'+d.gap+'</td>'+
+    '<td style="font-size:11px;color:var(--txt);font-variant-numeric:tabular-nums">'+(INT[d.kart]!=null?INT[d.kart]:d.gap)+'</td>'+
     '<td><span class="pit6-badge" title="Paradas curtas (a partir de '+((FK.cfg.minPitDurationSec||300)/60)+'min)">'+(pc0.short)+'</span></td>'+
     '<td><span class="pit10-badge" title="Paradas longas (a partir de '+((FK.cfg.longPitDurationSec||0)/60)+'min)">'+(pc0.long)+'</span></td>'+
     '<td>'+(d.heavyDone?'<span class="heavy-ok-badge" title="Perna gorda cumprida">OK</span>':'<span class="heavy-pending-badge">&mdash;</span>')+'</td>'+
@@ -3897,13 +3891,14 @@ rDashCrono:function(gridId,idSuffix,filterKarts){
     var last=ks?ks.last:'--:--';
     var bs=(FK.state.boxState&&FK.state.boxState[k])||{};
     var pilotoNome=bs.piloto||'—';
-    html+='<div class="krono-card" id="kcard-'+k+idSuffix+'">'+
-    '<div class="krono-top"><div class="krono-left"><div class="krono-badge">'+k+'</div><div class="krono-pos-info" id="kp-'+k+idSuffix+'">P'+pos+'</div><div class="krono-g-badge'+(kd&&kd.heavyDone?' on':'')+'" id="kg-'+k+idSuffix+'" title="Perna gorda">G</div></div><div class="krono-name" id="kn-'+k+idSuffix+'">'+pilotoNome+'</div></div>'+
+    html+='<div class="krono-card kc3" id="kcard-'+k+idSuffix+'">'+
+    '<div class="kc3-head"><div class="krono-badge">'+(parseInt(k,10)||k)+'</div><div class="kc3-id"><div class="krono-name" id="kn-'+k+idSuffix+'">'+pilotoNome+'</div>'+
+    '<div class="kc3-sub"><span class="krono-pos-info" id="kp-'+k+idSuffix+'">P'+pos+'</span><span class="krono-g-badge'+(kd&&kd.heavyDone?' on':'')+'" id="kg-'+k+idSuffix+'" title="Perna gorda">G</span></div></div></div>'+
     '<div class="krono-timer" id="kt-'+k+idSuffix+'">00:00.000</div>'+
     '<div class="krono-row">'+
     '<div class="kr-cell"><span class="kl">Melhor</span><span class="kv acc" id="kbest-'+k+idSuffix+'">'+best+'</span></div>'+
     '<div class="kr-cell"><span class="kl">Última</span><span class="kv" id="klast-'+k+idSuffix+'">'+last+'</span></div>'+
-    '<div class="kr-cell"><span class="kl">Em Pista</span><span class="kv" id="ktrack-'+k+idSuffix+'" title="Tempo desde a ultima parada detectada">--:--</span></div>'+
+    '<div class="kr-cell"><span class="kl">Stint</span><span class="kv" id="ktrack-'+k+idSuffix+'" title="Tempo em pista desde a volta da parada (inicio do stint)">--:--</span></div>'+
     '</div>'+
     '<div class="krono-pits" id="kpits-'+k+idSuffix+'"></div>'+
     '</div>';
@@ -5446,6 +5441,514 @@ try{ var el0=document.getElementById('cfg-cat-rules'); if(el0&&!el0.value)el0.va
 var css=document.createElement('style');
 css.textContent='.proj-laps{font-variant-numeric:tabular-nums;font-weight:600}.proj-laps small{font-size:.75em;color:var(--mut);font-weight:400}';
 document.head.appendChild(css);
+})();
+</script>
+
+<script>
+/* =====================================================================================
+   CRONOMETRO EM TEMPO REAL v2 (pedido 23/09/2026)
+   Medido ao vivo no KGV (raceId 26021, 42 passagens):
+   - o GetSession (API que alimenta a classificacao) mostra a volta nova so 630 ms depois
+     do aviso do streaming na mediana, 3,4 s no pior 10% e ate 5 s -- e o cronometro
+     antigo zerava no momento em que ESSA resposta chegava (Date.now()), entao ja nascia
+     atrasado;
+   - o streaming ($J) chega em ~25 ms (mediana) acima da latencia minima da conexao.
+   Agora:
+   1) cada $J do streaming zera o cronometro do kart da equipe NA HORA, sem esperar o
+      GetSession;
+   2) o ponto de partida nao e "quando a mensagem chegou", e sim o instante real da
+      passagem: TotalTime do $J (ms, relogio da cronometragem) + deslocamento entre o
+      relogio da cronometragem e o do aparelho. O deslocamento e o MINIMO de
+      (hora de chegada - TotalTime) de todas as passagens de todos os karts nos ultimos
+      10 min -- o minimo e a passagem que chegou mais rapido, entao elimina atraso de rede
+      e picos (~1 s) de mensagens atrasadas. Precisao tipica: dezenas de ms;
+   3) se o streaming cair, o caminho antigo (GetSession) continua funcionando e tambem usa
+      o deslocamento quando ele ja existir;
+   4) "Ultima" volta tambem atualiza direto do $J.
+   ===================================================================================== */
+(function(){
+if(typeof FK==='undefined')return;
+function ms(s){ if(s==null)return null; s=String(s).replace(/"/g,'').trim(); if(!s)return null;
+  var p=s.split(':').map(Number); if(p.some(isNaN))return null; var v=0; p.forEach(function(x){v=v*60+x;}); return Math.round(v*1000); }
+function fmtLap(m){ var s=m/1000, mi=Math.floor(s/60), r=s-mi*60; return (mi?mi+':'+(r<10?'0':''):'')+r.toFixed(3); }
+
+var K=FK.kronoRT={
+  offs:[], rid2kart:{}, connAt:0, lastRx:0, lags:[],
+  offset:function(){
+    var now=Date.now(), best=null;
+    K.offs=K.offs.filter(function(o){return now-o.rx<600000;});
+    K.offs.forEach(function(o){ if(best===null||o.off<best)best=o.off; });
+    return best;
+  },
+  /* instante (relogio do aparelho) da passagem cujo TotalTime e totMs; null se ainda sem referencia */
+  crossAt:function(totMs){
+    var off=K.offset(); if(off==null||totMs==null)return null;
+    return Math.min(Date.now(), off+totMs);
+  },
+  anchor:function(d){ return (d&&d.totalTimeSec!=null)?K.crossAt(Math.round(d.totalTimeSec*1000)):null; },
+  kartOf:function(rid){
+    if(K.rid2kart[rid])return K.rid2kart[rid];
+    var m=FK.state.racerIdByKart||{};
+    for(var k in m){ if(String(m[k])===String(rid))return k; }
+    return rid;
+  },
+  line:function(line,rx){
+    var f=line.split(','), code=f[0];
+    if(code==='$A'||code==='$COMP'){ var r=(f[1]||'').replace(/"/g,''), n=(f[2]||'').replace(/"/g,''); if(r&&n)K.rid2kart[r]=n; return; }
+    if(code!=='$J')return;
+    var rid=(f[1]||'').replace(/"/g,''), lt=ms(f[2]), tot=ms(f[3]);
+    if(!tot)return;
+    /* o $J que vem no "retrato inicial" logo apos conectar e historico, nao tempo real */
+    var live=rx-K.connAt>3000;
+    if(live){ K.offs.push({rx:rx,off:rx-tot}); if(K.offs.length>3000)K.offs.shift(); K.lastRx=rx; }
+    var kart=K.kartOf(rid);
+    var map=FK.state.kronoState||{};
+    var key=FK.findKartKey?FK.findKartKey(map,kart):kart;
+    var ks=key!=null?map[key]:null;
+    if(!ks||ks.srcTotal===tot)return;
+    if(!live&&!ks.srcTotal){ /* primeira referencia apos conectar: usa so se nao houver nada melhor */ }
+    var cross=K.crossAt(tot);
+    if(cross==null)cross=live?rx:null;
+    if(cross==null)return;
+    ks.lapStartTs=cross; ks.srcTotal=tot; ks.srcRx=rx;
+    if(live){ K.lags.push(rx-cross); if(K.lags.length>50)K.lags.shift(); }
+    if(lt&&lt>0){
+      var s=fmtLap(lt); ks.last=s;
+      [key,key+'-dg',key+'-tv',key+'-mob'].forEach(function(id){var el=document.getElementById('klast-'+id);if(el)el.textContent=s;});
+    }
+  },
+  badge:function(){
+    var ok=K.lastRx&&(Date.now()-K.lastRx<180000)&&K.offset()!=null;
+    var txt,cls;
+    if(ok){ var l=K.lags.slice().sort(function(a,b){return a-b;}); var m=l.length?l[l.length>>1]:0;
+      txt='⚡ tempo real'+(l.length?' · correção '+(m/1000).toFixed(2)+'s':''); cls='rt-on'; }
+    else if(FK.state.liveSocket&&FK.state.liveSocket.readyState===1){ txt='⚡ streaming conectado'; cls='rt-on'; }
+    else { txt='◷ via consulta (±1s)'; cls='rt-off'; }
+    ['dg-krono-grid','mob-krono-grid','tv-krono-grid'].forEach(function(gid){
+      var g=document.getElementById(gid); if(!g)return;
+      var card=g.closest('.dash-card'); if(!card)return;
+      var hdr=card.querySelector('.dash-card-hdr'); if(!hdr)return;
+      var b=hdr.querySelector('.krono-rt-badge');
+      if(!b){ b=document.createElement('span'); b.className='krono-rt-badge'; hdr.appendChild(b); }
+      if(b.textContent!==txt)b.textContent=txt; b.className='krono-rt-badge '+cls;
+    });
+  }
+};
+
+/* intercepta cada linha do streaming antes do tratamento original ($J -> nudge do GetSession) */
+var _h=FK.handleRMonitorLine;
+FK.handleRMonitorLine=function(line){
+  try{ K.line(String(line).replace(/\r$/,''),Date.now()); }catch(e){console.warn('kronoRT',e);}
+  return _h.apply(FK,arguments);
+};
+/* marca o inicio de cada conexao (para ignorar o retrato inicial) */
+var _open=FK.openLiveSocket;
+if(_open)FK.openLiveSocket=function(){ K.connAt=Date.now(); return _open.apply(FK,arguments); };
+
+setInterval(K.badge,2000);
+var css=document.createElement('style');
+css.textContent='.krono-rt-badge{font-size:9px;margin-left:8px;padding:2px 6px;border-radius:10px;white-space:nowrap}.krono-rt-badge.rt-on{background:rgba(47,191,113,.15);color:#2fbf71}.krono-rt-badge.rt-off{background:rgba(255,176,32,.15);color:#ffb020}';
+document.head.appendChild(css);
+})();
+</script>
+
+<script>
+/* =====================================================================================
+   BOX INTELIGENTE v2 (pedido 23/09/2026) -- substitui o mapa de 24 karts por uma decisao
+   rapida: ENTRAR / SEGURAR / NEUTRO para cada kart da equipe.
+   Premissas (Rapha): no KGV o kart novo vem por SORTEIO entre os que estao no box.
+   Como mede cada kart:
+   - todo stint de todo kart vira uma "ficha": mediana das voltas limpas MENOS a mediana do
+     pelotao inteiro no mesmo intervalo de 5 min (tira efeito de pista/temperatura) MENOS o
+     nivel da propria equipe nos outros stints (tira o efeito "equipe rapida/lenta").
+     Resultado: s/volta melhor ou pior que um kart medio da corrida.
+   - a ficha e classificada contra a FROTA INTEIRA (todos os stints da corrida ate agora), nao
+     contra os 24 do box: Tocha (top ~12%), Otimo, Bom, Regular, Ruim, Jaca (piores ~19%) --
+     mesmas faixas 10/20/40/60/70/86 que o Rapha definiu para 86 karts.
+   - composicao do box com sorteio: cada parada de qualquer equipe tira um kart ao acaso
+     (peso de todos x (1 - 1/24)) e coloca o kart que a equipe deixou (peso 1). Os 24 karts
+     reserva do inicio entram como "sem ficha".
+   Decisao (backtest Endurance 6H KGV 19/09, 471 trocas):
+   - kart atual entre os 30% piores da frota -> stint seguinte melhorou em 87% dos casos
+     (media -1,0 s/volta) => ENTRAR;
+   - kart atual entre os 30% melhores -> piorou em 84% (media +1,0 s/volta) => SEGURAR;
+   - no meio: a chance de pegar kart melhor no box desempata.
+   Observacao honesta: nesse backtest a composicao media do box sozinha NAO previu o stint
+   seguinte (r ~ 0); o que mais pesa e quao bom/ruim esta o kart ATUAL.
+   ===================================================================================== */
+(function(){
+if(typeof FK==='undefined')return;
+function med(a){if(!a.length)return NaN;var b=a.slice().sort(function(x,y){return x-y;}),m=b.length>>1;return b.length%2?b[m]:(b[m-1]+b[m])/2;}
+var TIERS=[
+  {max:0.116,key:'tocha',name:'Tocha',c:'#9b5de5'},
+  {max:0.233,key:'otimo',name:'Ótimo',c:'#1e9e4a'},
+  {max:0.465,key:'bom',name:'Bom',c:'#8bc34a'},
+  {max:0.70,key:'regular',name:'Regular',c:'#f2c230'},
+  {max:0.814,key:'ruim',name:'Ruim',c:'#ef5b3f'},
+  {max:1.01,key:'jaca',name:'Jaca',c:'#8b1e1e'}
+];
+var B=FK.boxAI={
+  MIN_LAPS:5,
+  tierOf:function(p){for(var i=0;i<TIERS.length;i++)if(p<=TIERS[i].max)return TIERS[i];return TIERS[TIERS.length-1];},
+  analyze:function(){
+    var logs=FK.state.lapLog||{}, D=FK.proj?FK.proj.durs():{s:360,l:600};
+    var cap=FK.cfg.boxCapacity>0?FK.cfg.boxCapacity:24;
+    /* referencia do pelotao por janela de 5 min */
+    var bk={};
+    Object.keys(logs).forEach(function(k){logs[k].forEach(function(x){
+      if(!x.pit&&!x.out&&!x.skip&&x.t!=null&&x.lt<D.s*0.9){(bk[Math.floor(x.t/300)]=bk[Math.floor(x.t/300)]||[]).push(x.lt);}
+    });});
+    var ref={};Object.keys(bk).forEach(function(b){ref[b]=med(bk[b]);});
+    function fref(t){var b=Math.floor(t/300);for(var i=0;i<6;i++){if(ref[b-i]!=null)return ref[b-i];if(ref[b+i]!=null)return ref[b+i];}return null;}
+    /* stints por kart */
+    var stints={}, events=[];
+    Object.keys(logs).forEach(function(k){
+      var L=logs[k], cur=[], arr=[];
+      L.forEach(function(x){
+        if(x.pit){arr.push({laps:cur,endT:x.t,closed:true});events.push({t:x.t,kart:k,idx:arr.length-1});cur=[];return;}
+        if(x.out||x.skip||x.t==null||x.lt>=D.s*0.9)return;
+        var r=fref(x.t); if(r==null||x.lt>r*1.12)return;
+        cur.push(x.lt-r);
+      });
+      arr.push({laps:cur,closed:false});
+      arr.forEach(function(s){s.n=s.laps.length;s.q=s.n>=B.MIN_LAPS?med(s.laps):null;});
+      stints[k]=arr;
+    });
+    /* nivel da equipe (outros stints), com encolhimento m/(m+1) */
+    Object.keys(stints).forEach(function(k){
+      var arr=stints[k];
+      arr.forEach(function(s,i){
+        if(s.q==null){s.qa=null;return;}
+        var oth=arr.filter(function(o,j){return j!==i&&o.q!=null;}).map(function(o){return o.q;});
+        var base=oth.length?med(oth)*oth.length/(oth.length+1):0;
+        s.qa=s.q-base;
+      });
+    });
+    /* frota: todas as fichas */
+    var fleet=[];Object.keys(stints).forEach(function(k){stints[k].forEach(function(s){if(s.qa!=null)fleet.push(s.qa);});});
+    fleet.sort(function(a,b){return a-b;});
+    function pct(x){if(!fleet.length)return 0.5;var lo=0,hi=fleet.length;while(lo<hi){var m=(lo+hi)>>1;if(fleet[m]<x)lo=m+1;else hi=m;}return lo/fleet.length;}
+    /* box por sorteio */
+    events.sort(function(a,b){return a.t-b.t;});
+    var unk=cap, pool=[], recent=[];
+    events.forEach(function(e){
+      var f=1-1/cap; unk*=f; pool.forEach(function(p){p.w*=f;});
+      var s=stints[e.kart][e.idx];
+      if(s.qa!=null)pool.push({qa:s.qa,w:1,kart:e.kart,t:e.t}); else unk+=1;
+      recent.push({kart:e.kart,qa:s.qa,t:e.t});
+    });
+    pool=pool.filter(function(p){return p.w>0.02;});
+    var comp={};TIERS.forEach(function(t){comp[t.key]=0;});
+    pool.forEach(function(p){comp[B.tierOf(pct(p.qa)).key]+=p.w;});
+    var totW=unk+pool.reduce(function(s,p){return s+p.w;},0);
+    return {stints:stints,fleet:fleet,pct:pct,pool:pool,unk:unk,totW:totW,comp:comp,recent:recent.slice(-8).reverse(),nEvents:events.length};
+  },
+  decide:function(A,kart,d){
+    var key=FK.findKartKey?FK.findKartKey(A.stints,kart):kart;
+    var arr=key!=null?A.stints[key]:null;
+    var cur=arr?arr[arr.length-1]:null;
+    var pc=FK.proj?FK.proj.pitCounts(d||{kart:kart}):{short:0,long:0};
+    var rules=FK.proj?FK.proj.rulesFor(d&&d.cat):{short:FK.cfg.minPitStops||0,long:FK.cfg.longPitStops||0};
+    var left=Math.max(0,rules.short-pc.short)+Math.max(0,rules.long-pc.long);
+    var out={kart:kart,stopsLeft:left,n:cur?cur.n:0};
+    if(!left){out.v='nao';out.title='NÃO ENTRAR';out.why='Paradas obrigatórias já cumpridas — uma parada extra custa cerca de 5 min.';return out;}
+    if(!cur||cur.qa==null){out.v='aguarde';out.title='LENDO O KART';out.why='Kart atual ainda sem leitura ('+(cur?cur.n:0)+'/'+B.MIN_LAPS+' voltas limpas).';return out;}
+    var p=A.pct(cur.qa), tier=B.tierOf(p);
+    var better=A.pool.reduce(function(s,x){return s+(x.qa<cur.qa?x.w:0);},0)+A.unk*p;
+    var pb=A.totW>0?better/A.totW:p;
+    out.p=p;out.tier=tier;out.pb=pb;out.qa=cur.qa;
+    if(p>=0.70){out.v='entrar';out.title='ENTRAR';}
+    else if(p<=0.30){out.v='segurar';out.title='SEGURAR NA PISTA';}
+    else if(pb>=0.60){out.v='entrar';out.title='ENTRAR (leve)';}
+    else if(pb<=0.40){out.v='segurar';out.title='SEGURAR (leve)';}
+    else {out.v='neutro';out.title='TANTO FAZ';}
+    out.why='Kart atual: <b style="color:'+tier.c+'">'+tier.name+'</b> ('+(cur.qa>0?'+':'')+cur.qa.toFixed(2)+' s/v vs kart médio, '+(p<0.5?'melhor que '+Math.round((1-p)*100):'pior que '+Math.round(p*100))+'% da frota) · chance de pegar kart melhor no box: <b>'+Math.round(pb*100)+'%</b> · faltam '+left+' parada(s)';
+    return out;
+  },
+  render:function(prefix){
+    prefix=prefix||'d';
+    var el=document.getElementById(prefix+'-bxi-body'); if(!el)return;
+    var card=el.closest('.dash-card'); var h=card&&card.querySelector('.dash-card-hdr h3');
+    if(h&&!h.dataset.v2){h.dataset.v2='1';h.innerHTML='&#127937; Box Inteligente — entrar agora?';}
+    var A=B.analyze(), data=FK.getData();
+    var cnt=document.getElementById(prefix+'-bxi-count');
+    var inBox=FK.countBoxNow?FK.countBoxNow():0;
+    if(cnt)cnt.textContent=A.nEvents+' paradas analisadas · '+inBox+' equipe(s) no box agora';
+    /* veredito por kart da equipe */
+    var rows=(FK.cfg.myKarts||[]).map(function(k){
+      var d=FK.findKartData(data,k);
+      var r=B.decide(A,k,d);
+      var col={entrar:'#1e9e4a',segurar:'#e5533d',neutro:'#c9a227',aguarde:'#6b7a99',nao:'#6b7a99'}[r.v];
+      return '<div class="bx2-row"><div class="bx2-kart">#'+k+'</div><div class="bx2-verdict" style="background:'+col+'">'+r.title+'</div><div class="bx2-why">'+r.why+'</div></div>';
+    }).join('')||'<div class="bx2-why">Configure os karts da equipe em Config.</div>';
+    if(inBox>=3)rows+='<div class="bx2-warn">&#9888; '+inBox+' equipes no box agora — pode ter fila na troca.</div>';
+    /* composicao do box */
+    var tot=A.totW||1, segs='', leg='';
+    TIERS.forEach(function(t){var w=A.comp[t.key]/tot*100;if(w>=0.5){segs+='<div class="bx2-seg" style="width:'+w+'%;background:'+t.c+'" title="'+t.name+' '+Math.round(w)+'%">'+(w>=7?Math.round(w)+'%':'')+'</div>';}});
+    var uw=A.unk/tot*100; if(uw>=0.5)segs+='<div class="bx2-seg" style="width:'+uw+'%;background:#3a4460" title="Sem ficha '+Math.round(uw)+'%">'+(uw>=7?Math.round(uw)+'%':'')+'</div>';
+    var good=(A.comp.tocha+A.comp.otimo+A.comp.bom)/tot*100, bad=(A.comp.ruim+A.comp.jaca)/tot*100;
+    TIERS.forEach(function(t){leg+='<span><i style="background:'+t.c+'"></i>'+t.name+'</span>';});
+    leg+='<span><i style="background:#3a4460"></i>Sem ficha</span>';
+    var rec=A.recent.map(function(r){var t=r.qa!=null?B.tierOf(A.pct(r.qa)):null;return '<span class="bx2-chip" style="background:'+(t?t.c:'#3a4460')+'" title="deixado pelo #'+r.kart+'">'+(t?t.name:'?')+'</span>';}).join('');
+    el.innerHTML='<div class="bx2-rows">'+rows+'</div>'+
+      '<div class="bx2-sub">No box agora (estimativa com sorteio): <b style="color:#8bc34a">'+Math.round(good)+'% bons ou melhores</b> · <b style="color:#ef5b3f">'+Math.round(bad)+'% ruins/jaca</b> · '+Math.round(uw)+'% sem ficha</div>'+
+      '<div class="bx2-bar">'+segs+'</div><div class="bx2-leg">'+leg+'</div>'+
+      '<div class="bx2-sub">Últimos karts que entraram no box (mais novo primeiro): '+(rec||'—')+'</div>'+
+      '<div class="bx2-note">Régua = frota inteira da corrida (não só os 24 do box), descontando pista e o nível de cada equipe. Em 19/09: kart atual entre os 30% piores → stint seguinte melhorou em 87% das trocas; entre os 30% melhores → piorou em 84%.</div>';
+  }
+};
+FK.rDashBoxIntel=function(prefix){ try{B.render(prefix);}catch(e){console.warn('boxAI',e);} };
+var css=document.createElement('style');
+css.textContent='.bx2-rows{display:flex;flex-direction:column;gap:8px}.bx2-row{display:grid;grid-template-columns:64px 190px 1fr;gap:10px;align-items:center}'+
+'.bx2-kart{font-weight:800;font-size:18px}.bx2-verdict{color:#fff;font-weight:800;text-align:center;padding:10px 8px;border-radius:8px;font-size:15px;letter-spacing:.03em}'+
+'.bx2-why{white-space:normal;font-size:12px;color:var(--mut);line-height:1.4}.bx2-why b{color:var(--txt)}.bx2-warn{font-size:12px;color:#ffb020;margin-top:4px}'+
+'.bx2-sub{white-space:normal;font-size:12px;color:var(--mut);margin-top:14px}.bx2-bar{display:flex;height:26px;border-radius:6px;overflow:hidden;margin-top:6px;background:#222}'+
+'.bx2-seg{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;white-space:nowrap}'+
+'.bx2-leg{display:flex;flex-wrap:wrap;gap:10px;font-size:10px;color:var(--mut);margin-top:6px}.bx2-leg i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}'+
+'.bx2-chip{display:inline-block;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;margin:2px 3px 0 0}'+
+'.bx2-note{white-space:normal;font-size:10px;color:var(--mut);margin-top:12px;opacity:.8}'+
+'@media(max-width:640px){.bx2-row{grid-template-columns:52px 1fr}.bx2-why{grid-column:1/-1}}';
+document.head.appendChild(css);
+})();
+</script>
+
+<script>
+/* =====================================================================================
+   UI v3 (pedido 24/09/2026) -- ajustes finos do Dashboard:
+   1) abas em 2 linhas, visual "pit wall" (placas inclinadas);  2) some o "AO VIVO"/nome da
+   corrida do topo;  3) cronometro reorganizado + "Stint" = tempo desde a volta da parada
+   (relogio de prova, nao relogio do aparelho -- o antigo usava o log de paradas sincronizado
+   e mostrava 105h quando havia paradas de outro dia);  4) chamadas: Box em X voltas, Box
+   nesta volta, Cancela, Mantem ritmo, Combustivel, Espera o kart N, Empurra o kart N --
+   painel no lugar do Gap Board;  5) sem a faixa de chips da classificacao;  6) Box
+   Inteligente compacto;  7) Gap Board removido e coluna "Int." = intervalo em segundos
+   para o kart da frente.
+   ===================================================================================== */
+(function(){
+if(typeof FK==='undefined')return;
+var U=FK.ui3={
+  num:function(k){var n=parseInt(k,10);return isNaN(n)?String(k):String(n);},
+  lapSec:function(d){return FK.parseT(d.last)||0;},
+  /* intervalo para o kart imediatamente a frente (na ordem da lista) */
+  interval:function(me,ahead){
+    if(!ahead)return null;
+    var a=me.totalTimeSec,b=ahead.totalTimeSec, ld=(ahead.laps||0)-(me.laps||0);
+    if(a==null||b==null)return ld>0?{laps:ld}:null;
+    if(ld===0)return {s:a-b};
+    if(ld===1){var g=a-(b-U.lapSec(ahead)); if(g>=0&&g<(U.lapSec(me)||60)*1.2)return {s:g};}
+    return {laps:ld};
+  },
+  fmtInt:function(g){
+    if(!g)return '—';
+    if(g.laps)return '+'+g.laps+(g.laps===1?' volta':' voltas');
+    var s=Math.max(0,g.s); return s<60?'+'+s.toFixed(3):'+'+Math.floor(s/60)+':'+(s%60).toFixed(1).padStart(4,'0');
+  },
+  intervals:function(data){
+    var out={}, arr=(data||[]).slice().sort(function(a,b){return a.pos-b.pos;});
+    arr.forEach(function(d,i){ out[d.kart]=i?U.fmtInt(U.interval(d,arr[i-1])):'Líder'; });
+    return out;
+  },
+  catPos:function(data,d){
+    var same=data.filter(function(x){return x.cat===d.cat;}).sort(function(a,b){return a.pos-b.pos;});
+    return same.indexOf(d)+1;
+  },
+  /* ---------- Stint (tempo em pista desde a volta da parada) ---------- */
+  stintInfo:function(k){
+    var data=FK.getData(), d=FK.findKartData(data,k), el=FK.state.elapsed||0;
+    var logs=FK.state.lapLog||{}, key=FK.findKartKey?FK.findKartKey(logs,k):k, L=key!=null?logs[key]:null;
+    var last=null, n=0;
+    if(L)for(var i=L.length-1;i>=0;i--){ if(L[i].pit){last=L[i];break;} }
+    if(L)L.forEach(function(x){if(x.pit)n++;});
+    var pc=(FK.proj&&d)?FK.proj.pitCounts(d):null, done=pc?(pc.short+pc.long):n;
+    var rules=(FK.proj&&d)?FK.proj.rulesFor(d.cat):null, req=rules?(rules.short+rules.long):0;
+    if(last&&last.t!=null) return {sec:Math.max(0,el-last.t),lap:last.lap,long:last.long,done:done,req:req};
+    /* sem parada no log desta sessao: usa o log sincronizado SO se for desta prova */
+    var psl=FK.state.pitStopLog||{}, pk=FK.findKartKey?FK.findKartKey(psl,k):k, P=pk!=null?psl[pk]:null;
+    var raceStartMs=Date.now()-el*1000-120000;
+    if(P&&P.length){var lp=P[P.length-1]; if(lp.exitMs&&lp.exitMs>=raceStartMs)return {sec:Math.max(0,Math.floor((Date.now()-lp.exitMs)/1000)),lap:lp.lap,long:lp.tipo==='longa',done:done,req:req};}
+    return {sec:el,lap:null,done:done,req:req};
+  },
+  /* ---------- chamadas para o piloto ---------- */
+  boxN:{}, kartN:{}, sent:{},
+  calls:function(code,prefix){
+    var n=U.boxN[prefix]||3, kn=(document.getElementById(prefix+'-rc-kart')||{}).value||'';
+    kn=String(kn).replace(/\D/g,'');
+    switch(code){
+      case 'BOX':    return {label:'BOX NESTA VOLTA',text:'Box, box, box! Entra no box nesta volta.'};
+      case 'BOXN':   return n===1?{label:'Box na próxima',text:'Box na próxima volta.'}:{label:'Box em '+n,text:'Box em '+n+' voltas.'};
+      case 'CANCELA':return {label:'Cancela o box',text:'Cancela o box. Continua na pista.'};
+      case 'MANTEM': return {label:'Mantém o ritmo',text:'Ritmo bom. Mantém assim.'};
+      case 'COMB':   return {label:'Combustível?',text:'Como está o combustível? Sinaliza na reta.'};
+      case 'ESPERA': return kn?{label:'Espera o '+kn,text:'Espera o kart '+kn+'.'}:null;
+      case 'EMPURRA':return kn?{label:'Empurra o '+kn,text:'Empurra o kart '+kn+'.'}:null;
+    }
+    return null;
+  },
+  sendCall:function(code,prefix){
+    var c=U.calls(code,prefix);
+    var st=document.getElementById(prefix+'-radio-chief-status');
+    if(!c){ if(st)st.textContent='Digite o número do kart para Espera/Empurra.'; return; }
+    var sel=document.getElementById(prefix+'-radio-target'), kart=sel?sel.value:'todos';
+    if(typeof firebase==='undefined'||!FK.state.authUser){ if(st)st.textContent='Faça login para mandar chamadas.'; return; }
+    var seq=Date.now(); U.sent[seq]=c.label;
+    firebase.firestore().collection('sync').doc('radio').set({seq:seq,kart:kart,code:code,label:c.label,text:c.text,by:(FK.state.authUser.email||'')})
+      .then(function(){ if(st)st.textContent='Enviado: '+c.label+' → '+(kart==='todos'?'todos':'kart '+U.num(kart))+' às '+new Date(seq).toTimeString().slice(0,8)+' · aguardando confirmação…'; })
+      .catch(function(e){ if(st)st.textContent='Erro ao enviar: '+e.message; });
+    U.watchAck();
+  },
+  watchAck:function(){
+    if(U.ackUnsub||typeof firebase==='undefined'||!FK.state.authUser)return;
+    U.ackUnsub=firebase.firestore().collection('sync').doc('radioAck').onSnapshot(function(snap){
+      var d=snap.exists&&snap.data(); if(!d)return;
+      ['mob','dg'].forEach(function(p){var el=document.getElementById(p+'-radio-chief-status');if(el)el.textContent='✓ Kart '+U.num(d.kart)+' ouviu "'+(d.label||U.sent[d.seq]||d.code)+'" às '+new Date(d.at).toTimeString().slice(0,8)+'.';});
+    });
+  },
+  stepBox:function(prefix,delta){
+    U.boxN[prefix]=Math.max(1,Math.min(9,(U.boxN[prefix]||3)+delta));
+    var el=document.getElementById(prefix+'-rc-n'); if(el)el.textContent=U.boxN[prefix];
+    var b=document.getElementById(prefix+'-rc-boxn'); if(b)b.textContent=U.boxN[prefix]===1?'BOX NA PRÓXIMA':'BOX EM '+U.boxN[prefix];
+  },
+  renderChief:function(prefix){
+    var box=document.getElementById(prefix+'-radio-chief'); if(!box)return;
+    var karts=FK.cfg.myKarts||[];
+    var sel=document.getElementById(prefix+'-radio-target'), prev=sel?sel.value:null;
+    var kin=document.getElementById(prefix+'-rc-kart'), prevK=kin?kin.value:'';
+    var sig=karts.join(',');
+    if(box.dataset.sig===sig&&box.querySelector('.rc3'))return;
+    box.dataset.sig=sig;
+    var n=U.boxN[prefix]||3;
+    box.innerHTML='<div class="rc3">'+
+      '<div class="rc3-target"><label for="'+prefix+'-radio-target">Para</label><select id="'+prefix+'-radio-target">'+
+        karts.map(function(k){return '<option value="'+k+'">Kart '+U.num(k)+'</option>';}).join('')+'<option value="todos">Todos</option></select></div>'+
+      '<button type="button" class="rc3-btn hot" onclick="FK.ui3.sendCall(\'BOX\',\''+prefix+'\')">BOX NESTA VOLTA</button>'+
+      '<div class="rc3-boxn"><button type="button" class="rc3-step" onclick="FK.ui3.stepBox(\''+prefix+'\',-1)" aria-label="Menos uma volta">−</button>'+
+        '<span class="rc3-n" id="'+prefix+'-rc-n">'+n+'</span>'+
+        '<button type="button" class="rc3-step" onclick="FK.ui3.stepBox(\''+prefix+'\',1)" aria-label="Mais uma volta">+</button>'+
+        '<button type="button" class="rc3-btn warn" id="'+prefix+'-rc-boxn" onclick="FK.ui3.sendCall(\'BOXN\',\''+prefix+'\')">'+(n===1?'BOX NA PRÓXIMA':'BOX EM '+n)+'</button></div>'+
+      '<button type="button" class="rc3-btn" onclick="FK.ui3.sendCall(\'CANCELA\',\''+prefix+'\')">Cancela o box</button>'+
+      '<button type="button" class="rc3-btn ok" onclick="FK.ui3.sendCall(\'MANTEM\',\''+prefix+'\')">Mantém o ritmo</button>'+
+      '<button type="button" class="rc3-btn fuel" onclick="FK.ui3.sendCall(\'COMB\',\''+prefix+'\')">&#9981; Combustível?</button>'+
+      '<div class="rc3-kart"><input id="'+prefix+'-rc-kart" inputmode="numeric" maxlength="3" placeholder="kart nº" aria-label="Número do kart para esperar ou empurrar">'+
+        '<button type="button" class="rc3-btn" onclick="FK.ui3.sendCall(\'ESPERA\',\''+prefix+'\')">Espera</button>'+
+        '<button type="button" class="rc3-btn" onclick="FK.ui3.sendCall(\'EMPURRA\',\''+prefix+'\')">Empurra</button></div>'+
+      '</div><div class="radio-chief-status" id="'+prefix+'-radio-chief-status"></div>';
+    if(prev){var s2=document.getElementById(prefix+'-radio-target');if(s2)s2.value=prev;}
+    if(prevK){var k2=document.getElementById(prefix+'-rc-kart');if(k2)k2.value=prevK;}
+  }
+};
+
+/* chamadas: substitui os botoes antigos do Radio (bandeira amarela / defende saem) */
+if(FK.radio){ FK.radio.renderChief=U.renderChief; FK.radio.send=function(code,prefix){U.sendCall(code,prefix);}; FK.radio.watchAck=U.watchAck; }
+
+/* cronometro: posicao geral + categoria, Stint real e ultima parada desta prova */
+var _ukp=FK.updateKronoPos;
+FK.updateKronoPos=function(){
+  var r=_ukp?_ukp.apply(FK,arguments):undefined;
+  try{
+    var data=FK.getData();
+    (FK.cfg.myKarts||[]).forEach(function(k){
+      var d=FK.findKartData(data,k), si=U.stintInfo(k);
+      var posTxt=d?('P'+U.catPos(data,d)+' '+(d.cat||'')+' · '+d.pos+'º geral'):'P?';
+      var stTxt=FK.fmtTime(si.sec);
+      var pitTxt=(si.lap!=null?('Saiu do box na volta '+si.lap+(si.long?' (longa)':'')):'Sem parada nesta prova')+(si.req?' · paradas '+si.done+'/'+si.req:'');
+      ['','-dg','-mob','-tv'].forEach(function(sf){
+        var p=document.getElementById('kp-'+k+sf); if(p&&p.textContent!==posTxt)p.textContent=posTxt;
+        var t=document.getElementById('ktrack-'+k+sf); if(t)t.textContent=stTxt;
+        var q=document.getElementById('kpits-'+k+sf); if(q){q.textContent=pitTxt;q.title='';}
+      });
+    });
+  }catch(e){console.warn('ui3 krono',e);}
+  return r;
+};
+FK.trackTimeSec=function(k){return U.stintInfo(k).sec;};
+
+/* Box Inteligente compacto */
+if(FK.boxAI){
+  var B=FK.boxAI;
+  B.render=function(prefix){
+    prefix=prefix||'d';
+    var el=document.getElementById(prefix+'-bxi-body'); if(!el)return;
+    var card=el.closest('.dash-card'); var h=card&&card.querySelector('.dash-card-hdr h3');
+    if(h&&h.dataset.v3!=='1'){h.dataset.v3='1';h.innerHTML='&#127937; Box Inteligente';}
+    var A=B.analyze(), data=FK.getData(), inBox=FK.countBoxNow?FK.countBoxNow():0;
+    var cnt=document.getElementById(prefix+'-bxi-count'); if(cnt)cnt.textContent=inBox+' no box agora · '+A.nEvents+' paradas lidas';
+    var tot=A.totW||1, good=(A.comp.tocha+A.comp.otimo+A.comp.bom)/tot*100, bad=(A.comp.ruim+A.comp.jaca)/tot*100, unk=A.unk/tot*100;
+    var TI=[['tocha','#9b5de5'],['otimo','#1e9e4a'],['bom','#8bc34a'],['regular','#f2c230'],['ruim','#ef5b3f'],['jaca','#8b1e1e']];
+    var segs=TI.map(function(t){var w=A.comp[t[0]]/tot*100;return w>=0.5?'<div style="width:'+w+'%;background:'+t[1]+'"></div>':'';}).join('')+(unk>=0.5?'<div style="width:'+unk+'%;background:#3a4460"></div>':'');
+    var rec=A.recent.slice(0,6).map(function(r){var t=r.qa!=null?B.tierOf(A.pct(r.qa)):null;return '<i style="background:'+(t?t.c:'#3a4460')+'" title="'+(t?t.name:'sem ficha')+' · deixado pelo #'+U.num(r.kart)+'"></i>';}).join('');
+    var head='<div class="bx3-pool"><div class="bx3-kpi"><b style="color:#8bc34a">'+Math.round(good)+'%</b><span>bons ou melhores</span></div>'+
+      '<div class="bx3-kpi"><b style="color:#ef5b3f">'+Math.round(bad)+'%</b><span>ruins / jaca</span></div>'+
+      '<div class="bx3-kpi"><b>'+Math.round(unk)+'%</b><span>sem ficha</span></div>'+
+      '<div class="bx3-barwrap"><div class="bx3-bar">'+segs+'</div><div class="bx3-rec"><span>últimos a entrar</span>'+(rec||'—')+'</div></div></div>';
+    var tiles=(FK.cfg.myKarts||[]).map(function(k){
+      var d=FK.findKartData(data,k), r=B.decide(A,k,d);
+      var col={entrar:'#1e9e4a',segurar:'#d7263d',neutro:'#b8911f',aguarde:'#46506b',nao:'#46506b'}[r.v];
+      var sub=r.tier?('<span style="color:'+r.tier.c+'">'+r.tier.name+'</span> · '+Math.round(r.pb*100)+'% chance de melhorar'):(r.v==='nao'?'paradas cumpridas':(r.n||0)+'/'+B.MIN_LAPS+' voltas lidas');
+      return '<div class="bx3-tile" style="border-color:'+col+'" title="'+String(r.why||'').replace(/<[^>]+>/g,'').replace(/"/g,'')+'"><div class="bx3-k">#'+U.num(k)+'</div><div class="bx3-v" style="background:'+col+'">'+r.title+'</div><div class="bx3-s">'+sub+'</div></div>';
+    }).join('');
+    el.innerHTML=head+'<div class="bx3-tiles">'+tiles+'</div>'+(inBox>=3?'<div class="bx2-warn">&#9888; '+inBox+' equipes no box agora — pode ter fila na troca.</div>':'');
+  };
+  FK.rDashBoxIntel=function(prefix){try{B.render(prefix);}catch(e){console.warn('boxAI',e);}};
+}
+
+var css=document.createElement('style');
+css.textContent=[
+/* 1) abas em 2 linhas, placas inclinadas */
+'.tabs{display:grid!important;grid-template-columns:repeat(5,auto);grid-auto-rows:auto;gap:5px 6px!important;align-content:center}',
+'.tabs .tab{width:40px!important;height:28px!important;border-radius:5px!important;transform:skewX(-14deg);background:linear-gradient(180deg,#1b2440,#0d1326)!important;border:1px solid rgba(255,255,255,.08)!important;position:relative;overflow:hidden;box-shadow:inset 0 -2px 0 var(--tabc,#4FA9DC)}',
+'.tabs .tab .tab-ic{transform:skewX(14deg);background:transparent!important;width:auto!important;height:auto!important;color:#e9eef8!important}',
+'.tabs .tab .tab-ic svg{width:16px!important;height:16px!important}',
+'.tabs .tab:hover{background:linear-gradient(180deg,#26325a,#141c36)!important}',
+'.tabs .tab.on{background:linear-gradient(135deg,#E2231A,#9e1510)!important;box-shadow:0 0 0 1px #ff6a5f,0 6px 14px -6px rgba(226,35,26,.8)!important}',
+'.tab[data-tab="dashgeral"]{--tabc:#E2231A}.tab[data-tab="mobile"]{--tabc:#4FA9DC}.tab[data-tab="tvpilotos"]{--tabc:#8aa4ff}.tab[data-tab="pilotos"]{--tabc:#E2231A}.tab[data-tab="filapilotos"]{--tabc:#4FA9DC}.tab[data-tab="estrategia"]{--tabc:#ff7a1a}.tab[data-tab="config"]{--tabc:#9aa3b5}.tab[data-tab="users"]{--tabc:#4FA9DC}#theme-toggle-btn{--tabc:#f2c230}',
+/* 2) sem AO VIVO / nome da corrida */
+'.topbar-badges{display:none!important}',
+/* 3) cronometro */
+'.krono-card.kc3{display:flex;flex-direction:column;gap:6px;padding:10px 12px}',
+'.kc3-head{display:flex;align-items:center;gap:10px;min-width:0}',
+'.kc3 .krono-badge{flex-shrink:0}',
+'.kc3-id{min-width:0;flex:1}',
+'.kc3 .krono-name{font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0}',
+'.kc3-sub{display:flex;align-items:center;gap:6px;margin-top:2px}',
+'.kc3 .krono-pos-info{font-size:11px;color:var(--mut);font-weight:700;margin:0}',
+'.kc3 .krono-g-badge{position:static;margin:0}',
+'.kc3 .krono-timer{font-size:34px;text-align:center;line-height:1.05;margin:2px 0;color:var(--txt);opacity:1;font-variant-numeric:tabular-nums}',
+'.kc3 .krono-timer.late{color:#f2c230}',
+'.kc3 .krono-row{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;border-top:1px solid var(--border);padding-top:6px}',
+'.kc3 .kr-cell{display:flex;flex-direction:column;align-items:center;min-width:0}',
+'.kc3 .kr-cell .kv{font-variant-numeric:tabular-nums;white-space:nowrap}',
+'.kc3 .krono-pits{font-size:10px;color:var(--mut);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+/* 4) chamadas */
+'.rc3{display:grid;grid-template-columns:minmax(150px,auto) minmax(180px,1.4fr) auto auto auto auto minmax(230px,auto);gap:8px;align-items:stretch;padding:8px}',
+'.rc3-target{display:flex;flex-direction:column;gap:2px;font-size:10px;color:var(--mut)}',
+'.rc3-target select,.rc3-kart input{background:var(--bg);border:1px solid var(--border);color:var(--txt);border-radius:6px;padding:6px 8px;font-size:13px}',
+'.rc3-btn{padding:12px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--txt);font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap}',
+'.rc3-btn:active{transform:scale(.97)}.rc3-btn.hot{background:#E2231A;border-color:#E2231A;color:#fff;font-size:15px}',
+'.rc3-btn.warn{border-color:#ffb020;color:#ffb020;flex:1}.rc3-btn.ok{border-color:#2fbf71;color:#2fbf71}.rc3-btn.fuel{border-color:#4FA9DC;color:#4FA9DC}',
+'.rc3-boxn{display:flex;align-items:center;gap:6px}',
+'.rc3-step{width:34px;height:40px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--txt);font-size:20px;font-weight:800;cursor:pointer}',
+'.rc3-n{min-width:26px;text-align:center;font-size:22px;font-weight:900;color:#ffb020}',
+'.rc3-kart{display:flex;gap:6px;align-items:stretch}.rc3-kart input{width:74px}',
+'@media(max-width:760px){.krono-grid.grid-fit{grid-template-columns:repeat(2,minmax(0,1fr))!important}}',
+'.kc3 .krono-timer{font-size:clamp(22px,7.5vw,34px)}',
+'@media(min-width:761px){.kc3 .krono-timer{font-size:clamp(22px,2.3vw,34px)}}',
+'.kc3 .kr-cell .kv{font-size:12px}',
+'@media(max-width:1200px){.rc3{grid-template-columns:repeat(2,minmax(0,1fr))}.rc3-btn.hot,.rc3-target{grid-column:1/-1}}',
+/* 5) sem chips na classificacao */
+'.dr-mykarts-strip{display:none!important}',
+/* 6) box inteligente */
+'.bx3-pool{display:grid;grid-template-columns:auto auto auto 1fr;gap:10px;align-items:center;padding:8px 10px}',
+'.bx3-kpi{display:flex;flex-direction:column;align-items:center;min-width:70px}.bx3-kpi b{font-size:22px;line-height:1}.bx3-kpi span{font-size:9px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em}',
+'.bx3-bar{display:flex;height:12px;border-radius:6px;overflow:hidden;background:#222}',
+'.bx3-rec{display:flex;align-items:center;gap:4px;margin-top:6px;font-size:9px;color:var(--mut)}.bx3-rec span{margin-right:4px;text-transform:uppercase;letter-spacing:.05em}.bx3-rec i{width:14px;height:14px;border-radius:3px;display:inline-block}',
+'.bx3-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;padding:4px 10px 10px}',
+'.bx3-tile{border:2px solid;border-radius:10px;padding:8px;display:flex;flex-direction:column;align-items:center;gap:5px;background:rgba(255,255,255,.02)}',
+'.bx3-k{font-weight:900;font-size:18px}.bx3-v{color:#fff;font-weight:800;font-size:12px;padding:5px 8px;border-radius:6px;width:100%;text-align:center;white-space:nowrap}',
+'.bx3-s{font-size:10px;color:var(--mut);text-align:center}'
+].join('\n');
+document.head.appendChild(css);
+
+try{ U.renderChief('dg'); U.renderChief('mob'); }catch(e){}
 })();
 </script>
 
