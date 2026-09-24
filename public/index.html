@@ -740,6 +740,10 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
     </div>
     <div class="krono-grid grid-fit" id="dg-krono-grid"></div>
   </div>
+  <div class="dash-card" id="dg-radio-chief-card">
+    <div class="dash-card-hdr"><h3>&#128226; Chamadas para o piloto</h3><span style="font-size:9px;color:var(--mut)">toca no fone do piloto</span></div>
+    <div id="dg-radio-chief"></div>
+  </div>
   <!-- COLUNAS PRINCIPAIS -->
   <div class="dash-cols">
     <!-- COL 1: RANKING -->
@@ -753,7 +757,7 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
         <table class="dr-table" id="dg-rank-table">
           <thead><tr>
             <th>Pos</th><th>Kart</th><th>Piloto / Equipe</th><th>Cat</th>
-            <th>Última</th><th>Gap</th><th title="Paradas curtas (volta cronometrada a partir da duracao minima configurada)">P.Curta</th><th title="Paradas longas (volta cronometrada a partir da duracao longa configurada)">P.Longa</th><th title="Perna gorda (stint obrigatorio pesado) ja cumprida, segundo a Race Monitor">Gorda</th><th title="Projecao com desconto igual pra todos (assume que todo mundo ainda vai cumprir as paradas)">Proj</th><th title="Projecao descontando so as paradas que FALTAM pra esse kart especifico -- quem ja terminou de parar ganha posicao aqui">Proj·Paradas</th>
+            <th>Última</th><th>Gap</th><th title="Paradas curtas (volta cronometrada a partir da duracao minima configurada)">P.Curta</th><th title="Paradas longas (volta cronometrada a partir da duracao longa configurada)">P.Longa</th><th title="Perna gorda (stint obrigatorio pesado) ja cumprida, segundo a Race Monitor">Gorda</th><th title="Posicao projetada de chegada NA CATEGORIA (modelo 23/09/2026: ultima passagem + ritmo + so as paradas que faltam, com custo real de box)">Proj Cat</th><th title="Voltas projetadas na bandeirada, com faixa de confianca">Voltas Proj</th>
           </tr></thead>
           <tbody id="dg-rank-body"></tbody>
         </table>
@@ -884,18 +888,23 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
   </div>
   <div class="dash-card" id="mob-audio-card">
     <div class="dash-card-hdr">
-      <h3>&#128264; Audio para o Piloto</h3>
-      <span style="font-size:9px;color:var(--mut)">fala a cada volta</span>
+      <h3>&#128251; Rádio do Piloto</h3>
+      <span style="font-size:9px;color:var(--mut)">fone + tela bloqueada</span>
     </div>
     <div class="mob-audio-body">
-      <div class="mob-audio-row">
-        <label for="mob-audio-kart">Kart</label>
-        <select id="mob-audio-kart"></select>
-      </div>
-      <button type="button" id="mob-audio-toggle" class="mob-audio-btn" onclick="FK.toggleAudioPilot()">Ativar Voz</button>
-      <div class="mob-audio-status" id="mob-audio-status">Selecione o kart e ative antes de ir pra pista.</div>
+      <div class="radio-row"><label for="mob-audio-kart">Kart</label><select id="mob-audio-kart"></select></div>
+      <div class="radio-row"><label for="radio-every">Falar</label><select id="radio-every"><option value="1">toda volta</option><option value="2">a cada 2 voltas</option><option value="3">a cada 3 voltas</option></select></div>
+      <div class="radio-row"><label for="radio-stint-min">Stint alvo</label><input id="radio-stint-min" type="number" min="5" max="120" step="1" inputmode="numeric" placeholder="min"></div>
+      <button type="button" id="mob-audio-toggle" class="mob-audio-btn" onclick="FK.toggleAudioPilot()">Ligar rádio</button>
+      <button type="button" id="radio-test-btn" class="mob-audio-btn" style="margin-top:8px;opacity:.85" onclick="FK.radio.toggleTest()">Teste com tela bloqueada</button>
+      <div class="mob-audio-status" id="mob-audio-status">Desligado.</div>
       <div class="mob-audio-last" id="mob-audio-last"></div>
+      <div class="radio-hint">Fala a posição na categoria e o gap para o kart da frente e de trás a cada volta, avisa stint, stint pesado, box fechando e paradas faltando, e toca as chamadas do chefe. Ligue <b>aqui no celular do piloto</b>, com o fone conectado, e só depois bloqueie a tela. Android: tire o Chrome da economia de bateria. Use sempre fkart-endurance.web.app.</div>
     </div>
+  </div>
+  <div class="dash-card" id="mob-radio-chief-card">
+    <div class="dash-card-hdr"><h3>&#128226; Chamadas para o piloto</h3><span style="font-size:9px;color:var(--mut)">chefe de equipe</span></div>
+    <div id="mob-radio-chief"></div>
   </div>
 </div>
 </div>
@@ -922,7 +931,7 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
         <table class="dr-table" id="tv-rank-table">
           <thead><tr>
             <th>Pos</th><th>Kart</th><th>Piloto / Equipe</th><th>Cat</th>
-            <th>Última</th><th>Gap</th><th>P.Curta</th><th>P.Longa</th><th>Gorda</th><th>Proj</th><th>Proj·Paradas</th>
+            <th>Última</th><th>Gap</th><th>P.Curta</th><th>P.Longa</th><th>Gorda</th><th>Proj Cat</th><th>Voltas Proj</th>
           </tr></thead>
           <tbody id="tv-rank-body"></tbody>
         </table>
@@ -1116,6 +1125,10 @@ Ordenar cronometros da equipe pela colocacao na corrida (senao, ordem de cadastr
 <option value="ELITE">Elite (5 paradas de 6min + 1 de 10min)</option>
 <option value="CHALLENGE">Challenge (6 paradas de 6min + 1 de 10min)</option>
 </select>
+</div>
+<div class="cfg-field">
+<label>Paradas por categoria (curtas+longas) — usado na Projeção</label>
+<input type="text" id="cfg-cat-rules" placeholder="ELITE=5+1; CHALLENGE=6+1">
 </div>
 <div class="cfg-field">
 <label>Paradas Obrigatorias (minimo)</label>
@@ -3666,31 +3679,8 @@ rDashRanking:function(prefix){
   function pitCountsFor(d){
     return d.pitOficial?{short:d.pit6||0,long:d.pit10||0}:((FK.state.pitLapCounts&&FK.state.pitLapCounts[d.kart])||{short:d.pit6||0,long:d.pit10||0});
   }
-  var proj=data.map(function(d){
-    var lt=(FK.state.paceEma&&FK.state.paceEma[d.kart])||FK.recentAvgLapTime(d.kart,8,true)||FK.parseT(d.best)||55;
-    var projLaps=d.laps+Math.floor(remainingForPace/lt);
-    /* Proj·Paradas (pedido 19/09/2026): em vez do desconto flat igual pra todos (que assume
-       que todo mundo ainda vai cumprir as paradas por inteiro), desconta do tempo restante
-       SO as paradas que aquele kart especifico ainda deve -- quem ja cumpriu mais paradas
-       tem mais tempo de corrida "livre" pela frente que quem ainda deve varias. Ex: kart 67
-       com 3 paradas curtas feitas e kart 58 com 2 curtas + 1 longa -- cada um desconta so o
-       que falta pro proprio regulamento, nao o total da prova. */
-    var pc=pitCountsFor(d);
-    var shortLeft=Math.max(0,minStops-(pc.short||0));
-    var longLeft=Math.max(0,longStops-(pc.long||0));
-    var kartStopSecLeft=(shortLeft*minDurSec)+(longLeft*longDurSec);
-    var remainingForPace2=Math.max(0,(total-elapsed)-kartStopSecLeft);
-    var projLaps2=d.laps+Math.floor(remainingForPace2/lt);
-    return {kart:d.kart,pos:d.pos,projLaps:projLaps,projLaps2:projLaps2};
-  });
-  /* desempate estável (19/09/2026): quando 2 karts empatam em voltas projetadas, usa a
-     posição atual como critério fixo em vez de deixar a ordem flutuar tick a tick por
-     diferenças de milissegundos no ritmo -- é isso que dava a sensação de "flicker" na
-     coluna Proj mesmo quando a projeção real mal tinha mudado. */
-  proj.sort(function(a,b){return (b.projLaps-a.projLaps)||((a.pos||999)-(b.pos||999));});
-  var projPos={};proj.forEach(function(p,i){projPos[p.kart]=i+1;});
-  var proj2Sorted=proj.slice().sort(function(a,b){return (b.projLaps2-a.projLaps2)||((a.pos||999)-(b.pos||999));});
-  var projPos2={};proj2Sorted.forEach(function(p,i){projPos2[p.kart]=i+1;});
+  /* Projecao v3 (23/09/2026) -- ver bloco FK.proj no fim do arquivo */
+  var PJ=(FK.proj&&FK.proj.projectFinish)?FK.proj.projectFinish(data):{};
   /* top N (pedido 27/08/2026: voltou pra 10 -- o "top 20" deixava a tabela grande demais na
      telona do box; equipe fora do top N continua aparecendo destacada logo abaixo) */
   var topN=10;
@@ -3723,14 +3713,8 @@ rDashRanking:function(prefix){
     var pc=d.pos===1?'p1':d.pos===2?'p2':d.pos===3?'p3':'';
     var pc0=pitCountsFor(d);
     /* mostra a posição final projetada (não o delta) — a cor indica se melhora, piora ou mantém frente à posição atual */
-    var pPos=projPos[d.kart]||d.pos;var delta=d.pos-pPos;
-    var projCls=delta>0?'proj-up':delta<0?'proj-dn':'proj-eq';
-    var arrow='<span class="proj-arrow '+projCls+'">P'+pPos+'</span>';
-    /* Proj·Paradas: mesma logica de cor, mas comparando contra a posicao da Proj flat (nao a
-       atual) -- o que importa aqui e ver se considerar as paradas em aberto muda o quadro. */
-    var pPos2=projPos2[d.kart]||pPos;var delta2=pPos-pPos2;
-    var projCls2=delta2>0?'proj-up':delta2<0?'proj-dn':'proj-eq';
-    var arrow2='<span class="proj-arrow '+projCls2+'">P'+pPos2+'</span>';
+    var pjc=FK.proj?FK.proj.cell(d,PJ[d.kart]):{pos:'—',laps:'—'};
+    var arrow=pjc.pos, arrow2=pjc.laps;
     var fp=d.pos+'|'+d.laps+'|'+d.last+'|'+d.gap;
     var pulsed=prevFp[d.kart]!==undefined&&prevFp[d.kart]!==fp;
     prevFp[d.kart]=fp;
@@ -4973,5 +4957,497 @@ document.addEventListener('DOMContentLoaded',function(){FK.render();});
 if(document.readyState!=='loading')FK.render();
 FK.initAuth();
 </script>
+<script>
+/* =====================================================================================
+   RADIO DO PILOTO v2 (pedido 22/09/2026)
+   - v1 (speechSynthesis) nao funcionava: iPhone no silencioso corta a voz do navegador,
+     e com a tela bloqueada o navegador para de falar. Tambem havia um descasamento de
+     numero de kart ("58" x "058") que impedia o gatilho por volta.
+   - v2: um unico <audio> fica tocando o tempo todo (silencio em loop). Cada aviso vira um
+     MP3 gerado no servidor (/api/live?tts=..., Google Cloud Text-to-Speech) e toca no
+     MESMO elemento -- assim o celular trata como "musica tocando" e continua com a tela
+     bloqueada e no fone. Se o servidor de voz falhar, cai para a voz do navegador (so
+     funciona com a tela ligada).
+   - Mensagens: posicao NA CATEGORIA + gap pro da frente/de tras da categoria (com
+     tendencia), avisos de stint, stint pesado, box fechando, paradas faltando.
+   - Chefe -> piloto: botoes prontos gravam sync/radio no Firestore; o celular do piloto
+     escuta e fala na hora; confirma em sync/radioAck ("ouvido").
+   ===================================================================================== */
+(function(){
+if(typeof FK==='undefined')return;
+
+var CALLS=[
+  {code:'BOX',     label:'BOX NESTA VOLTA', text:'Box, box, box! Entra no box nesta volta.', cls:'hot'},
+  {code:'BOXPROX', label:'Box na próxima',  text:'Box na próxima volta.', cls:'warn'},
+  {code:'CANCELA', label:'Cancela o box',   text:'Cancela o box. Continua na pista.', cls:''},
+  {code:'ACELERA', label:'Aumenta o ritmo', text:'Aumenta o ritmo. Precisamos de tempo.', cls:''},
+  {code:'MANTEM',  label:'Mantém o ritmo',  text:'Ritmo bom. Mantém assim.', cls:'ok'},
+  {code:'AMARELA', label:'Bandeira amarela',text:'Atenção, bandeira amarela.', cls:'warn'},
+  {code:'DEFENDE', label:'Defende posição', text:'Kart chegando atrás. Defende a posição.', cls:''}
+];
+
+var R=FK.radio={
+  on:false, kart:null, el:null, silenceUrl:null, queue:[], speaking:false, clipTimer:null,
+  lastLaps:null, lapCount:0, prevGaps:{}, fired:{}, stintKey:null, testTimer:null,
+  lastSeq:0, unsub:null, warnTimer:null, engine:'—',
+
+  /* ---------- audio base ---------- */
+  silence:function(){
+    if(R.silenceUrl)return R.silenceUrl;
+    var sr=8000,sec=2,n=sr*sec,buf=new ArrayBuffer(44+n*2),v=new DataView(buf);
+    function w(o,s){for(var i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i));}
+    w(0,'RIFF');v.setUint32(4,36+n*2,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);
+    v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,sr,true);v.setUint32(28,sr*2,true);
+    v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,n*2,true);
+    /* ruido minimo (+-1) em vez de zero absoluto: alguns Android pausam midia 100% muda */
+    for(var i=0;i<n;i++)v.setInt16(44+i*2,(i%2?1:-1),true);
+    R.silenceUrl=URL.createObjectURL(new Blob([buf],{type:'audio/wav'}));
+    return R.silenceUrl;
+  },
+  ttsUrl:function(text){return '/api/live?tts='+encodeURIComponent(text);},
+  start:function(kart){
+    if(!R.el){
+      R.el=document.createElement('audio');
+      R.el.setAttribute('playsinline','');R.el.preload='auto';
+      R.el.onended=function(){R.speaking=false;R.next();};
+      R.el.onerror=function(){ if(R.speaking&&R.cur){ var t=R.cur.text; R.engine='voz do navegador (servidor de voz falhou)'; R.status(); R.speaking=false; R.browserSay(t,function(){R.next();}); } };
+      document.body.appendChild(R.el);
+    }
+    R.on=true;R.kart=kart;R.lastLaps=null;R.lapCount=0;R.prevGaps={};R.fired={};R.stintKey=null;
+    R.el.loop=true;R.el.src=R.silence();
+    var p=R.el.play(); if(p&&p.catch)p.catch(function(e){ if(e&&e.name==='AbortError')return; R.setStatus('O celular bloqueou o áudio: toque em Ligar de novo. ('+e.name+')');});
+    if('mediaSession' in navigator){
+      try{
+        navigator.mediaSession.metadata=new MediaMetadata({title:'Rádio SEMBOX',artist:'Kart '+parseInt(kart,10),album:'Endurance'});
+        navigator.mediaSession.setActionHandler('pause',function(){R.el.play();});
+        navigator.mediaSession.setActionHandler('stop',function(){R.stop();});
+      }catch(e){}
+    }
+    R.listenChief();
+    if(R.warnTimer)clearInterval(R.warnTimer);
+    R.warnTimer=setInterval(R.checkWarnings,5000);
+    R.engine='servidor (MP3)';
+    R.say('Rádio ligado. Kart '+parseInt(kart,10)+'.',true);
+    try{localStorage.setItem('fkart_audio_kart',kart);}catch(e){}
+    R.render();
+  },
+  stop:function(){
+    R.on=false;R.queue=[];R.speaking=false;
+    if(R.el){R.el.pause();R.el.removeAttribute('src');R.el.load();}
+    if(R.warnTimer){clearInterval(R.warnTimer);R.warnTimer=null;}
+    if(R.testTimer){clearInterval(R.testTimer);R.testTimer=null;}
+    if(R.unsub){try{R.unsub();}catch(e){}R.unsub=null;}
+    if(window.speechSynthesis)try{speechSynthesis.cancel();}catch(e){}
+    R.render();
+  },
+  say:function(text,urgent){
+    if(!R.on||!text)return;
+    if(urgent){ R.queue.unshift({text:text}); if(R.speaking){R.speaking=false;} R.next(); return; }
+    if(R.queue.length>3)R.queue.shift();
+    R.queue.push({text:text});
+    if(!R.speaking)R.next();
+  },
+  next:function(){
+    if(!R.on||!R.el)return;
+    clearTimeout(R.clipTimer);
+    var it=R.queue.shift();
+    if(!it){ R.cur=null; R.el.loop=true; if(R.el.src.indexOf('blob:')!==0)R.el.src=R.silence(); var p=R.el.play(); if(p&&p.catch)p.catch(function(){}); return; }
+    R.cur=it;R.speaking=true;
+    R.el.loop=false;R.el.src=R.ttsUrl(it.text);
+    var p2=R.el.play(); if(p2&&p2.catch)p2.catch(function(){ R.speaking=false; R.browserSay(it.text,function(){R.next();}); });
+    R.clipTimer=setTimeout(function(){ if(R.speaking){R.speaking=false;R.next();} },25000);
+    var el=document.getElementById('mob-audio-last');if(el)el.textContent=new Date().toTimeString().slice(0,8)+' — '+it.text;
+  },
+  browserSay:function(text,done){
+    try{
+      if(!window.speechSynthesis){done&&done();return;}
+      var u=new SpeechSynthesisUtterance(text);u.lang='pt-BR';u.rate=1.05;
+      u.onend=function(){done&&done();};u.onerror=function(){done&&done();};
+      speechSynthesis.speak(u);
+    }catch(e){done&&done();}
+  },
+
+  /* ---------- dados da corrida ---------- */
+  cur:null,
+  fmtGap:function(s){ s=Math.abs(s); if(s<1)return 'menos de 1 segundo'; if(s<10)return (Math.round(s*10)/10).toFixed(1).replace('.',',')+' segundos'; return Math.round(s)+' segundos'; },
+  catName:function(c){ c=String(c||'').trim(); return c?c.charAt(0).toUpperCase()+c.slice(1).toLowerCase():''; },
+  num:function(k){ var n=parseInt(k,10); return isNaN(n)?String(k):String(n); },
+  lapSec:function(d){ return FK.parseT(d.last)||0; },
+  /* gap no momento em que "de" cruzou a linha; positivo = "de" esta atras de "para" */
+  gapTo:function(me,other,dir){
+    var a=me.totalTimeSec,b=other.totalTimeSec; if(a==null||b==null)return null;
+    if(dir==='frente'){
+      var ld=other.laps-me.laps;
+      if(ld===0)return {s:a-b};
+      if(ld===1){ var g=a-(b-R.lapSec(other)); return (g>=0&&g<R.lapSec(me)*1.5)?{s:g}:{laps:1}; }
+      return {laps:ld};
+    }else{
+      var ld2=me.laps-other.laps;
+      if(ld2===0)return {s:b-a};
+      if(ld2===1){ var g2=b-(a-R.lapSec(me)); return (g2>=0&&g2<R.lapSec(me)*1.5)?{s:g2}:{laps:1}; }
+      return {laps:ld2};
+    }
+  },
+  gapPhrase:function(me,other,dir){
+    var lbl=dir==='frente'?'Na frente':'Atrás';
+    var g=R.gapTo(me,other,dir);
+    var base=lbl+', kart '+R.num(other.kart);
+    if(!g)return base+'.';
+    if(g.laps)return base+', '+g.laps+(g.laps===1?' volta.':' voltas.');
+    var txt=base+', a '+R.fmtGap(g.s);
+    var key=dir+other.kart, prev=R.prevGaps[key]; R.prevGaps[key]=g.s;
+    if(prev!=null){
+      var d=g.s-prev;
+      if(dir==='frente'&&d<=-0.3)txt+=', tirando '+R.fmtGap(d);
+      if(dir==='frente'&&d>=0.3)txt+=', perdendo '+R.fmtGap(d);
+      if(dir==='atras'&&d<=-0.3)txt+=', ele está chegando';
+      if(dir==='atras'&&d>=0.3)txt+=', abrindo';
+    }
+    return txt+'.';
+  },
+  buildLapMsg:function(data,me){
+    var same=data.filter(function(d){return d.cat===me.cat;}).sort(function(a,b){return a.pos-b.pos;});
+    var i=same.indexOf(me), cat=R.catName(me.cat);
+    var msg=cat?('Posição '+(i+1)+' na '+cat+'. '):('Posição '+me.pos+'. ');
+    var ahead=i>0?same[i-1]:null, behind=(i>=0&&i<same.length-1)?same[i+1]:null;
+    msg+=ahead?R.gapPhrase(me,ahead,'frente')+' ':(cat?'Você lidera a '+cat+'. ':'Você é o líder. ');
+    if(behind)msg+=R.gapPhrase(me,behind,'atras');
+    return msg;
+  },
+  onData:function(data){
+    if(!R.on||!R.kart||!data||!data.length)return;
+    var me=FK.findKartData(data,R.kart); if(!me)return;
+    if(R.lastLaps==null){R.lastLaps=me.laps;return;}
+    if(me.laps<=R.lastLaps)return;
+    R.lastLaps=me.laps;
+    var lt=R.lapSec(me), best=FK.parseT(me.best)||lt, minDur=FK.cfg.minPitDurationSec>0?FK.cfg.minPitDurationSec:300;
+    if(lt>=minDur*0.9){ /* volta que conteve parada */
+      setTimeout(function(){
+        var done=R.stopsDone(), req=R.stopsReq();
+        R.say('Parada registrada. '+done+(req?(' de '+req+' paradas.'):' paradas.')+' Boa volta.');
+      },1500);
+      return;
+    }
+    if(lt>best*1.5)return; /* volta de saida/incidente: nao fala gap distorcido */
+    R.lapCount++;
+    var every=parseInt((document.getElementById('radio-every')||{}).value||'1',10)||1;
+    if(R.lapCount%every!==0)return;
+    R.say(R.buildLapMsg(data,me));
+  },
+
+  /* ---------- avisos de estrategia ---------- */
+  key:function(map){ return FK.findKartKey?FK.findKartKey(map,R.kart):R.kart; },
+  stopsDone:function(){
+    var data=FK.getData(), me=FK.findKartData(data,R.kart);
+    if(me&&me.pitOficial)return (me.pit6||0)+(me.pit10||0);
+    var c=FK.state.pitLapCounts||{}, k=R.key(c), v=k!=null?c[k]:null;
+    return v?(v.short||0)+(v.long||0):0;
+  },
+  stopsReq:function(){ return (FK.cfg.minPitStops||0)+(FK.cfg.longPitStops||0); },
+  stintTargetSec:function(){
+    var inp=document.getElementById('radio-stint-min');
+    var m=inp&&parseFloat(inp.value); if(m>0)return m*60;
+    var raceTotal=FK.cfg.raceTotal||0, pits=R.stopsReq();
+    var stopSec=(FK.cfg.minPitStops||0)*(FK.cfg.minPitDurationSec||0)+(FK.cfg.longPitStops||0)*(FK.cfg.longPitDurationSec||0);
+    return raceTotal>0?Math.max(0,raceTotal-stopSec)/(pits+1):0;
+  },
+  stintStartMs:function(){
+    var log=FK.state.pitStopLog||{}, k=R.key(log), arr=k!=null?log[k]:null;
+    if(arr&&arr.length)return arr[arr.length-1].exitMs;
+    return Date.now()-(FK.state.elapsed||0)*1000;
+  },
+  once:function(id,text,urgent){ if(R.fired[id])return; R.fired[id]=1; R.say(text,urgent); },
+  checkWarnings:function(){
+    if(!R.on)return;
+    var el=FK.state.elapsed||0;
+    /* stint */
+    var st=R.stintStartMs(), sk='st'+st; if(R.stintKey!==sk){R.stintKey=sk;}
+    var tgt=R.stintTargetSec();
+    if(tgt>0){
+      var run=(Date.now()-st)/1000, left=tgt-run;
+      if(left<=300&&left>240)R.once(sk+'5','Faltam 5 minutos de stint.');
+      if(left<=120&&left>60)R.once(sk+'2','Faltam 2 minutos de stint. Prepare para o box.');
+      if(left<=0&&left>-60)R.once(sk+'0','Tempo de stint cumprido. Aguarde a chamada do box.');
+    }
+    /* stint pesado (cronometro do cabecalho) */
+    var hs=FK.state.heavyStintStartSec;
+    if(hs!=null&&!FK.state.heavyStintDone){
+      var hleft=2400-(el-hs), hk='hv'+hs;
+      if(hleft<=600&&hleft>540)R.once(hk+'10','Stint pesado: faltam 10 minutos.');
+      if(hleft<=120&&hleft>60)R.once(hk+'2','Stint pesado: faltam 2 minutos.');
+      if(hleft<=0&&hleft>-60)R.once(hk+'0','Stint pesado cumprido. Quarenta minutos completos.');
+    }
+    /* box fechando */
+    var pc=(FK.cfg.pitCloseMin||0)*60;
+    if(pc>0){
+      var cleft=pc-el, falt=Math.max(0,R.stopsReq()-R.stopsDone());
+      var extra=falt>0?(' Atenção: faltam '+falt+(falt===1?' parada.':' paradas.')):'';
+      if(cleft<=900&&cleft>840)R.once('pc15','Box fecha em 15 minutos.'+extra);
+      if(cleft<=300&&cleft>240)R.once('pc5','Box fecha em 5 minutos.'+extra,falt>0);
+    }
+  },
+
+  /* ---------- chefe -> piloto ---------- */
+  listenChief:function(){
+    if(R.unsub||typeof firebase==='undefined'||!FK.state.authUser)return;
+    R.lastSeq=Date.now();
+    R.unsub=firebase.firestore().collection('sync').doc('radio').onSnapshot(function(snap){
+      var d=snap.exists&&snap.data(); if(!d||!d.seq||d.seq<=R.lastSeq)return;
+      R.lastSeq=d.seq;
+      if(Date.now()-d.seq>90000)return;
+      if(d.kart!=='todos'&&parseInt(d.kart,10)!==parseInt(R.kart,10))return;
+      R.say(d.text,true);
+      firebase.firestore().collection('sync').doc('radioAck').set({kart:R.kart,seq:d.seq,code:d.code,at:Date.now()}).catch(function(){});
+    },function(e){console.error('radio sync erro',e);});
+  },
+  send:function(code,prefix){
+    var c=CALLS.filter(function(x){return x.code===code;})[0]; if(!c)return;
+    var sel=document.getElementById(prefix+'-radio-target'), kart=sel?sel.value:'todos';
+    if(typeof firebase==='undefined'||!FK.state.authUser){alert('Faça login para mandar chamadas.');return;}
+    var seq=Date.now();
+    firebase.firestore().collection('sync').doc('radio').set({seq:seq,kart:kart,code:code,text:c.text,by:(FK.state.authUser.email||'')})
+      .then(function(){R.chiefStatus(prefix,'Enviado: '+c.label+' → '+(kart==='todos'?'todos':'kart '+R.num(kart))+' às '+new Date(seq).toTimeString().slice(0,8)+'. Aguardando confirmação…');})
+      .catch(function(e){R.chiefStatus(prefix,'Erro ao enviar: '+e.message);});
+    R.watchAck();
+  },
+  watchAck:function(){
+    if(R.ackUnsub||typeof firebase==='undefined'||!FK.state.authUser)return;
+    R.ackUnsub=firebase.firestore().collection('sync').doc('radioAck').onSnapshot(function(snap){
+      var d=snap.exists&&snap.data(); if(!d)return;
+      var c=CALLS.filter(function(x){return x.code===d.code;})[0];
+      ['mob','dg'].forEach(function(p){R.chiefStatus(p,'✓ Kart '+R.num(d.kart)+' ouviu "'+(c?c.label:d.code)+'" às '+new Date(d.at).toTimeString().slice(0,8)+'.');});
+    });
+  },
+  chiefStatus:function(prefix,t){var el=document.getElementById(prefix+'-radio-chief-status');if(el)el.textContent=t;},
+  renderChief:function(prefix){
+    var box=document.getElementById(prefix+'-radio-chief'); if(!box)return;
+    var karts=FK.cfg.myKarts||[];
+    var sel=document.getElementById(prefix+'-radio-target'), prev=sel?sel.value:null;
+    box.innerHTML='<div class="radio-row"><label for="'+prefix+'-radio-target">Para</label><select id="'+prefix+'-radio-target">'+
+      karts.map(function(k){return '<option value="'+k+'">Kart '+R.num(k)+'</option>';}).join('')+'<option value="todos">Todos os karts</option></select></div>'+
+      '<div class="radio-calls">'+CALLS.map(function(c){return '<button type="button" class="radio-call '+c.cls+'" onclick="FK.radio.send(\''+c.code+'\',\''+prefix+'\')">'+c.label+'</button>';}).join('')+'</div>'+
+      '<div class="radio-chief-status" id="'+prefix+'-radio-chief-status"></div>';
+    if(prev){var s2=document.getElementById(prefix+'-radio-target');if(s2)s2.value=prev;}
+  },
+
+  /* ---------- teste de tela bloqueada ---------- */
+  toggleTest:function(){
+    if(R.testTimer){clearInterval(R.testTimer);R.testTimer=null;R.render();return;}
+    if(!R.on){var s=document.getElementById('mob-audio-kart');R.start(s&&s.value||'0');}
+    var n=0;
+    R.say('Teste iniciado. Bloqueie a tela e coloque o celular no bolso. Vou falar a cada 30 segundos.',true);
+    R.testTimer=setInterval(function(){
+      n++; var d=new Date();
+      R.say('Teste '+n+'. São '+d.getHours()+' horas e '+d.getMinutes()+' minutos.');
+      if(n>=10){clearInterval(R.testTimer);R.testTimer=null;R.say('Fim do teste. Se você ouviu todas as mensagens com a tela bloqueada, está funcionando.');R.render();}
+    },30000);
+    R.render();
+  },
+
+  /* ---------- UI do piloto ---------- */
+  setStatus:function(t){var el=document.getElementById('mob-audio-status');if(el)el.textContent=t;},
+  status:function(){
+    if(!R.on){R.setStatus('Desligado. Escolha o kart e toque em Ligar rádio antes de ir pra pista.');return;}
+    R.setStatus('No ar — kart '+R.num(R.kart)+' · voz: '+R.engine+(R.testTimer?' · TESTE em andamento':''));
+  },
+  render:function(){
+    var sel=document.getElementById('mob-audio-kart'); if(!sel)return;
+    var karts=FK.cfg.myKarts||[], saved=null; try{saved=localStorage.getItem('fkart_audio_kart');}catch(e){}
+    var want=R.kart||sel.value||saved;
+    sel.innerHTML=karts.length?karts.map(function(k){return '<option value="'+k+'">Kart '+R.num(k)+'</option>';}).join(''):'<option value="">Nenhum kart configurado</option>';
+    if(want&&karts.indexOf(want)>=0)sel.value=want;
+    sel.disabled=R.on;
+    var b=document.getElementById('mob-audio-toggle'); if(b){b.textContent=R.on?'Desligar rádio':'Ligar rádio';b.classList.toggle('on',R.on);}
+    var t=document.getElementById('radio-test-btn'); if(t)t.textContent=R.testTimer?'Parar teste':'Teste com tela bloqueada';
+    var st=document.getElementById('radio-stint-min'); if(st&&!st.value){var d=R.stintTargetSec();st.placeholder=d>0?String(Math.round(d/60)):'min';}
+    R.status();
+    R.renderChief('mob');R.renderChief('dg');
+  },
+  toggle:function(){
+    if(R.on){R.stop();return;}
+    var sel=document.getElementById('mob-audio-kart'); if(!sel||!sel.value){alert('Selecione um kart primeiro.');return;}
+    R.start(sel.value);
+  }
+};
+
+/* substitui o gatilho antigo: v1 fica desligada e o v2 recebe cada atualizacao de dados */
+FK.state.audioPilotOn=false;
+FK.toggleAudioPilot=function(){R.toggle();};
+FK.initAudioPilot=function(){R.render();};
+var _rh=FK.recordHistory;
+FK.recordHistory=function(data){ try{R.onData(data);}catch(e){console.warn('radio onData',e);} return _rh.apply(FK,arguments); };
+
+var css=document.createElement('style');
+css.textContent='.radio-row{display:flex;gap:8px;align-items:center;margin:6px 0}.radio-row label{font-size:11px;color:var(--mut);min-width:64px}.radio-row select,.radio-row input{flex:1;min-width:0}'+
+'.radio-calls{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-top:8px}'+
+'.radio-call{padding:14px 8px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--txt);font-weight:700;font-size:13px;cursor:pointer}'+
+'.radio-call.hot{background:var(--acc);border-color:var(--acc);color:#fff;grid-column:1/-1;font-size:16px;padding:18px}'+
+'.radio-call.warn{border-color:#ffb020;color:#ffb020}.radio-call.ok{border-color:#2fbf71;color:#2fbf71}'+
+'.radio-call:active{transform:scale(.97)}.radio-chief-status{font-size:12px;color:var(--mut);margin-top:8px;min-height:16px}'+
+'.radio-hint{font-size:11px;color:var(--mut);line-height:1.45;margin-top:8px}';
+document.head.appendChild(css);
+
+setInterval(function(){ if(document.getElementById('mob-audio-kart')&&!R.on&&!document.getElementById('mob-audio-kart').options.length)R.render(); },3000);
+R.render();
+})();
+</script>
+
+<script>
+/* =====================================================================================
+   PROJECAO DE CHEGADA v3 (pedido 23/09/2026, apos backtest com a Endurance 6H KGV 19/09)
+   Backtest (11 momentos da prova, todos os karts classificados), erro mediano em voltas /
+   erro medio de posicao na categoria:
+       1h: antigo Proj 9,5/9,2  Proj.Paradas 6,9/8,7  -> novo 2,0/7,2
+       3h: antigo 17,8/5,7      4,7/5,7               -> novo 2,0/4,4
+       5h: antigo 30,9/3,9      2,9/3,2               -> novo 1,0/2,9
+   O que mudou em relacao ao antigo:
+   1) Nao desconta paradas ja feitas (o "Proj" antigo descontava todas, sempre).
+   2) Custo real de uma parada = duracao + passagem pelo pitlane - 1 volta normal
+      (~296s na de 6min e ~536s na de 10min no KGV), e nao a duracao cheia.
+   3) Parte da ULTIMA PASSAGEM do kart (TotalTime), nao do relogio -- nao distorce com o
+      kart parado no box.
+   4) Conta voltas inteiras ate a bandeirada (1a passagem depois do fim) e desempata pela
+      hora prevista de cruzar a linha.
+   5) Ritmo = 50% mediana das voltas limpas dos ultimos 15min + 50% mediana da prova toda,
+      x1,0034 (trafego/pequenos incidentes medidos). Voltas limpas: sem box, sem volta de
+      saida, abaixo de 1,4x a melhor.
+   6) Excesso de box aprendido por equipe: media do que ela passou do minimo nas paradas
+      ja feitas (0-120s; 20s se ainda nao parou) aplicada as paradas que faltam.
+   7) Regras de paradas POR CATEGORIA (Config -> Regras da Prova -> Paradas por categoria).
+   8) Faixa de confianca: +-3 voltas com mais de 3h30 pela frente, +-2 ate 2h30, +-1 depois.
+   ===================================================================================== */
+(function(){
+if(typeof FK==='undefined')return;
+function med(a){if(!a.length)return NaN;var b=a.slice().sort(function(x,y){return x-y;}),m=b.length>>1;return b.length%2?b[m]:(b[m-1]+b[m])/2;}
+function mean(a){return a.length?a.reduce(function(s,x){return s+x;},0)/a.length:NaN;}
+
+var P=FK.proj={
+  DEF_RULES:'ELITE=5+1; CHALLENGE=6+1',
+  TRAFFIC:1.0034, BLEND:0.5, RECENT_SEC:900, EXC_DEFAULT:20, EXC_CAP:120,
+
+  parseRules:function(txt){
+    var o={};
+    String(txt||'').split(/[;\n]/).forEach(function(p){
+      var m=/^\s*([^=]+?)\s*=\s*(\d+)\s*\+\s*(\d+)\s*$/.exec(p);
+      if(m)o[m[1].trim().toUpperCase()]={short:+m[2],long:+m[3]};
+    });
+    return o;
+  },
+  rulesFor:function(cat){
+    var r=FK.cfg.catRules||{}, k=String(cat||'').trim().toUpperCase();
+    if(r[k])return r[k];
+    for(var n in r){ if(k&&k.indexOf(n)>=0)return r[n]; }
+    return {short:FK.cfg.minPitStops||0,long:FK.cfg.longPitStops||0};
+  },
+  durs:function(){
+    return {s:FK.cfg.minPitDurationSec>0?FK.cfg.minPitDurationSec:360, l:FK.cfg.longPitDurationSec>0?FK.cfg.longPitDurationSec:600};
+  },
+
+  /* log proprio de voltas por kart (o FK.state.history e por tick e so guarda ~400 ticks) */
+  onData:function(data){
+    if(!data||!data.length)return;
+    if(!FK.state.lapLog)FK.state.lapLog={};
+    var D=P.durs(), cfgLong=FK.cfg.longPitDurationSec>0;
+    data.forEach(function(d){
+      if(!(d.laps>0))return;
+      var L=FK.state.lapLog[d.kart]||(FK.state.lapLog[d.kart]=[]);
+      var last=L[L.length-1];
+      if(last&&d.laps<=last.lap)return;
+      var lt=FK.parseT(d.last); if(!lt||lt<=0)return;
+      var pit=lt>=D.s*0.9, lng=pit&&(cfgLong?lt>=D.l*0.95:false);
+      L.push({lap:d.laps,lt:lt,t:(d.totalTimeSec!=null?d.totalTimeSec:(FK.state.elapsed||0)),pit:pit,long:lng,out:!!(last&&last.pit),skip:!!(last&&d.laps-last.lap>1)});
+      if(L.length>600)L.shift();
+    });
+  },
+
+  pitCounts:function(d){
+    if(d.pitOficial)return {short:d.pit6||0,long:d.pit10||0};
+    var c=FK.state.pitLapCounts||{}, k=FK.findKartKey?FK.findKartKey(c,d.kart):d.kart;
+    var v=k!=null?c[k]:null;
+    return v?{short:v.short||0,long:v.long||0}:{short:d.pit6||0,long:d.pit10||0};
+  },
+
+  projectFinish:function(data){
+    data=data||FK.getData();
+    var out={}; if(!data||!data.length)return out;
+    var el=FK.state.elapsed||0;
+    var end=(FK.cfg.source==='live'&&FK.state.timeToGoSec!=null)?el+FK.state.timeToGoSec:(FK.cfg.raceTotal||0);
+    var D=P.durs(), logs=FK.state.lapLog||{};
+    /* passagem pelo pitlane (volta de box - duracao da parada), mediana do pelotao */
+    var ovs=[];
+    Object.keys(logs).forEach(function(k){logs[k].forEach(function(x){ if(x.pit){var o=x.lt-(x.long?D.l:D.s); if(o>-30&&o<30)ovs.push(o);} });});
+    var ov=ovs.length>=3?med(ovs):1.0;
+    var rows=data.map(function(d){
+      var L=logs[d.kart]||[];
+      var best=FK.parseT(d.best)||0;
+      var clean=L.filter(function(x){return !x.pit&&!x.out&&!x.skip&&x.lt<D.s*0.9&&(!best||x.lt<best*1.4);});
+      var tl=(d.totalTimeSec!=null)?d.totalTimeSec:el;
+      var pace;
+      if(clean.length>=3){
+        var rec=clean.filter(function(x){return x.t!=null&&x.t>tl-P.RECENT_SEC;}).map(function(x){return x.lt;});
+        if(rec.length<3)rec=clean.slice(-10).map(function(x){return x.lt;});
+        pace=P.BLEND*med(rec)+(1-P.BLEND)*med(clean.map(function(x){return x.lt;}));
+      }else{
+        pace=(FK.state.paceEma&&FK.state.paceEma[d.kart])||FK.recentAvgLapTime(d.kart,8,true)||best||60;
+      }
+      pace*=P.TRAFFIC;
+      var pc=P.pitCounts(d), rules=P.rulesFor(d.cat);
+      var remS=Math.max(0,rules.short-pc.short), remL=Math.max(0,rules.long-pc.long);
+      var exs=L.filter(function(x){return x.pit;}).map(function(x){return Math.min(P.EXC_CAP,Math.max(0,x.lt-(x.long?D.l:D.s)-ov));});
+      var exc=exs.length?mean(exs):P.EXC_DEFAULT;
+      var cost=remS*Math.max(0,D.s+ov+exc-pace)+remL*Math.max(0,D.l+ov+exc-pace);
+      var n=end>0?Math.max(0,Math.ceil((end-tl-cost)/pace)):0;
+      var remT=end-el;
+      return {kart:d.kart,cat:d.cat,pos:d.pos,laps:d.laps+n,finishSec:tl+n*pace+cost,pace:pace,
+        stopsLeft:remS+remL,exc:exc,cost:cost,band:remT>12600?3:remT>9000?2:remT>0?1:0};
+    });
+    var byCat={};
+    rows.forEach(function(r){(byCat[r.cat]=byCat[r.cat]||[]).push(r);});
+    function cmp(a,b){return (b.laps-a.laps)||(a.finishSec-b.finishSec)||((a.pos||999)-(b.pos||999));}
+    Object.keys(byCat).forEach(function(c){byCat[c].sort(cmp).forEach(function(r,i){r.catPos=i+1;});});
+    rows.slice().sort(cmp).forEach(function(r,i){r.projPos=i+1;});
+    rows.forEach(function(r){out[r.kart]=r;});
+    return out;
+  },
+
+  cell:function(d,pj){
+    if(!pj)return {pos:'—',laps:'—'};
+    var cur=d.catPos||pj.catPos, delta=cur-pj.catPos;
+    var cls=delta>0?'proj-up':delta<0?'proj-dn':'proj-eq';
+    var tip='Chegada prevista na categoria. Ritmo '+pj.pace.toFixed(3)+'s · faltam '+pj.stopsLeft+' parada(s) · excesso medio de box '+Math.round(pj.exc)+'s';
+    return {
+      pos:'<span class="proj-arrow '+cls+'" title="'+tip+'">P'+pj.catPos+'</span>',
+      laps:'<span class="proj-laps" title="'+tip+'">'+pj.laps+(pj.band?'<small> ±'+pj.band+'</small>':'')+'</span>'
+    };
+  }
+};
+
+/* alimenta o log de voltas a cada atualizacao de dados */
+var _rh=FK.recordHistory;
+FK.recordHistory=function(data){ try{P.onData(data);}catch(e){console.warn('proj onData',e);} return _rh.apply(FK,arguments); };
+
+/* Config: campo "Paradas por categoria" */
+var _save=FK.saveConfig;
+if(_save)FK.saveConfig=function(){
+  var el=document.getElementById('cfg-cat-rules');
+  if(el){ FK.cfg.catRulesTxt=el.value.trim(); FK.cfg.catRules=P.parseRules(FK.cfg.catRulesTxt); }
+  return _save.apply(FK,arguments);
+};
+var _render=FK.renderConfig;
+if(_render)FK.renderConfig=function(){
+  var r=_render.apply(FK,arguments);
+  var el=document.getElementById('cfg-cat-rules');
+  if(el&&document.activeElement!==el)el.value=FK.cfg.catRulesTxt!=null?FK.cfg.catRulesTxt:P.DEF_RULES;
+  return r;
+};
+if(FK.cfg.catRulesTxt!=null&&!FK.cfg.catRules)FK.cfg.catRules=P.parseRules(FK.cfg.catRulesTxt);
+try{ var el0=document.getElementById('cfg-cat-rules'); if(el0&&!el0.value)el0.value=FK.cfg.catRulesTxt!=null?FK.cfg.catRulesTxt:P.DEF_RULES; }catch(e){}
+
+var css=document.createElement('style');
+css.textContent='.proj-laps{font-variant-numeric:tabular-nums;font-weight:600}.proj-laps small{font-size:.75em;color:var(--mut);font-weight:400}';
+document.head.appendChild(css);
+})();
+</script>
+
 </body>
 </html>
