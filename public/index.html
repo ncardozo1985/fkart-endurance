@@ -5929,10 +5929,11 @@ css.textContent=[
 '.rc3-step{width:34px;height:40px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--txt);font-size:20px;font-weight:800;cursor:pointer}',
 '.rc3-n{min-width:26px;text-align:center;font-size:22px;font-weight:900;color:#ffb020}',
 '.rc3-kart{display:flex;gap:6px;align-items:stretch}.rc3-kart input{width:74px}',
-'@media(max-width:760px){.krono-grid.grid-fit{grid-template-columns:repeat(2,minmax(0,1fr))!important}}',
-'.kc3 .krono-timer{font-size:clamp(22px,7.5vw,34px)}',
-'@media(min-width:761px){.kc3 .krono-timer{font-size:clamp(22px,2.3vw,34px)}}',
-'.kc3 .kr-cell .kv{font-size:12px}',
+'#dg-krono-grid.grid-fit,#tv-krono-grid.grid-fit{grid-template-columns:repeat(auto-fit,minmax(max(240px,calc((100% - 20px)/4)),1fr))!important}',
+'@media(max-width:760px){#dg-krono-grid.grid-fit,#tv-krono-grid.grid-fit{grid-template-columns:repeat(2,minmax(0,1fr))!important}}',
+'.krono-card.kc3{container-type:inline-size}',
+'.kc3 .krono-timer{font-size:clamp(20px,15cqw,34px)!important}',
+'.kc3 .kr-cell .kv{font-size:clamp(10px,5cqw,12px)}',
 '@media(max-width:1200px){.rc3{grid-template-columns:repeat(2,minmax(0,1fr))}.rc3-btn.hot,.rc3-target{grid-column:1/-1}}',
 /* 5) sem chips na classificacao */
 '.dr-mykarts-strip{display:none!important}',
@@ -5949,6 +5950,289 @@ css.textContent=[
 document.head.appendChild(css);
 
 try{ U.renderChief('dg'); U.renderChief('mob'); }catch(e){}
+})();
+</script>
+<script>
+/* =====================================================================================
+   CLIMA NO TOPO v4 (pedido 24/09/2026)
+   - Agora: icone, ar, pista estimada (FK.estTrackTemp), vento com seta + rajada, umidade
+   - Faixa hora a hora ate a bandeirada (icone, % chuva com barra, temp. da pista), com 🏁
+   - Linha de alerta: chuva prevista / sem chuva ate o fim, tendencia da pista, por do sol
+   ===================================================================================== */
+(function(){
+if(typeof FK==='undefined')return;
+var W=FK.wx4={data:null,err:null,
+  icon:function(c,day){
+    if(c===0)return day?'☀️':'🌙';
+    if(c<=2)return day?'⛅':'☁️';
+    if(c===3)return '☁️';
+    if(c===45||c===48)return '🌫️';
+    if(c>=95)return '⛈️';
+    if((c>=51&&c<=57)||(c>=80&&c<=82))return '🌦️';
+    if(c>=51)return '🌧️';
+    return '☁️';
+  },
+  label:function(c){
+    if(c===0)return 'Céu limpo'; if(c<=2)return 'Parcialmente nublado'; if(c===3)return 'Nublado';
+    if(c===45||c===48)return 'Neblina'; if(c>=51&&c<=57)return 'Garoa'; if(c>=95)return 'Tempestade'; if(c>=51)return 'Chuva';
+    return '—';
+  },
+  dirs:['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'],
+  track:function(t,c,h,mm){ try{ return FK.estTrackTemp?FK.estTrackTemp(t,c,h,mm||0):null; }catch(e){return null;} },
+  /* fim da prova no relogio do aparelho (ms) ou null */
+  raceEnd:function(){
+    var s=FK.state||{}, cfg=FK.cfg||{};
+    var rem=(cfg.source==='live'&&s.timeToGoSec!=null)?s.timeToGoSec:((cfg.raceTotal||0)-(s.elapsed||0));
+    if(!(rem>0)||!(s.elapsed>0||cfg.source==='live'))return null;
+    return Date.now()+rem*1000;
+  },
+  load:function(){
+    var lat=FK.cfg.wxLat!=null?FK.cfg.wxLat:-23.249038, lon=FK.cfg.wxLon!=null?FK.cfg.wxLon:-47.339491;
+    var url='https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+
+      '&current=temperature_2m,apparent_temperature,weathercode,windspeed_10m,winddirection_10m,windgusts_10m,relativehumidity_2m,precipitation,is_day'+
+      '&hourly=temperature_2m,precipitation_probability,precipitation,weathercode,windspeed_10m,is_day'+
+      '&daily=sunrise,sunset&timezone=America/Sao_Paulo&forecast_days=2';
+    fetch(url).then(function(r){return r.json();}).then(function(d){ W.data=d; W.at=Date.now(); W.render(); })
+      .catch(function(e){ W.err=e; });
+  },
+  hours:function(){
+    var d=W.data; if(!d||!d.hourly)return [];
+    var H=d.hourly, now=Date.now(), end=W.raceEnd(), out=[];
+    var sun=((d.daily&&d.daily.sunset)||[]).map(function(x){return new Date(x).getTime();});
+    var lim=end?Math.max(end+3600000, now+3*3600000):now+6*3600000;
+    for(var i=0;i<H.time.length;i++){
+      var t=new Date(H.time[i]).getTime();
+      if(t+3600000<=now)continue;            /* hora que ja passou */
+      if(t>lim||out.length>=9)break;
+      var h=new Date(t).getHours(), c=H.weathercode[i], mm=H.precipitation?H.precipitation[i]:0;
+      out.push({t:t,h:h,p:H.precipitation_probability[i]||0,mm:mm,c:c,day:H.is_day?!!H.is_day[i]:true,
+        air:H.temperature_2m[i],trk:W.track(H.temperature_2m[i],c,h,mm),wind:H.windspeed_10m?H.windspeed_10m[i]:null,
+        now:t<=now,end:!!(end&&t<=end&&end<t+3600000),sun:sun.filter(function(z){return z>=t&&z<t+3600000;})[0]||null});
+    }
+    return out;
+  },
+  alert:function(hrs){
+    var end=W.raceEnd(), win=hrs.filter(function(x){return !end||x.t<=end;});
+    var parts=[], cls='ok';
+    var rain=win.filter(function(x){return x.p>=50||x.mm>=0.3;})[0];
+    var maybe=win.filter(function(x){return x.p>=30;})[0];
+    var lbl=function(x){return x.now?'agora':(x.h<10?'0':'')+x.h+'h';};
+    if(rain){cls='rain';parts.push('🌧️ Chuva provável '+(rain.now?'agora':'às '+lbl(rain))+' ('+rain.p+'%)');}
+    else if(maybe){cls='warn';parts.push('🌦️ Chance de chuva '+(maybe.now?'agora':'às '+lbl(maybe))+' ('+maybe.p+'%)');}
+    else parts.push(end?'✅ Sem chuva até a bandeirada':'✅ Sem chuva nas próximas horas');
+    return {cls:cls,txt:parts.join(' · ')};
+  },
+  render:function(){
+    var host=document.getElementById('wx4'); var d=W.data;
+    if(!host||!d||!d.current)return;
+    var c=d.current, h=new Date().getHours();
+    var trk=W.track(c.temperature_2m,c.weathercode,h,c.precipitation);
+    var di=Math.round((c.winddirection_10m||0)/22.5)%16;
+    var hrs=W.hours(), al=W.alert(hrs);
+    var tcls=function(v){return v==null?'':v<20?'cold':v>42?'hot':'warm';};
+    var html='<div class="wx4-now" title="'+W.label(c.weathercode)+' · sensação '+Math.round(c.apparent_temperature)+'°C · atualizado '+new Date(W.at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'">'+
+      '<div class="wx4-ic">'+W.icon(c.weathercode,!!c.is_day)+'</div>'+
+      '<div class="wx4-col">'+
+        '<div class="wx4-temps"><b>'+Math.round(c.temperature_2m)+'°</b><small>ar</small>'+
+          (trk!=null?'<b class="wx4-trk '+tcls(trk)+'">'+Math.round(trk)+'°</b><small>pista</small>':'')+'</div>'+
+        '<div class="wx4-meta">'+
+          '<span title="Vento de '+W.dirs[di]+'"><svg class="wx4-arr" viewBox="0 0 10 10" style="transform:rotate('+(((c.winddirection_10m||0)+180)%360)+'deg)"><path d="M5 0 L8.5 9 L5 7 L1.5 9 Z"/></svg>'+Math.round(c.windspeed_10m)+' km/h '+W.dirs[di]+
+            (c.windgusts_10m>=c.windspeed_10m+8?' <em>raj. '+Math.round(c.windgusts_10m)+'</em>':'')+'</span>'+
+          '<span title="Umidade relativa">💧'+Math.round(c.relativehumidity_2m)+'%</span>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+    html+='<div class="wx4-strip">'+hrs.map(function(x){
+      var pc=x.p>=50?'r':x.p>=30?'w':'d';
+      return '<div class="wx4-h'+(x.now?' now':'')+(x.end?' end':'')+'" title="'+W.label(x.c)+' · ar '+Math.round(x.air)+'°C'+(x.trk!=null?' · pista ~'+Math.round(x.trk)+'°C':'')+(x.mm?' · '+x.mm.toFixed(1)+' mm':'')+(x.sun?' · pôr do sol '+new Date(x.sun).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'')+(x.end?' · bandeirada':'')+'">'+
+        '<div class="wx4-hh">'+(x.end?'🏁 ':'')+(x.now?'agora':(x.h<10?'0':'')+x.h+'h')+'</div>'+
+        '<div class="wx4-hi">'+W.icon(x.c,x.day)+(x.sun?'<span class="wx4-sun">🌇</span>':'')+'</div>'+
+        '<div class="wx4-hp '+pc+'">'+x.p+'%</div>'+
+        '<div class="wx4-bar"><i class="'+pc+'" style="width:'+Math.max(4,x.p)+'%"></i></div>'+
+        (x.trk!=null?'<div class="wx4-ht '+tcls(x.trk)+'">'+Math.round(x.trk)+'°</div>':'')+
+      '</div>';
+    }).join('')+'</div>';
+    html+='<div class="wx4-alert '+al.cls+'">'+al.txt+'</div>';
+    host.innerHTML=html;
+  }
+};
+
+/* monta o container no lugar da barra antiga */
+function mount(){
+  var box=document.querySelector('.tabs-wx'); if(!box||document.getElementById('wx4'))return;
+  var el=document.createElement('div'); el.id='wx4'; el.className='wx4'; box.appendChild(el);
+  box.classList.add('wx4-on');
+}
+mount(); W.load();
+setInterval(W.load,600000);
+setInterval(W.render,60000);
+var _save=FK.saveConfig; if(_save)FK.saveConfig=function(){var r=_save.apply(FK,arguments); setTimeout(W.load,300); return r;};
+
+var css=document.createElement('style');
+css.textContent=[
+'.tabs-wx.wx4-on>#wxbar,.tabs-wx.wx4-on>#wx-topbar-forecast,.tabs-wx.wx4-on>#wx-hourly-canvas{display:none!important}',
+'.wx4{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto;column-gap:12px;row-gap:3px;align-items:center;width:100%}',
+'.wx4-now{display:flex;align-items:center;gap:8px;grid-row:1;grid-column:1;white-space:nowrap}',
+'.wx4-ic{font-size:26px;line-height:1}',
+'.wx4-col{display:flex;flex-direction:column;gap:1px}',
+'.wx4-temps{display:flex;align-items:baseline;gap:3px;font-variant-numeric:tabular-nums}',
+'.wx4-temps b{font-size:18px;font-weight:800;color:var(--txt);line-height:1}',
+'.wx4-temps small{font-size:9px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-right:6px}',
+'.wx4-trk.cold{color:#4fc3f7!important}.wx4-trk.warm{color:#ffa726!important}.wx4-trk.hot{color:#ff5252!important}',
+'.wx4-meta{display:flex;gap:10px;font-size:11px;color:var(--mut);align-items:center}',
+'.wx4-meta span{display:inline-flex;align-items:center;gap:3px}',
+'.wx4-meta em{font-style:normal;color:#ffa726}',
+'.wx4-arr{width:10px;height:10px;fill:#90caf9}',
+'.wx4-strip{grid-row:1/3;grid-column:2;display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;padding:1px 0}',
+'.wx4-strip::-webkit-scrollbar{display:none}',
+'.wx4-h{flex:0 0 46px;display:flex;flex-direction:column;align-items:center;gap:1px;padding:3px 3px 4px;border-radius:7px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06)}',
+'.wx4-h.now{border-color:rgba(144,202,249,.55);background:rgba(144,202,249,.08)}',
+'.wx4-h.end{border-color:rgba(255,255,255,.7);background:repeating-linear-gradient(45deg,rgba(255,255,255,.07) 0 4px,rgba(0,0,0,0) 4px 8px)}',
+'.wx4-hh{font-size:9px;color:var(--mut);font-weight:700;white-space:nowrap}',
+'.wx4-hi{font-size:14px;line-height:1.1}',
+'.wx4-hp{font-size:11px;font-weight:800;font-variant-numeric:tabular-nums}',
+'.wx4-hp.d{color:#66bb6a}.wx4-hp.w{color:#ffa726}.wx4-hp.r{color:#4fc3f7}',
+'.wx4-bar{width:100%;height:3px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden}',
+'.wx4-bar i{display:block;height:100%}.wx4-bar i.d{background:#66bb6a}.wx4-bar i.w{background:#ffa726}.wx4-bar i.r{background:#4fc3f7}',
+'.wx4-ht{font-size:10px;font-weight:700;font-variant-numeric:tabular-nums}',
+'.wx4-ht.cold{color:#4fc3f7}.wx4-ht.warm{color:#ffa726}.wx4-ht.hot{color:#ff5252}',
+'.wx4-alert{grid-row:2;grid-column:1;font-size:10px;font-weight:700;width:0;min-width:100%;line-height:1.25}',
+'.wx4-hi{position:relative}.wx4-sun{position:absolute;right:-12px;top:-2px;font-size:9px}',
+'.wx4-alert.ok{color:#66bb6a}.wx4-alert.warn{color:#ffa726}.wx4-alert.rain{color:#4fc3f7}',
+'body.theme-light .wx4-h{background:rgba(0,0,0,.03);border-color:rgba(0,0,0,.08)}',
+'body.tv-mode .wx4-strip{display:none}',
+'@media(max-width:760px){.tabs-wx.wx4-on{flex:1 1 100%;order:99;border-left:none;padding:4px 0 2px;min-width:0}}',
+'@media(max-width:760px){.wx4{grid-template-columns:1fr}.wx4-strip{grid-row:auto;grid-column:1}.wx4-alert{grid-row:auto;max-width:none}}'
+].join('\n');
+document.head.appendChild(css);
+})();
+</script>
+<script>
+/* =====================================================================================
+   VOZ DO RADIO -- laboratorio e escolha (24/09/2026)
+   Config -> "Voz do Rádio": ouvir cada voz, ajustar velocidade/tom e escolher.
+   A escolha vai em FK.cfg.radioVoice (sincronizada com os celulares dos pilotos).
+   ===================================================================================== */
+(function(){
+if(typeof FK==='undefined')return;
+var V=FK.vox={
+  presets:[
+    {id:'padrao', nome:'Padrão atual', desc:'Neural2 masculina, a voz de hoje', voice:'pt-BR-Neural2-B', rate:1.12, pitch:-1.5},
+    {id:'jv-charon', nome:'JARVIS · Charon', desc:'Gemini com direção de estilo "assistente de IA sofisticado"', voice:'gemini:Charon', rate:1.0, style:'jarvis', tag:'JARVIS'},
+    {id:'jv-iapetus', nome:'JARVIS · Iapetus', desc:'Gemini, voz clara e firme, estilo JARVIS', voice:'gemini:Iapetus', rate:1.0, style:'jarvis', tag:'JARVIS'},
+    {id:'jv-sadaltager', nome:'JARVIS · Sadaltager', desc:'Gemini, voz "de especialista", estilo JARVIS', voice:'gemini:Sadaltager', rate:1.0, style:'jarvis', tag:'JARVIS'},
+    {id:'jv-rasalgethi', nome:'JARVIS · Rasalgethi', desc:'Gemini, voz informativa e grave, estilo JARVIS', voice:'gemini:Rasalgethi', rate:1.0, style:'jarvis', tag:'JARVIS'},
+    {id:'f1-fenrir', nome:'Engenheiro F1 · Fenrir', desc:'Gemini, rádio de F1: curto, firme, com urgência', voice:'gemini:Fenrir', rate:1.1, style:'radio'},
+    {id:'hd-charon', nome:'HD · Charon', desc:'Chirp3 HD, muito natural, grave', voice:'pt-BR-Chirp3-HD-Charon', rate:1.0},
+    {id:'hd-iapetus', nome:'HD · Iapetus', desc:'Chirp3 HD, natural e clara', voice:'pt-BR-Chirp3-HD-Iapetus', rate:1.0},
+    {id:'hd-orus', nome:'HD · Orus', desc:'Chirp3 HD, firme', voice:'pt-BR-Chirp3-HD-Orus', rate:1.0},
+    {id:'n2-grave', nome:'Neural2 grave', desc:'a voz de hoje, mais grave e mais lenta', voice:'pt-BR-Neural2-B', rate:1.0, pitch:-5},
+    {id:'wn-e', nome:'WaveNet E grave', desc:'outra masculina clássica, grave', voice:'pt-BR-Wavenet-E', rate:1.0, pitch:-4}
+  ],
+  frase:'Box, box. Entra no box nesta volta. Você é o terceiro na Elite, a um segundo e dois décimos do kart da frente.',
+  cur:function(){ return FK.cfg.radioVoice||{id:'padrao',voice:'pt-BR-Neural2-B',rate:1.12,pitch:-1.5}; },
+  url:function(text,v){
+    v=v||V.cur();
+    var u='/api/live?tts='+encodeURIComponent(text)+'&voice='+encodeURIComponent(v.voice||'pt-BR-Neural2-B')+'&rate='+(v.rate!=null?v.rate:1.12);
+    if(v.pitch!=null&&!/^gemini:|Chirp/.test(v.voice))u+='&pitch='+v.pitch;
+    if(v.style)u+='&style='+v.style;
+    return u+'&tv=2';
+  },
+  audio:null,
+  play:function(p,btn){
+    var st=document.getElementById('vx-st-'+p.id);
+    var txt=(document.getElementById('vx-frase')||{}).value||V.frase;
+    var q=Object.assign({},p);
+    var r=document.getElementById('vx-rate'), pi=document.getElementById('vx-pitch');
+    if(r&&r.dataset.touched)q.rate=parseFloat(r.value);
+    if(pi&&pi.dataset.touched)q.pitch=parseFloat(pi.value);
+    if(st){st.textContent='gerando…';st.className='vx-st';}
+    var t0=Date.now();
+    fetch(V.url(txt,q)).then(function(res){
+      var used=res.headers.get('X-TTS-Voice'), err=res.headers.get('X-TTS-Error');
+      if(!res.ok)throw new Error('HTTP '+res.status);
+      return res.blob().then(function(b){return {b:b,used:used,err:err};});
+    }).then(function(o){
+      if(V.audio){try{V.audio.pause();}catch(e){}}
+      V.audio=new Audio(URL.createObjectURL(o.b)); V.audio.play();
+      var ms=Date.now()-t0;
+      if(!st)return;
+      if(!o.used){st.textContent='tocando ('+(ms/1000).toFixed(1)+'s) · servidor antigo: publique a função nova';st.className='vx-st warn';}
+      else if(o.used.indexOf(p.voice)!==0){st.textContent='⚠ essa voz falhou, tocou a reserva ('+o.used+')'+(o.err?' · '+o.err.slice(0,80):'');st.className='vx-st bad';}
+      else {st.textContent='✓ '+o.used+' · gerada em '+(ms/1000).toFixed(1)+'s';st.className='vx-st ok';}
+    }).catch(function(e){ if(st){st.textContent='erro: '+e.message;st.className='vx-st bad';} });
+  },
+  choose:function(id){
+    var p=V.presets.filter(function(x){return x.id===id;})[0]; if(!p)return;
+    var r=document.getElementById('vx-rate'), pi=document.getElementById('vx-pitch');
+    var v={id:p.id,nome:p.nome,voice:p.voice,rate:p.rate,pitch:p.pitch!=null?p.pitch:null,style:p.style||null};
+    if(r&&r.dataset.touched)v.rate=parseFloat(r.value);
+    if(pi&&pi.dataset.touched&&v.pitch!=null)v.pitch=parseFloat(pi.value);
+    FK.cfg.radioVoice=v;
+    try{localStorage.setItem('fkart_cfg',JSON.stringify(FK.cfg));}catch(e){}
+    FK.pushCfgToCloud&&FK.pushCfgToCloud();
+    V.render();
+  },
+  render:function(){
+    var host=document.getElementById('vx-card'); if(!host)return;
+    var c=V.cur();
+    var html='<div class="dash-card-hdr" style="display:flex;align-items:center;justify-content:space-between"><h3 style="margin:0">🎙️ Voz do Rádio</h3>'+
+      '<span class="vx-now">em uso: <b>'+(c.nome||'Padrão atual')+'</b></span></div>'+
+      '<div class="vx-top"><label>Frase de teste<input id="vx-frase" type="text" value="'+V.frase.replace(/"/g,'&quot;')+'"></label>'+
+      '<label>Velocidade <span id="vx-rate-v">—</span><input id="vx-rate" type="range" min="0.8" max="1.3" step="0.02" value="1.0"></label>'+
+      '<label>Tom (Neural2/WaveNet) <span id="vx-pitch-v">—</span><input id="vx-pitch" type="range" min="-10" max="4" step="0.5" value="-3"></label></div>'+
+      '<div class="vx-hint">Sliders só valem depois de mexer neles (senão cada voz usa o ajuste dela). Vozes Gemini e HD não aceitam ajuste de tom.</div>'+
+      '<div class="vx-list">'+V.presets.map(function(p){
+        var on=c.id===p.id;
+        return '<div class="vx-item'+(on?' on':'')+'">'+
+          '<button class="vx-play" onclick="FK.vox.play(FK.vox.presets['+V.presets.indexOf(p)+'],this)">▶</button>'+
+          '<div class="vx-info"><div class="vx-name">'+p.nome+(p.tag?' <span class="vx-tag">'+p.tag+'</span>':'')+'</div>'+
+          '<div class="vx-desc">'+p.desc+'</div><div class="vx-st" id="vx-st-'+p.id+'"></div></div>'+
+          '<button class="vx-use" onclick="FK.vox.choose(\''+p.id+'\')">'+(on?'✓ em uso':'Usar esta')+'</button>'+
+        '</div>';
+      }).join('')+'</div>';
+    host.innerHTML=html;
+    [['vx-rate','vx-rate-v','x'],['vx-pitch','vx-pitch-v','']].forEach(function(a){
+      var el=document.getElementById(a[0]), lab=document.getElementById(a[1]);
+      el.oninput=function(){el.dataset.touched='1';lab.textContent=el.value+a[2];};
+    });
+  }
+};
+
+/* o radio passa a usar a voz escolhida */
+if(FK.radio){ FK.radio.ttsUrl=function(text){return V.url(text);}; }
+
+function mount(){
+  var pane=document.getElementById('pane-config'); if(!pane||document.getElementById('vx-card'))return;
+  var card=document.createElement('div'); card.className='card'; card.id='vx-card';
+  pane.insertBefore(card,pane.children[1]||null);
+  V.render();
+}
+mount();
+var _rc=FK.renderConfig; if(_rc)FK.renderConfig=function(){var r=_rc.apply(FK,arguments);try{if(!document.getElementById('vx-card'))mount();}catch(e){}return r;};
+
+var css=document.createElement('style');
+css.textContent=[
+'#vx-card{padding:12px 14px}',
+'.vx-now{font-size:11px;color:var(--mut)}.vx-now b{color:var(--txt)}',
+'.vx-top{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin:10px 0 4px}',
+'.vx-top label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--mut)}',
+'.vx-top input[type=text]{width:100%}',
+'.vx-hint{font-size:10px;color:var(--mut);margin-bottom:8px}',
+'.vx-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}',
+'.vx-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid var(--border)}',
+'.vx-item.on{border-color:#2fbf71;background:rgba(47,191,113,.08)}',
+'.vx-play{width:36px;height:36px;border-radius:50%;border:none;background:var(--acc);color:#fff;font-size:14px;cursor:pointer;flex-shrink:0}',
+'.vx-info{flex:1;min-width:0}',
+'.vx-name{font-weight:800;font-size:13px}',
+'.vx-tag{font-size:9px;background:#1565c0;color:#fff;border-radius:6px;padding:1px 5px;margin-left:4px;vertical-align:middle}',
+'.vx-desc{font-size:11px;color:var(--mut)}',
+'.vx-st{font-size:10px;color:var(--mut);margin-top:2px}.vx-st.ok{color:#2fbf71}.vx-st.bad{color:#ff5252}.vx-st.warn{color:#ffa726}',
+'.vx-use{border:1px solid var(--border);background:transparent;color:var(--txt);border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0}',
+'.vx-item.on .vx-use{border-color:#2fbf71;color:#2fbf71}',
+'@media(max-width:760px){.vx-top{grid-template-columns:1fr}}'
+].join('\n');
+document.head.appendChild(css);
 })();
 </script>
 
