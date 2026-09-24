@@ -2645,7 +2645,8 @@ FK.state.paceEma[d.kart]=alpha*lt+(1-alpha)*prevEma;
 var ksKey=FK.findKartKey(FK.state.kronoState,d.kart);
 var ks=ksKey?FK.state.kronoState[ksKey]:null;
 if(ks){
-ks.lapStartTs=Date.now();
+/* v2 23/09/2026: parte do instante real da passagem (TotalTime + deslocamento do streaming) quando disponivel -- ver FK.kronoRT */
+ks.lapStartTs=(FK.kronoRT&&FK.kronoRT.anchor(d))||Date.now();
 ks.stintLaps=(ks.stintLaps||0)+1;
 ks.last=d.last;
 ks.best=d.best;
@@ -5445,6 +5446,114 @@ try{ var el0=document.getElementById('cfg-cat-rules'); if(el0&&!el0.value)el0.va
 
 var css=document.createElement('style');
 css.textContent='.proj-laps{font-variant-numeric:tabular-nums;font-weight:600}.proj-laps small{font-size:.75em;color:var(--mut);font-weight:400}';
+document.head.appendChild(css);
+})();
+</script>
+
+<script>
+/* =====================================================================================
+   CRONOMETRO EM TEMPO REAL v2 (pedido 23/09/2026)
+   Medido ao vivo no KGV (raceId 26021, 42 passagens):
+   - o GetSession (API que alimenta a classificacao) mostra a volta nova so 630 ms depois
+     do aviso do streaming na mediana, 3,4 s no pior 10% e ate 5 s -- e o cronometro
+     antigo zerava no momento em que ESSA resposta chegava (Date.now()), entao ja nascia
+     atrasado;
+   - o streaming ($J) chega em ~25 ms (mediana) acima da latencia minima da conexao.
+   Agora:
+   1) cada $J do streaming zera o cronometro do kart da equipe NA HORA, sem esperar o
+      GetSession;
+   2) o ponto de partida nao e "quando a mensagem chegou", e sim o instante real da
+      passagem: TotalTime do $J (ms, relogio da cronometragem) + deslocamento entre o
+      relogio da cronometragem e o do aparelho. O deslocamento e o MINIMO de
+      (hora de chegada - TotalTime) de todas as passagens de todos os karts nos ultimos
+      10 min -- o minimo e a passagem que chegou mais rapido, entao elimina atraso de rede
+      e picos (~1 s) de mensagens atrasadas. Precisao tipica: dezenas de ms;
+   3) se o streaming cair, o caminho antigo (GetSession) continua funcionando e tambem usa
+      o deslocamento quando ele ja existir;
+   4) "Ultima" volta tambem atualiza direto do $J.
+   ===================================================================================== */
+(function(){
+if(typeof FK==='undefined')return;
+function ms(s){ if(s==null)return null; s=String(s).replace(/"/g,'').trim(); if(!s)return null;
+  var p=s.split(':').map(Number); if(p.some(isNaN))return null; var v=0; p.forEach(function(x){v=v*60+x;}); return Math.round(v*1000); }
+function fmtLap(m){ var s=m/1000, mi=Math.floor(s/60), r=s-mi*60; return (mi?mi+':'+(r<10?'0':''):'')+r.toFixed(3); }
+
+var K=FK.kronoRT={
+  offs:[], rid2kart:{}, connAt:0, lastRx:0, lags:[],
+  offset:function(){
+    var now=Date.now(), best=null;
+    K.offs=K.offs.filter(function(o){return now-o.rx<600000;});
+    K.offs.forEach(function(o){ if(best===null||o.off<best)best=o.off; });
+    return best;
+  },
+  /* instante (relogio do aparelho) da passagem cujo TotalTime e totMs; null se ainda sem referencia */
+  crossAt:function(totMs){
+    var off=K.offset(); if(off==null||totMs==null)return null;
+    return Math.min(Date.now(), off+totMs);
+  },
+  anchor:function(d){ return (d&&d.totalTimeSec!=null)?K.crossAt(Math.round(d.totalTimeSec*1000)):null; },
+  kartOf:function(rid){
+    if(K.rid2kart[rid])return K.rid2kart[rid];
+    var m=FK.state.racerIdByKart||{};
+    for(var k in m){ if(String(m[k])===String(rid))return k; }
+    return rid;
+  },
+  line:function(line,rx){
+    var f=line.split(','), code=f[0];
+    if(code==='$A'||code==='$COMP'){ var r=(f[1]||'').replace(/"/g,''), n=(f[2]||'').replace(/"/g,''); if(r&&n)K.rid2kart[r]=n; return; }
+    if(code!=='$J')return;
+    var rid=(f[1]||'').replace(/"/g,''), lt=ms(f[2]), tot=ms(f[3]);
+    if(!tot)return;
+    /* o $J que vem no "retrato inicial" logo apos conectar e historico, nao tempo real */
+    var live=rx-K.connAt>3000;
+    if(live){ K.offs.push({rx:rx,off:rx-tot}); if(K.offs.length>3000)K.offs.shift(); K.lastRx=rx; }
+    var kart=K.kartOf(rid);
+    var map=FK.state.kronoState||{};
+    var key=FK.findKartKey?FK.findKartKey(map,kart):kart;
+    var ks=key!=null?map[key]:null;
+    if(!ks||ks.srcTotal===tot)return;
+    if(!live&&!ks.srcTotal){ /* primeira referencia apos conectar: usa so se nao houver nada melhor */ }
+    var cross=K.crossAt(tot);
+    if(cross==null)cross=live?rx:null;
+    if(cross==null)return;
+    ks.lapStartTs=cross; ks.srcTotal=tot; ks.srcRx=rx;
+    if(live){ K.lags.push(rx-cross); if(K.lags.length>50)K.lags.shift(); }
+    if(lt&&lt>0){
+      var s=fmtLap(lt); ks.last=s;
+      [key,key+'-dg',key+'-tv',key+'-mob'].forEach(function(id){var el=document.getElementById('klast-'+id);if(el)el.textContent=s;});
+    }
+  },
+  badge:function(){
+    var ok=K.lastRx&&(Date.now()-K.lastRx<180000)&&K.offset()!=null;
+    var txt,cls;
+    if(ok){ var l=K.lags.slice().sort(function(a,b){return a-b;}); var m=l.length?l[l.length>>1]:0;
+      txt='⚡ tempo real'+(l.length?' · correção '+(m/1000).toFixed(2)+'s':''); cls='rt-on'; }
+    else if(FK.state.liveSocket&&FK.state.liveSocket.readyState===1){ txt='⚡ streaming conectado'; cls='rt-on'; }
+    else { txt='◷ via consulta (±1s)'; cls='rt-off'; }
+    ['dg-krono-grid','mob-krono-grid','tv-krono-grid'].forEach(function(gid){
+      var g=document.getElementById(gid); if(!g)return;
+      var card=g.closest('.dash-card'); if(!card)return;
+      var hdr=card.querySelector('.dash-card-hdr'); if(!hdr)return;
+      var b=hdr.querySelector('.krono-rt-badge');
+      if(!b){ b=document.createElement('span'); b.className='krono-rt-badge'; hdr.appendChild(b); }
+      if(b.textContent!==txt)b.textContent=txt; b.className='krono-rt-badge '+cls;
+    });
+  }
+};
+
+/* intercepta cada linha do streaming antes do tratamento original ($J -> nudge do GetSession) */
+var _h=FK.handleRMonitorLine;
+FK.handleRMonitorLine=function(line){
+  try{ K.line(String(line).replace(/\r$/,''),Date.now()); }catch(e){console.warn('kronoRT',e);}
+  return _h.apply(FK,arguments);
+};
+/* marca o inicio de cada conexao (para ignorar o retrato inicial) */
+var _open=FK.openLiveSocket;
+if(_open)FK.openLiveSocket=function(){ K.connAt=Date.now(); return _open.apply(FK,arguments); };
+
+setInterval(K.badge,2000);
+var css=document.createElement('style');
+css.textContent='.krono-rt-badge{font-size:9px;margin-left:8px;padding:2px 6px;border-radius:10px;white-space:nowrap}.krono-rt-badge.rt-on{background:rgba(47,191,113,.15);color:#2fbf71}.krono-rt-badge.rt-off{background:rgba(255,176,32,.15);color:#ffb020}';
 document.head.appendChild(css);
 })();
 </script>
