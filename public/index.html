@@ -6143,7 +6143,7 @@ var ICON={
 var TILES=[
   {id:'endurance', cls:'hero hero-end', area:'end', title:'Endurance', sub:'Gestão de prova ao vivo', tab:null, live:true},
   {id:'qualy', cls:'hero hero-qualy', area:'qua', title:'Treino de Qualy', sub:'Academia FKR · rumo às 500 Milhas', soon:true},
-  {id:'sorteio', cls:'big', area:'sor', title:'Sorteio', sub:'Duplas e karts do treino', icon:'dice', soon:true},
+  {id:'sorteio', cls:'big', area:'sor', title:'Sorteio', sub:'Duplas e karts do treino', icon:'dice', module:'sorteio'},
   {id:'piloto', cls:'big', area:'pil', title:'Celular do Piloto', sub:'Rádio, posição e chamadas', icon:'wheel', tab:'mobile'},
   {id:'tv', area:'tv', title:'TV do Box', icon:'tv', tab:'tvpilotos'},
   {id:'fila', area:'fila', title:'Fila de Pilotos', icon:'queue', tab:'filapilotos'},
@@ -6192,7 +6192,7 @@ var H=FK.hub={
         return '<button class="hub-tile '+(t.cls||'small')+(t.soon?' soon':'')+'" style="grid-area:'+t.area+';--d:'+(i*40)+'ms" data-id="'+t.id+'" data-i="'+i+'">'+
           (t.soon?'<span class="hub-badge">EM BREVE</span>':'')+body+'</button>';
       }).join('')+'</div>'+
-      '<div class="hub-bottom"><div class="hub-news">NOVO MÓDULO EM DESENVOLVIMENTO: TREINO DE QUALY</div>'+
+      '<div class="hub-bottom"><div class="hub-news">NOVO: SORTEIO DE DUPLAS E KARTS PARA O TREINO DE QUALY</div>'+
       '<div class="hub-keys"><span><i>↵</i>SELECIONAR</span><span><i>⇦⇨</i>NAVEGAR</span>'+(H.back?'<span><i>ESC</i>VOLTAR</span>':'')+'</div></div>'+
       '<div class="hub-toast" id="hub-toast"></div>';
     el.innerHTML=html;
@@ -6220,6 +6220,7 @@ var H=FK.hub={
   pick:function(id){
     var t=TILES.filter(function(x){return x.id===id;})[0]; if(!t)return;
     if(t.soon){ H.toast(t.title+' — em desenvolvimento. Em breve aqui!'); return; }
+    if(t.module&&FK[t.module]){ H.hideOnly(); FK[t.module].open(); return; }
     H.close(t.tab||H.lastTab||firstAllowed());
   },
   open:function(){
@@ -6227,6 +6228,7 @@ var H=FK.hub={
     H.lastTab=curTab()||H.lastTab; H.back=!!H.lastTab&&H.everClosed;
     H.render(); el.classList.add('on'); H.isOpen=true; document.body.classList.add('hub-open'); setHash('');
   },
+  hideOnly:function(){ var el=document.getElementById('fk-hub'); if(el)el.classList.remove('on'); H.isOpen=false; },
   close:function(tab){
     var el=document.getElementById('fk-hub'); if(el)el.classList.remove('on');
     H.isOpen=false; H.everClosed=true; document.body.classList.remove('hub-open');
@@ -6270,6 +6272,7 @@ function boot(){
   if(m){ H.isOpen=false; H.everClosed=true; var t=m[1]&&document.getElementById('pane-'+m[1])?m[1]:(curTab()||firstAllowed());
     H.want=t; /* o login pode chegar depois: applyAuthUI aplica a tela pedida quando as permissoes carregarem */
     if(allowed(t)){ if(curTab()!==t)FK.tab(t); H.want=null; } setHash('endurance/'+t); }
+  else if(/^#sorteio/.test(location.hash||'')&&FK.sorteio){ H.open(); H.hideOnly(); FK.sorteio.open(/\/tv/.test(location.hash)); }
   else H.open();
 }
 if(document.readyState==='complete')setTimeout(boot,0); else window.addEventListener('load',function(){setTimeout(boot,0);});
@@ -6349,6 +6352,235 @@ css.textContent=[
 '@media(max-width:900px){.hub-grid{flex:none;grid-template-columns:1fr 1fr;grid-template-rows:180px 180px 150px 116px 116px 116px;',
 ' grid-template-areas:"end end" "qua qua" "sor pil" "tv fila" "plt est" "cfg usr"}.hub-tile.hero{min-height:170px}.hub-tile.big{min-height:130px}',
 ' .hub-badge{top:auto;bottom:10px}.hub-keys{display:none}.hub-news{min-width:0;flex:1}.hub-top:after{display:none}.hub-name b{font-size:22px}.hub-season{font-size:26px}.hub-user span{display:none}}'
+].join('\n');
+document.head.appendChild(css);
+})();
+</script>
+<script>
+/* =====================================================================================
+   SORTEIO -- Treino de Qualy (30/09/2026, pedido do Takuma/Rapha)
+   1) Pilotos presentes: cadastro da equipe (toque para marcar) + 10 campos extras
+   2) Karts disponiveis: mapa 01..99 (toque para marcar) ou colar lista
+   3) Bateria 1: sorteia duplas e depois um kart para cada piloto
+      Bateria 2: duplas NOVAS (nenhuma repete a B1) e kart DIFERENTE do que o piloto usou
+   Numero impar de pilotos: a ultima dupla vira trio.
+   Tudo fica em sync/sorteio (Firestore): qualquer aparelho/TV logado ve o mesmo sorteio.
+   Endereco: #sorteio
+   ===================================================================================== */
+(function(){
+if(typeof FK==='undefined')return;
+var LS='fk_sorteio', EXTRA=10;
+function rnd(n){ var a=new Uint32Array(1); (window.crypto||window.msCrypto).getRandomValues(a); return a[0]%n; }
+function shuffle(arr){ var a=arr.slice(); for(var i=a.length-1;i>0;i--){ var j=rnd(i+1), t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function pad(k){ k=parseInt(k,10); return (k<10?'0':'')+k; }
+function key(a,b){ return [a,b].sort().join('|'); }
+function nowTxt(ts){ var d=new Date(ts||Date.now()); return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
+
+var S=FK.sorteio={
+  st:null, isOpen:false, tv:false,
+  blank:function(){ return {sel:{}, extras:Array(EXTRA).fill(''), karts:[], b1:null, b2:null, updatedAt:0}; },
+  load:function(){ try{ S.st=JSON.parse(localStorage.getItem(LS)||'null'); }catch(e){} if(!S.st)S.st=S.blank(); if(!S.st.extras||S.st.extras.length<EXTRA){ S.st.extras=(S.st.extras||[]).concat(Array(EXTRA).fill('')).slice(0,EXTRA);} },
+  save:function(){
+    S.st.updatedAt=Date.now(); S.st.by=(FK.state.authUser&&(FK.state.authUser.displayName||FK.state.authUser.email))||'';
+    try{ localStorage.setItem(LS,JSON.stringify(S.st)); }catch(e){}
+    clearTimeout(S._t); S._t=setTimeout(function(){
+      try{ firebase.firestore().collection('sync').doc('sorteio').set(JSON.parse(JSON.stringify(S.st))).catch(function(e){console.warn('sorteio sync',e);}); }catch(e){}
+    },400);
+  },
+  listen:function(){
+    if(S._unsub)return;
+    try{
+      S._unsub=firebase.firestore().collection('sync').doc('sorteio').onSnapshot(function(snap){
+        if(!snap.exists)return; var d=snap.data();
+        if(d&&(d.updatedAt||0)>(S.st.updatedAt||0)){ S.st=d; if(!S.st.extras)S.st.extras=Array(EXTRA).fill(''); try{localStorage.setItem(LS,JSON.stringify(S.st));}catch(e){} if(S.isOpen){ var ae=document.activeElement; if(ae&&ae.tagName==='INPUT'&&ae.closest('#fk-sorteio'))S.renderCounts(); else S.render(true);} }
+      },function(e){ S._unsub=null; });
+    }catch(e){}
+  },
+  canEdit:function(){ try{ var p=FK.state.authProfile; if(!p)return true; return !!(p.isAdmin||(p.permissions&&p.permissions.config)); }catch(e){ return true; } },
+  cadastro:function(){
+    var seen={}, out=[];
+    (FK.getPilotos?FK.getPilotos():[]).forEach(function(p){ var n=String(p.apelido||p.nome||'').trim(); if(n&&!seen[n.toLowerCase()]){seen[n.toLowerCase()]=1;out.push(n);} });
+    return out.sort(function(a,b){return a.localeCompare(b,'pt-BR');});
+  },
+  present:function(){
+    var out=[], seen={};
+    S.cadastro().forEach(function(n){ if(S.st.sel[n]){ out.push(n); seen[n.toLowerCase()]=1; } });
+    S.st.extras.forEach(function(n){ n=String(n||'').trim(); if(n&&!seen[n.toLowerCase()]){ seen[n.toLowerCase()]=1; out.push(n); } });
+    return out;
+  },
+  /* --- sorteio --- */
+  pairs:function(names,avoid){
+    var best=null,bestRep=1e9;
+    for(var t=0;t<4000;t++){
+      var s=shuffle(names), g=[];
+      for(var i=0;i+1<s.length;i+=2)g.push([s[i],s[i+1]]);
+      if(s.length%2)g[g.length-1].push(s[s.length-1]); /* impar: trio */
+      var rep=0;
+      if(avoid)g.forEach(function(d){ for(var a=0;a<d.length;a++)for(var b=a+1;b<d.length;b++)if(avoid[key(d[a],d[b])])rep++; });
+      if(rep<bestRep){bestRep=rep;best=g;} if(!rep)break;
+    }
+    return {duplas:best,repetidas:bestRep};
+  },
+  karts:function(names,prev){
+    var ks=S.st.karts.slice(), best=null, bestRep=1e9;
+    for(var t=0;t<4000;t++){
+      var s=shuffle(ks), m={}, rep=0;
+      names.forEach(function(n,i){ m[n]=s[i]; if(prev&&prev[n]===s[i])rep++; });
+      if(rep<bestRep){bestRep=rep;best=m;} if(!rep)break;
+    }
+    return {map:best,repetidos:bestRep};
+  },
+  draw:function(b){
+    if(!S.canEdit())return;
+    var names=S.present();
+    if(names.length<2){ S.msg('Marque pelo menos 2 pilotos.'); return; }
+    if(S.st.karts.length<names.length){ S.msg('Faltam karts: '+names.length+' pilotos e '+S.st.karts.length+' karts marcados.'); return; }
+    if(b===2&&!S.st.b1){ S.msg('Sorteie a Bateria 1 primeiro.'); return; }
+    var existing=S.st['b'+b];
+    if(existing&&!confirm('Refazer o sorteio da Bateria '+b+'? O resultado atual será substituído.'))return;
+    var avoid=null, prevK=null;
+    if(b===2){ avoid={}; prevK={}; S.st.b1.duplas.forEach(function(d){ for(var a=0;a<d.length;a++){ prevK[d[a].n]=d[a].k; for(var c=a+1;c<d.length;c++)avoid[key(d[a].n,d[c].n)]=1; } }); }
+    var P=S.pairs(names,avoid), K=S.karts(names,prevK);
+    S.st['b'+b]={at:Date.now(), duplas:P.duplas.map(function(d){ return d.map(function(n){ return {n:n,k:K.map[n]}; }); }), repDuplas:P.repetidas, repKarts:K.repetidos, pilotos:names.length};
+    if(b===1&&S.st.b2&&!confirm('A Bateria 2 foi sorteada com base na Bateria 1 anterior. Apagar a Bateria 2 para sortear de novo?')){} else if(b===1)S.st.b2=null;
+    S.save(); S.anim=b; S.render();
+  },
+  reset:function(){ if(!S.canEdit())return; if(!confirm('Limpar os sorteios das duas baterias? (pilotos e karts marcados continuam)'))return; S.st.b1=null; S.st.b2=null; S.save(); S.render(); },
+  msg:function(t){ var el=document.getElementById('st-toast'); if(!el)return; el.textContent=t; el.classList.add('on'); clearTimeout(S._mt); S._mt=setTimeout(function(){el.classList.remove('on');},3200); },
+  text:function(){
+    var out=['*SORTEIO — TREINO DE QUALY*','_'+nowTxt(S.st.updatedAt)+'_'];
+    [1,2].forEach(function(b){ var r=S.st['b'+b]; if(!r)return; out.push('','*BATERIA '+b+'*');
+      r.duplas.forEach(function(d,i){ out.push('Dupla '+(i+1)+': '+d.map(function(p){return p.n+' (kart '+pad(p.k)+')';}).join(' + ')); }); });
+    return out.join('\n');
+  },
+  copy:function(){
+    var t=S.text();
+    (navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(t):Promise.reject()).then(function(){S.msg('Copiado! É só colar no WhatsApp.');},function(){
+      var ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');S.msg('Copiado! É só colar no WhatsApp.');}catch(e){} ta.remove(); });
+  },
+  /* --- tela --- */
+  open:function(tv){
+    var el=document.getElementById('fk-sorteio'); if(!el)return;
+    S.isOpen=true; S.tv=!!tv; el.classList.add('on'); document.body.classList.add('hub-open'); S.render();
+    try{ history.replaceState(null,'',location.pathname+location.search+'#sorteio'+(tv?'/tv':'')); }catch(e){}
+  },
+  close:function(){ var el=document.getElementById('fk-sorteio'); if(el)el.classList.remove('on'); S.isOpen=false; document.body.classList.remove('hub-open'); if(FK.hub)FK.hub.open(); },
+  toggleP:function(n){ if(!S.canEdit())return; S.st.sel[n]=!S.st.sel[n]; S.save(); S.render(true); },
+  allP:function(v){ if(!S.canEdit())return; S.cadastro().forEach(function(n){S.st.sel[n]=v;}); S.save(); S.render(true); },
+  setExtra:function(i,v){ S.st.extras[i]=v; S.save(); S.renderCounts(); },
+  toggleK:function(k){ if(!S.canEdit())return; var i=S.st.karts.indexOf(k); if(i>=0)S.st.karts.splice(i,1); else S.st.karts.push(k); S.st.karts.sort(function(a,b){return a-b;}); S.save(); S.render(true); },
+  pasteK:function(){
+    var t=prompt('Números dos karts disponíveis (separados por espaço, vírgula ou traço para faixa, ex: 1-12, 15, 20):',S.st.karts.join(', ')); if(t==null)return;
+    var ks={}; t.split(/[,;\s]+/).forEach(function(p){ var m=/^(\d+)-(\d+)$/.exec(p); if(m){ for(var i=+m[1];i<=+m[2];i++)if(i>=1&&i<=99)ks[i]=1; } else { var n=parseInt(p,10); if(n>=1&&n<=99)ks[n]=1; } });
+    S.st.karts=Object.keys(ks).map(Number).sort(function(a,b){return a-b;}); S.save(); S.render(true);
+  },
+  clearK:function(){ if(!S.canEdit())return; S.st.karts=[]; S.save(); S.render(true); },
+  renderCounts:function(){
+    var n=S.present().length, k=S.st.karts.length, el=document.getElementById('st-counts'); if(!el)return;
+    var ok=n>=2&&k>=n;
+    el.innerHTML='<span><b>'+n+'</b> pilotos</span><span><b>'+Math.floor(n/2)+'</b> duplas'+(n%2?' (1 trio)':'')+'</span><span class="'+(k>=n?'ok':'bad')+'"><b>'+k+'</b> karts'+(k<n?' — faltam '+(n-k):'')+'</span>';
+    document.querySelectorAll('.st-draw').forEach(function(b){ b.disabled=!ok; });
+  },
+  resultHTML:function(b){
+    var r=S.st['b'+b];
+    if(!r)return '<div class="st-empty">Bateria '+b+' ainda não sorteada</div>';
+    var warn='';
+    if(r.repDuplas)warn+='<div class="st-warn">⚠ '+r.repDuplas+' dupla(s) repetida(s) da Bateria 1 (não havia combinação sem repetir)</div>';
+    if(r.repKarts)warn+='<div class="st-warn">⚠ '+r.repKarts+' piloto(s) repetiram kart (poucos karts disponíveis)</div>';
+    return warn+'<div class="st-duplas">'+r.duplas.map(function(d,i){
+      return '<div class="st-dupla'+(S.anim===b?' anim':'')+'" style="--d:'+(i*110)+'ms"><div class="st-dn">'+(i+1)+'</div><div class="st-ps">'+d.map(function(p){
+        return '<div class="st-p"><span class="st-pn">'+esc(p.n)+'</span><span class="st-k">'+pad(p.k)+'</span></div>'; }).join('')+'</div></div>';
+    }).join('')+'</div><div class="st-at">sorteado '+nowTxt(r.at)+'</div>';
+  },
+  render:function(keepScroll){
+    var el=document.getElementById('fk-sorteio'); if(!el)return;
+    var body=el.querySelector('.st-body'), sc=body?body.scrollTop:0;
+    var ed=S.canEdit(), cad=S.cadastro();
+    var head='<div class="st-top"><button class="st-back" onclick="FK.sorteio.close()">‹ MENU</button><div class="st-title"><b>SORTEIO</b><span>TREINO DE QUALY · DUPLAS E KARTS</span></div>'+
+      '<div class="st-actions"><button onclick="FK.sorteio.copy()">Copiar p/ WhatsApp</button><button onclick="FK.sorteio.open('+(!S.tv)+')">'+(S.tv?'Sair do modo TV':'Modo TV')+'</button></div></div>';
+    var html;
+    if(S.tv){
+      html=head+'<div class="st-body tv"><div class="st-col"><h3>BATERIA 1</h3>'+S.resultHTML(1)+'</div><div class="st-col"><h3>BATERIA 2</h3>'+S.resultHTML(2)+'</div></div>';
+    }else{
+      html=head+'<div class="st-body">'+
+        '<section class="st-sec"><h3><i>1</i>PILOTOS PRESENTES'+(ed?'<span class="st-mini"><button onclick="FK.sorteio.allP(true)">todos</button><button onclick="FK.sorteio.allP(false)">nenhum</button></span>':'')+'</h3>'+
+          (cad.length?'<div class="st-chips">'+cad.map(function(n){ return '<button class="st-chip'+(S.st.sel[n]?' on':'')+'" '+(ed?'':'disabled')+' onclick="FK.sorteio.toggleP(this.dataset.n)" data-n="'+esc(n)+'">'+esc(n)+'</button>'; }).join('')+'</div>':'<div class="st-empty">Nenhum piloto no cadastro da equipe — use os campos abaixo.</div>')+
+          '<div class="st-extras-t">Pilotos extras (convidados / fora do cadastro)</div><div class="st-extras">'+S.st.extras.map(function(v,i){ return '<input type="text" placeholder="Nome '+(i+1)+'" value="'+esc(v)+'" '+(ed?'':'disabled')+' oninput="FK.sorteio.setExtra('+i+',this.value)">'; }).join('')+'</div>'+
+        '</section>'+
+        '<section class="st-sec"><h3><i>2</i>KARTS DISPONÍVEIS'+(ed?'<span class="st-mini"><button onclick="FK.sorteio.pasteK()">digitar lista</button><button onclick="FK.sorteio.clearK()">limpar</button></span>':'')+'</h3>'+
+          '<div class="st-kgrid">'+Array.apply(null,Array(99)).map(function(_,i){ var k=i+1, on=S.st.karts.indexOf(k)>=0; return '<button class="st-kb'+(on?' on':'')+'" '+(ed?'':'disabled')+' onclick="FK.sorteio.toggleK('+k+')">'+pad(k)+'</button>'; }).join('')+'</div>'+
+        '</section>'+
+        '<section class="st-sec st-res"><h3><i>3</i>SORTEIO</h3><div class="st-counts" id="st-counts"></div>'+
+          (ed?'<div class="st-btns"><button class="st-draw b1" onclick="FK.sorteio.draw(1)">🎲 '+(S.st.b1?'Refazer':'Sortear')+' Bateria 1</button><button class="st-draw b2" onclick="FK.sorteio.draw(2)">🎲 '+(S.st.b2?'Refazer':'Sortear')+' Bateria 2</button>'+((S.st.b1||S.st.b2)?'<button class="st-clear" onclick="FK.sorteio.reset()">limpar sorteios</button>':'')+'</div>':'<div class="st-empty">Só quem configura a prova pode sortear. Você está vendo o resultado ao vivo.</div>')+
+          '<div class="st-bats"><div class="st-col"><h4>BATERIA 1</h4>'+S.resultHTML(1)+'</div><div class="st-col"><h4>BATERIA 2 <small>duplas novas · kart diferente</small></h4>'+S.resultHTML(2)+'</div></div>'+
+        '</section></div>';
+    }
+    el.innerHTML=html+'<div class="hub-toast" id="st-toast"></div>';
+    S.renderCounts();
+    if(keepScroll){ var nb=el.querySelector('.st-body'); if(nb)nb.scrollTop=sc; }
+    else if(S.anim){ var sec=el.querySelector('.st-res'); if(sec)sec.scrollIntoView({behavior:'smooth',block:'start'}); }
+    S.anim=null;
+  }
+};
+
+S.load();
+var box=document.createElement('div'); box.id='fk-sorteio'; document.body.appendChild(box);
+/* sincroniza quando o login/aprovacao chegar */
+var _aui=FK.applyAuthUI;
+if(_aui)FK.applyAuthUI=function(){ var r=_aui.apply(FK,arguments); try{ if(FK.state.authProfile&&FK.state.authProfile.approved)S.listen(); if(S.isOpen)S.render(true); }catch(e){} return r; };
+document.addEventListener('keydown',function(e){ if(S.isOpen&&e.key==='Escape'&&!/INPUT|TEXTAREA/.test((e.target&&e.target.tagName)||''))S.close(); });
+
+var css=document.createElement('style');
+css.textContent=[
+'#fk-sorteio{position:fixed;inset:0;z-index:9002;display:none;flex-direction:column;color:#fff;background:radial-gradient(900px 500px at 90% -10%,rgba(21,101,192,.28),transparent 60%),linear-gradient(180deg,#0b0f18,#121826 60%,#0a0d14)}',
+'#fk-sorteio.on{display:flex}',
+'.st-top{display:flex;align-items:center;gap:16px;padding:14px 3vw;border-bottom:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.35);flex-wrap:wrap}',
+'.st-back{background:#fff;color:#000;border:0;font-weight:900;letter-spacing:1px;padding:8px 14px;border-radius:2px;cursor:pointer}',
+'.st-title{display:flex;flex-direction:column;line-height:1.05;flex:1;min-width:180px}',
+'.st-title b{font-size:24px;font-style:italic;letter-spacing:3px}',
+'.st-title span{font-size:10px;letter-spacing:2.5px;color:#9aa4b8}',
+'.st-actions{display:flex;gap:8px;flex-wrap:wrap}',
+'.st-actions button,.st-mini button,.st-clear{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.3);padding:7px 12px;border-radius:2px;font-weight:700;font-size:12px;cursor:pointer}',
+'.st-body{flex:1;overflow:auto;padding:16px 3vw 60px;display:grid;grid-template-columns:1fr 1fr;gap:16px;align-content:start}',
+'.st-sec{background:rgba(5,6,8,.75);box-shadow:0 0 0 1px rgba(255,255,255,.07);padding:14px 16px;border-radius:2px}',
+'.st-res{grid-column:1/-1}',
+'.st-sec h3{margin:0 0 10px;font-size:14px;letter-spacing:1.5px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}',
+'.st-sec h3{color:#fff!important}.st-sec h3 i{font-style:normal;color:#fff;background:#d7263d;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:13px}',
+'.st-mini{margin-left:auto;display:flex;gap:6px}.st-mini button{padding:4px 10px;font-size:11px}',
+'.st-chips{display:flex;flex-wrap:wrap;gap:6px}',
+'.st-chip{background:#1a2030;color:#c9d1e0;border:1px solid rgba(255,255,255,.1);padding:8px 12px;border-radius:2px;font-weight:700;font-size:13px;cursor:pointer}',
+'.st-chip.on{background:#2fbf71;color:#04160c;border-color:#2fbf71}',
+'.st-extras-t{font-size:11px;color:#9aa4b8;margin:12px 0 6px;letter-spacing:1px}',
+'.st-extras{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}',
+'.st-extras input{background:#0f1420;border:1px solid rgba(255,255,255,.15);color:#fff;padding:8px 10px;border-radius:2px;font-size:13px}',
+'.st-kgrid{display:grid;grid-template-columns:repeat(10,1fr);gap:4px}',
+'.st-kb{background:#1a2030;color:#7f8aa0;border:1px solid rgba(255,255,255,.08);padding:7px 0;font-weight:800;font-size:13px;border-radius:2px;cursor:pointer;font-variant-numeric:tabular-nums}',
+'.st-kb.on{background:#fff;color:#000}',
+'.st-counts{display:flex;gap:18px;font-size:13px;color:#c9d1e0;margin-bottom:10px;flex-wrap:wrap}.st-counts b{font-size:18px;color:#fff;margin-right:3px}.st-counts .bad,.st-counts .bad b{color:#ff6b6b}',
+'.st-btns{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}',
+'.st-draw{border:0;color:#fff;font-weight:900;letter-spacing:1px;padding:12px 18px;font-size:14px;border-radius:2px;cursor:pointer}',
+'.st-draw.b1{background:#d7263d}.st-draw.b2{background:#1565c0}.st-draw:disabled{opacity:.35;cursor:not-allowed}',
+'.st-bats{display:grid;grid-template-columns:1fr 1fr;gap:16px}',
+'.st-col h3,.st-col h4{margin:0 0 8px;letter-spacing:2px;font-size:14px}.st-col h4 small{font-size:10px;color:#9aa4b8;letter-spacing:1px;margin-left:6px}',
+'.st-duplas{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:6px}',
+'.st-dupla{display:flex;background:#0f1420;box-shadow:0 0 0 1px rgba(255,255,255,.08)}',
+'.st-dupla.anim{opacity:0;animation:stIn .5s ease forwards;animation-delay:var(--d)}',
+'@keyframes stIn{from{opacity:0;transform:translateX(-14px) scale(.97);background:#d7263d}to{opacity:1;transform:none;background:#0f1420}}',
+'.st-dn{width:34px;display:flex;align-items:center;justify-content:center;background:#d7263d;font-weight:900;font-size:16px;flex-shrink:0}',
+'.st-col:nth-child(2) .st-dn{background:#1565c0}',
+'.st-ps{flex:1;min-width:0}',
+'.st-p{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px}.st-p+.st-p{border-top:1px solid rgba(255,255,255,.07)}',
+'.st-pn{font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+'.st-k{background:#fff;color:#000;font-weight:900;font-size:15px;padding:2px 8px;border-radius:2px;font-variant-numeric:tabular-nums;flex-shrink:0}',
+'.st-at{font-size:10px;color:#7f8aa0;margin-top:6px}',
+'.st-empty{color:#7f8aa0;font-size:13px;padding:10px 0}',
+'.st-warn{background:rgba(255,167,38,.15);color:#ffb74d;font-size:12px;padding:6px 10px;margin-bottom:6px}',
+'.st-body.tv{grid-template-columns:1fr 1fr;gap:24px}.st-body.tv .st-col h3{font-size:22px;color:#fff}.st-body.tv .st-duplas{grid-template-columns:1fr 1fr}',
+'.st-body.tv .st-pn{font-size:clamp(14px,1.35vw,22px)}.st-body.tv .st-k{font-size:clamp(14px,1.35vw,22px)}.st-body.tv .st-dn{width:40px;font-size:20px}',
+'#fk-sorteio .hub-toast{position:fixed;left:50%;bottom:30px;transform:translate(-50%,20px);background:#fff;color:#000;font-weight:800;font-size:13px;padding:10px 16px;border-radius:3px;opacity:0;transition:all .25s;pointer-events:none}',
+'#fk-sorteio .hub-toast.on{opacity:1;transform:translate(-50%,0)}',
+'@media(max-width:900px){.st-body,.st-bats,.st-body.tv{grid-template-columns:1fr}.st-body.tv .st-duplas{grid-template-columns:1fr}.st-kgrid{grid-template-columns:repeat(8,1fr)}.st-title b{font-size:20px}}'
 ].join('\n');
 document.head.appendChild(css);
 })();
