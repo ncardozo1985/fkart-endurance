@@ -6142,7 +6142,7 @@ var ICON={
 };
 var TILES=[
   {id:'endurance', cls:'hero hero-end', area:'end', title:'Endurance', sub:'Gestão de prova ao vivo', tab:null, live:true},
-  {id:'qualy', cls:'hero hero-qualy', area:'qua', title:'Treino de Qualy', sub:'Academia FKR · rumo às 500 Milhas', soon:true},
+  {id:'qualy', cls:'hero hero-qualy', area:'qua', title:'Treino de Qualy', sub:'Academia FKR · rumo às 500 Milhas', module:'qualy'},
   {id:'sorteio', cls:'big', area:'sor', title:'Sorteio', sub:'Duplas e karts do treino', icon:'dice', module:'sorteio'},
   {id:'piloto', cls:'big', area:'pil', title:'Celular do Piloto', sub:'Rádio, posição e chamadas', icon:'wheel', tab:'mobile'},
   {id:'tv', area:'tv', title:'TV do Box', icon:'tv', tab:'tvpilotos'},
@@ -6163,7 +6163,9 @@ var H=FK.hub={
   info:function(){
     var c=FK.cfg||{}, s=FK.state||{};
     var karts=(c.myKarts||[]).length;
-    var live=!!(s.liveSocket&&s.liveSocket.readyState===1)||(c.source==='live'&&(s.elapsed||0)>0);
+    /* ao vivo so com dado chegando de verdade: streaming aberto ou passagem recebida nos ultimos 3 min */
+    var rx=(FK.kronoRT&&FK.kronoRT.lastRx)||0;
+    var live=!!(s.liveSocket&&s.liveSocket.readyState===1)||(Date.now()-rx<180000);
     return {race:c.raceName||'—', karts:karts, live:live, elapsed:s.elapsed||0};
   },
   fmt:function(sec){sec=Math.max(0,Math.floor(sec||0));var h=Math.floor(sec/3600),m=Math.floor(sec%3600/60);return h+'h'+String(m).padStart(2,'0');},
@@ -6185,14 +6187,14 @@ var H=FK.hub={
         }else if(t.id==='qualy'){
           body='<div class="hub-art art-qua"><div class="art-word">QUALY</div><div class="art-lines"></div></div>'+
             '<div class="hub-t">'+t.title+'</div><div class="hub-s">'+t.sub+'</div>'+
-            '<div class="hub-foot"><div><small>FORMATO</small><b>Duplas · 2×10 min</b></div><div><small>PONTUAÇÃO</small><b>22 → 1 + extras</b></div></div>';
+            (function(){ var R=FK.qualy?FK.qualy.ranking():[], L=R[0]; return '<div class="hub-foot"><div><small>EVENTOS</small><b>'+(FK.qualy?(FK.qualy.st.events||[]).length:0)+'</b></div><div><small>LÍDER</small><b>'+(L?esc(L.nome)+' · '+L.pts+' pts':'—')+'</b></div></div>'; })();
         }else{
           body='<div class="hub-t">'+t.title+'</div>'+(t.sub?'<div class="hub-s">'+t.sub+'</div>':'')+'<div class="hub-ic">'+ICON[t.icon]+'</div>';
         }
         return '<button class="hub-tile '+(t.cls||'small')+(t.soon?' soon':'')+'" style="grid-area:'+t.area+';--d:'+(i*40)+'ms" data-id="'+t.id+'" data-i="'+i+'">'+
           (t.soon?'<span class="hub-badge">EM BREVE</span>':'')+body+'</button>';
       }).join('')+'</div>'+
-      '<div class="hub-bottom"><div class="hub-news">NOVO: SORTEIO DE DUPLAS E KARTS PARA O TREINO DE QUALY</div>'+
+      '<div class="hub-bottom"><div class="hub-news">NOVO: TREINO DE QUALY E SORTEIO DE DUPLAS — RUMO ÀS 500 MILHAS</div>'+
       '<div class="hub-keys"><span><i>↵</i>SELECIONAR</span><span><i>⇦⇨</i>NAVEGAR</span>'+(H.back?'<span><i>ESC</i>VOLTAR</span>':'')+'</div></div>'+
       '<div class="hub-toast" id="hub-toast"></div>';
     el.innerHTML=html;
@@ -6272,6 +6274,7 @@ function boot(){
   if(m){ H.isOpen=false; H.everClosed=true; var t=m[1]&&document.getElementById('pane-'+m[1])?m[1]:(curTab()||firstAllowed());
     H.want=t; /* o login pode chegar depois: applyAuthUI aplica a tela pedida quando as permissoes carregarem */
     if(allowed(t)){ if(curTab()!==t)FK.tab(t); H.want=null; } setHash('endurance/'+t); }
+  else if(/^#qualy/.test(location.hash||'')&&FK.qualy){ H.open(); H.hideOnly(); var qm=/^#qualy\/([\w]+)/.exec(location.hash); FK.qualy.isOpen=false; if(qm&&FK.qualy.ev(qm[1])){FK.qualy.view='ev';FK.qualy.evId=qm[1];} FK.qualy.open(); }
   else if(/^#sorteio/.test(location.hash||'')&&FK.sorteio){ H.open(); H.hideOnly(); FK.sorteio.open(/\/tv/.test(location.hash)); }
   else H.open();
 }
@@ -6581,6 +6584,359 @@ css.textContent=[
 '#fk-sorteio .hub-toast{position:fixed;left:50%;bottom:30px;transform:translate(-50%,20px);background:#fff;color:#000;font-weight:800;font-size:13px;padding:10px 16px;border-radius:3px;opacity:0;transition:all .25s;pointer-events:none}',
 '#fk-sorteio .hub-toast.on{opacity:1;transform:translate(-50%,0)}',
 '@media(max-width:900px){.st-body,.st-bats,.st-body.tv{grid-template-columns:1fr}.st-body.tv .st-duplas{grid-template-columns:1fr}.st-kgrid{grid-template-columns:repeat(8,1fr)}.st-title b{font-size:20px}}'
+].join('\n');
+document.head.appendChild(css);
+})();
+</script>
+<script>
+/* =====================================================================================
+   TREINO DE QUALY -- Academia FKR rumo as 500 Milhas (30/09/2026, regras do Takuma)
+   Eventos: 4 treinos em duplas (2 baterias de 10 min) + 2 eventos FKart (classificacao
+   individual de 10 min). Cada bateria pontua: 1o = N pontos ... ultimo = 1 (N = pilotos).
+   Extras (configuraveis): +1 mais rapido de cada dupla, +1 para os dois da dupla com
+   melhor media. Media = voltas validas tirando a melhor e a pior.
+   "Volta roubada" = volta de saida dos boxes (1a volta registrada, sai do tracado): nao
+   entra na melhor volta nem na media; vira um destaque proprio.
+   Tempos: importados do Race Monitor (sessao) ou colados manualmente. Kart -> piloto vem
+   do Sorteio (treino em duplas) ou de um mapa digitado (evento individual).
+   Dados em sync/qualy (Firestore). Endereco: #qualy
+   ===================================================================================== */
+(function(){
+if(typeof FK==='undefined')return;
+var LS='fk_qualy';
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function pad(k){ k=parseInt(k,10); return isNaN(k)?'—':(k<10?'0':'')+k; }
+function fmt(ms){ if(ms==null||!isFinite(ms))return '—'; var s=ms/1000, m=Math.floor(s/60), r=s-m*60; return (m?m+':'+(r<10?'0':''):'')+r.toFixed(3); }
+function gap(ms){ return ms==null?'—':'+'+(ms/1000).toFixed(3); }
+function parseT(t){ t=String(t).trim().replace(',','.'); if(!t)return null; var p=t.split(':').map(Number); if(p.some(isNaN))return null; var v=0; p.forEach(function(x){v=v*60+x;}); return v>0?Math.round(v*1000):null; }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function today(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function dtxt(s){ if(!s)return ''; var p=s.split('-'); return p.length===3?p[2]+'/'+p[1]:s; }
+
+var Q=FK.qualy={
+  st:null, view:'home', evId:null, isOpen:false,
+  DEF:{roubada:true, slowPct:150, xDupla:1, xMedia:1, xBateria:0, xRoubada:0, vagas:3, raceId:'26021'},
+  load:function(){ try{ Q.st=JSON.parse(localStorage.getItem(LS)||'null'); }catch(e){} if(!Q.st)Q.st={events:[],cfg:{},updatedAt:0}; Q.st.cfg=Object.assign({},Q.DEF,Q.st.cfg||{}); },
+  save:function(){
+    Q.st.updatedAt=Date.now();
+    try{ localStorage.setItem(LS,JSON.stringify(Q.st)); }catch(e){}
+    clearTimeout(Q._t); Q._t=setTimeout(function(){ try{ firebase.firestore().collection('sync').doc('qualy').set(JSON.parse(JSON.stringify(Q.st))).catch(function(e){console.warn('qualy sync',e);}); }catch(e){} },500);
+  },
+  listen:function(){
+    if(Q._unsub)return;
+    try{ Q._unsub=firebase.firestore().collection('sync').doc('qualy').onSnapshot(function(snap){
+      if(!snap.exists)return; var d=snap.data();
+      if(d&&(d.updatedAt||0)>(Q.st.updatedAt||0)){ Q.st=d; Q.st.cfg=Object.assign({},Q.DEF,d.cfg||{}); try{localStorage.setItem(LS,JSON.stringify(Q.st));}catch(e){}
+        if(Q.isOpen){ var ae=document.activeElement; if(!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)&&ae.closest('#fk-qualy')))Q.render(true); } }
+    },function(){ Q._unsub=null; }); }catch(e){}
+  },
+  canEdit:function(){ try{ var p=FK.state.authProfile; if(!p)return true; return !!(p.isAdmin||(p.permissions&&p.permissions.config)); }catch(e){ return true; } },
+  ev:function(id){ return (Q.st.events||[]).filter(function(e){return e.id===(id||Q.evId);})[0]; },
+
+  /* ---------- calculo ---------- */
+  /* mapa kart -> piloto de uma bateria */
+  kartMap:function(b){
+    var m={};
+    (b.duplas||[]).forEach(function(d){ d.forEach(function(p){ m[parseInt(p.k,10)]=p.n; }); });
+    String(b.mapTxt||'').split(/\n/).forEach(function(l){ var x=/^\s*(\d+)\s*[=:\-–]\s*(.+?)\s*$/.exec(l); if(x)m[parseInt(x[1],10)]=x[2]; });
+    return m;
+  },
+  duplaOf:function(b){ var o={}; (b.duplas||[]).forEach(function(d,i){ d.forEach(function(p){ o[p.n]=i; }); }); return o; },
+  stats:function(laps){
+    var c=Q.st.cfg, L=(laps||[]).filter(function(x){return x>0;});
+    var roub=null;
+    if(c.roubada&&L.length){ roub=L[0]; L=L.slice(1); }
+    if(!L.length)return {roub:roub,best:null,avg:null,n:0,valid:[]};
+    var best=Math.min.apply(null,L), lim=best*(c.slowPct||150)/100;
+    var valid=L.filter(function(x){return x<=lim;});
+    var avg=null;
+    if(valid.length>=3){ var s=valid.slice().sort(function(a,b){return a-b;}).slice(1,-1); avg=s.reduce(function(a,b){return a+b;},0)/s.length; }
+    else if(valid.length)avg=valid.reduce(function(a,b){return a+b;},0)/valid.length;
+    return {roub:roub,best:best,avg:avg,n:L.length,valid:valid};
+  },
+  /* resultado de uma bateria */
+  calc:function(ev,b){
+    var c=Q.st.cfg, km=Q.kartMap(b), dOf=Q.duplaOf(b);
+    var pilots={};
+    Object.keys(km).forEach(function(k){ pilots[km[k]]={nome:km[k],kart:+k,laps:(b.laps||{})[k]||[]}; });
+    Object.keys(b.laps||{}).forEach(function(k){ if(!km[k])pilots['#'+k]={nome:'Kart '+pad(k)+' (sem piloto)',kart:+k,laps:b.laps[k],orphan:true}; });
+    var rows=Object.keys(pilots).map(function(n){ var p=pilots[n], s=Q.stats(p.laps); return Object.assign(p,s,{dupla:dOf[p.nome]}); }).filter(function(r){return !r.orphan||r.n;});
+    var ranked=rows.filter(function(r){return r.best!=null&&!r.orphan;}).sort(function(a,b){ return (a.best-b.best)||((a.avg||9e9)-(b.avg||9e9)); });
+    var N=rows.filter(function(r){return !r.orphan;}).length;
+    ranked.forEach(function(r,i){ r.pos=i+1; r.pts=N-i; r.extras=[]; });
+    rows.forEach(function(r){ if(r.pos==null){ r.pts=0; r.extras=[]; } });
+    var lead=ranked[0];
+    ranked.forEach(function(r){ r.gapLead=lead?r.best-lead.best:null; });
+    /* duplas */
+    var duplas=(b.duplas||[]).map(function(d,i){
+      var mem=d.map(function(p){ return rows.filter(function(r){return r.nome===p.n;})[0]; }).filter(Boolean);
+      var bests=mem.filter(function(m){return m.best!=null;});
+      var all=[]; mem.forEach(function(m){ all=all.concat(m.valid||[]); });
+      var avg=null; if(all.length>=3){ var s=all.slice().sort(function(a,b){return a-b;}).slice(1,-1); avg=s.reduce(function(a,b){return a+b;},0)/s.length; }
+      var fast=bests.slice().sort(function(a,b){return a.best-b.best;})[0];
+      var diff=bests.length>=2?Math.max.apply(null,bests.map(function(m){return m.best;}))-Math.min.apply(null,bests.map(function(m){return m.best;})):null;
+      var meanBest=bests.length?bests.reduce(function(a,m){return a+m.best;},0)/bests.length:null;
+      return {i:i,mem:mem,avg:avg,fast:fast,diff:diff,meanBest:meanBest,bestLap:fast?fast.best:null};
+    });
+    /* extras */
+    if(c.xDupla)duplas.forEach(function(d){ if(d.fast&&d.fast.pos){ d.fast.pts+=+c.xDupla; d.fast.extras.push('+'+c.xDupla+' mais rápido da dupla'); } });
+    var bestAvg=duplas.filter(function(d){return d.avg!=null;}).sort(function(a,b){return a.avg-b.avg;})[0];
+    if(c.xMedia&&bestAvg)bestAvg.mem.forEach(function(m){ if(m.pos){ m.pts+=+c.xMedia; m.extras.push('+'+c.xMedia+' melhor média de dupla'); } });
+    if(c.xBateria&&lead){ lead.pts+=+c.xBateria; lead.extras.push('+'+c.xBateria+' mais rápido da bateria'); }
+    var roubs=rows.filter(function(r){return r.roub!=null&&!r.orphan;}).sort(function(a,b){return a.roub-b.roub;});
+    if(c.xRoubada&&roubs[0]){ roubs[0].pts+=+c.xRoubada; roubs[0].extras.push('+'+c.xRoubada+' melhor volta roubada'); }
+    rows.sort(function(a,b){ return ((a.pos||999)-(b.pos||999))||String(a.nome).localeCompare(b.nome); });
+    var dd=duplas.filter(function(d){return d.diff!=null;});
+    return {rows:rows,duplas:duplas,N:N,lead:lead,
+      top:{
+        rapido:lead,
+        media:rows.filter(function(r){return r.avg!=null&&!r.orphan;}).sort(function(a,b){return a.avg-b.avg;})[0],
+        roubada:roubs[0],
+        duplaRapida:duplas.filter(function(d){return d.meanBest!=null&&d.mem.length>=2;}).sort(function(a,b){return a.meanBest-b.meanBest;})[0],
+        duplaMedia:bestAvg,
+        duplaParelha:dd.sort(function(a,b){return a.diff-b.diff;})[0]
+      }};
+  },
+  ranking:function(){
+    var tot={};
+    (Q.st.events||[]).forEach(function(ev){ (ev.baterias||[]).forEach(function(b,bi){
+      if(!b.laps||!Object.keys(b.laps).length)return;
+      Q.calc(ev,b).rows.forEach(function(r){ if(r.orphan)return;
+        var t=tot[r.nome]||(tot[r.nome]={nome:r.nome,pts:0,bats:0,best:null,wins:0,ext:0,det:[]});
+        t.pts+=r.pts; t.bats++; if(r.pos===1)t.wins++; t.ext+=r.extras.length;
+        if(r.best!=null&&(t.best==null||r.best<t.best))t.best=r.best;
+        t.det.push({ev:ev.nome,b:b.nome,pos:r.pos,pts:r.pts});
+      });
+    }); });
+    return Object.keys(tot).map(function(k){return tot[k];}).sort(function(a,b){ return (b.pts-a.pts)||(b.wins-a.wins)||((a.best||9e9)-(b.best||9e9)); });
+  },
+
+  /* ---------- acoes ---------- */
+  newEvent:function(tipo){
+    if(!Q.canEdit())return;
+    var n=(Q.st.events||[]).filter(function(e){return e.tipo===tipo;}).length+1;
+    var ev={id:uid(), tipo:tipo, data:today(), nome:tipo==='duplas'?'Treino de Qualy '+n:'FKart — Classificação '+n, baterias:[]};
+    if(tipo==='duplas'){
+      var s=FK.sorteio&&FK.sorteio.st;
+      [1,2].forEach(function(i){ var r=s&&s['b'+i]; ev.baterias.push({nome:'Bateria '+i, duplas:r?JSON.parse(JSON.stringify(r.duplas)):[], laps:{}, mapTxt:''}); });
+      if(!(s&&s.b1))alert('Ainda não há sorteio. O evento foi criado; depois de sortear, use "Puxar duplas do Sorteio" em cada bateria.');
+    }else ev.baterias.push({nome:'Classificação', duplas:[], laps:{}, mapTxt:''});
+    Q.st.events.push(ev); Q.save(); Q.go('ev',ev.id);
+  },
+  delEvent:function(){ var ev=Q.ev(); if(!ev||!Q.canEdit())return; if(!confirm('Apagar o evento "'+ev.nome+'" e todos os tempos dele?'))return; Q.st.events=Q.st.events.filter(function(e){return e.id!==ev.id;}); Q.save(); Q.go('home'); },
+  setEv:function(f,v){ var ev=Q.ev(); if(!ev)return; ev[f]=v; Q.save(); },
+  setB:function(bi,f,v){ var ev=Q.ev(); if(!ev)return; ev.baterias[bi][f]=v; Q.save(); },
+  pullSorteio:function(bi){
+    var ev=Q.ev(), s=FK.sorteio&&FK.sorteio.st, r=s&&s['b'+(bi+1)];
+    if(!r){ alert('O Sorteio não tem a Bateria '+(bi+1)+'.'); return; }
+    if(ev.baterias[bi].duplas.length&&!confirm('Substituir as duplas desta bateria pelas do Sorteio atual?'))return;
+    ev.baterias[bi].duplas=JSON.parse(JSON.stringify(r.duplas)); Q.save(); Q.render(true);
+  },
+  setCfg:function(f,v){ Q.st.cfg[f]=v; Q.save(); Q.render(true); },
+  /* colar tempos: "12: 1:02.345 1:01.9 ..." ou "12<TAB>1:02.345<TAB>..." */
+  pasteLaps:function(bi){
+    var ta=document.getElementById('q-paste-'+bi); if(!ta)return;
+    var laps={}, bad=0;
+    ta.value.split(/\n/).forEach(function(l){
+      var m=/^\s*#?(\d{1,3})\s*[:;=\-–\t ]\s*(.+)$/.exec(l); if(!m){ if(l.trim())bad++; return; }
+      var ts=m[2].split(/[\s;|\t]+/).map(parseT).filter(function(x){return x;});
+      if(ts.length)laps[parseInt(m[1],10)]=ts; else bad++;
+    });
+    if(!Object.keys(laps).length){ alert('Não achei tempos. Formato: uma linha por kart, ex.:\n12: 1:02.345 1:01.980 1:01.870'); return; }
+    var ev=Q.ev(); ev.baterias[bi].laps=laps; ev.baterias[bi].src={tipo:'manual',at:Date.now()}; Q.save(); Q.render(true);
+    if(bad)Q.toast(bad+' linha(s) ignoradas por formato');
+  },
+  listSessions:function(bi){
+    var rid=String((document.getElementById('q-rid-'+bi)||{}).value||Q.st.cfg.raceId).replace(/\D/g,'');
+    if(!rid){ alert('Informe o número da corrida no Race Monitor (raceId).'); return; }
+    Q.st.cfg.raceId=rid; Q.save();
+    var box=document.getElementById('q-sess-'+bi); if(box)box.innerHTML='<span class="q-mut">buscando sessões…</span>';
+    fetch('/api/live?import=1&list=1&raceId='+rid+'&t='+Date.now()).then(function(r){return r.json();}).then(function(j){
+      var ss=(j.sessions||[]).slice().sort(function(a,b){return (b.startEpoch||0)-(a.startEpoch||0);}).slice(0,40);
+      if(!ss.length){ box.innerHTML='<span class="q-bad">Nenhuma sessão encontrada'+(j.Message?': '+esc(j.Message):'')+'</span>'; return; }
+      box.innerHTML='<select id="q-ssel-'+bi+'">'+ss.map(function(s){ return '<option value="'+s.id+'">'+esc((s.date||'')+' '+(s.time||'')+' — '+(s.name||('Sessão '+s.id)))+'</option>'; }).join('')+'</select><button class="q-btn pri" onclick="FK.qualy.importSession('+bi+')">Importar tempos</button>';
+    }).catch(function(e){ box.innerHTML='<span class="q-bad">Erro: '+esc(e.message)+'</span>'; });
+  },
+  importSession:function(bi){
+    var sel=document.getElementById('q-ssel-'+bi); if(!sel)return;
+    var sid=sel.value, sname=sel.options[sel.selectedIndex].text, rid=Q.st.cfg.raceId;
+    var box=document.getElementById('q-sess-'+bi); box.insertAdjacentHTML('beforeend','<span class="q-mut"> importando…</span>');
+    fetch('/api/live?import=1&raceId='+rid+'&sessionId='+sid+'&t='+Date.now()).then(function(r){return r.json();}).then(function(j){
+      var laps={};
+      (j.competitors||[]).forEach(function(c){ var k=parseInt(String(c.n||'').replace(/\D/g,''),10); if(isNaN(k))return;
+        var L=(c.L||[]).slice().sort(function(a,b){return a[0]-b[0];}).map(function(x){return x[1];}).filter(function(x){return x>0;});
+        if(L.length)laps[k]=L; });
+      if(!Object.keys(laps).length){ alert('A sessão não trouxe voltas.'); return; }
+      var ev=Q.ev(); ev.baterias[bi].laps=laps; ev.baterias[bi].src={tipo:'rm',raceId:rid,sessionId:sid,nome:sname,at:Date.now()}; Q.save(); Q.render(true);
+      var km=Q.kartMap(ev.baterias[bi]), miss=Object.keys(laps).filter(function(k){return !km[k];});
+      Q.toast('Importado: '+Object.keys(laps).length+' karts'+(miss.length?' · '+miss.length+' kart(s) sem piloto no mapa':''));
+    }).catch(function(e){ alert('Erro ao importar: '+e.message); });
+  },
+  clearLaps:function(bi){ if(!confirm('Apagar os tempos desta bateria?'))return; var ev=Q.ev(); ev.baterias[bi].laps={}; ev.baterias[bi].src=null; Q.save(); Q.render(true); },
+  copy:function(){
+    var R=Q.ranking(), c=Q.st.cfg, out=['*RANKING — TREINO DE QUALY 500 MILHAS*',''];
+    R.forEach(function(r,i){ out.push((i+1)+'º '+r.nome+' — '+r.pts+' pts'+(i<c.vagas?' ✅':'')); });
+    var t=out.join('\n');
+    (navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(t):Promise.reject()).then(function(){Q.toast('Ranking copiado para o WhatsApp');},function(){ prompt('Copie o texto:',t); });
+  },
+  copyEv:function(){
+    var ev=Q.ev(); if(!ev)return; var out=['*'+ev.nome.toUpperCase()+'* — '+dtxt(ev.data)];
+    ev.baterias.forEach(function(b){ if(!b.laps||!Object.keys(b.laps).length)return; var R=Q.calc(ev,b); out.push('','*'+b.nome.toUpperCase()+'*');
+      R.rows.forEach(function(r){ if(r.orphan)return; out.push((r.pos?r.pos+'º':'—')+' '+r.nome+' (k'+pad(r.kart)+') '+fmt(r.best)+' · '+r.pts+' pts'); }); });
+    var t=out.join('\n');
+    (navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(t):Promise.reject()).then(function(){Q.toast('Resultado copiado');},function(){ prompt('Copie o texto:',t); });
+  },
+  toast:function(t){ var el=document.getElementById('q-toast'); if(!el)return; el.textContent=t; el.classList.add('on'); clearTimeout(Q._tt); Q._tt=setTimeout(function(){el.classList.remove('on');},3200); },
+
+  /* ---------- tela ---------- */
+  open:function(){ var el=document.getElementById('fk-qualy'); if(!el)return; Q.isOpen=true; el.classList.add('on'); document.body.classList.add('hub-open'); Q.go(Q.view||'home',Q.evId); },
+  close:function(){ var el=document.getElementById('fk-qualy'); if(el)el.classList.remove('on'); Q.isOpen=false; document.body.classList.remove('hub-open'); if(FK.hub)FK.hub.open(); },
+  go:function(v,id){ Q.view=v; Q.evId=id||null; try{ history.replaceState(null,'',location.pathname+location.search+'#qualy'+(v==='ev'&&id?'/'+id:'')); }catch(e){} Q.render(); var b=document.querySelector('#fk-qualy .q-body'); if(b)b.scrollTop=0; },
+  render:function(keep){
+    var el=document.getElementById('fk-qualy'); if(!el)return;
+    var body=el.querySelector('.q-body'), sc=body?body.scrollTop:0;
+    var ev=Q.view==='ev'?Q.ev():null; if(Q.view==='ev'&&!ev)Q.view='home';
+    var head='<div class="q-top"><button class="q-back" onclick="'+(ev?'FK.qualy.go(\'home\')':'FK.qualy.close()')+'">‹ '+(ev?'VOLTAR':'MENU')+'</button>'+
+      '<div class="q-title"><b>'+(ev?esc(ev.nome):'TREINO DE QUALY')+'</b><span>'+(ev?(ev.tipo==='duplas'?'TREINO EM DUPLAS · ':'CLASSIFICAÇÃO INDIVIDUAL · ')+dtxt(ev.data):'ACADEMIA FKR · RUMO ÀS 500 MILHAS')+'</span></div>'+
+      '<div class="q-actions">'+(ev?'<button onclick="FK.qualy.copyEv()">Copiar p/ WhatsApp</button>':'<button onclick="FK.qualy.copy()">Copiar ranking</button>')+'</div></div>';
+    el.innerHTML=head+'<div class="q-body">'+(ev?Q.htmlEv(ev):Q.htmlHome())+'</div><div class="hub-toast" id="q-toast"></div>';
+    if(keep){ var nb=el.querySelector('.q-body'); if(nb)nb.scrollTop=sc; }
+  },
+  htmlHome:function(){
+    var ed=Q.canEdit(), c=Q.st.cfg, R=Q.ranking(), evs=(Q.st.events||[]).slice().sort(function(a,b){return String(a.data).localeCompare(String(b.data));});
+    var h='<section class="q-sec q-rank"><h3><i>🏆</i>RANKING GERAL<span class="q-mut">'+evs.length+' evento(s) · as '+c.vagas+' primeiras vagas ficam destacadas</span></h3>';
+    if(!R.length)h+='<div class="q-empty">Sem tempos ainda. Crie um evento abaixo e importe os tempos de cada bateria.</div>';
+    else h+='<div class="q-rk">'+R.map(function(r,i){
+      return '<div class="q-rr'+(i<c.vagas?' in':'')+'"><div class="q-rp">'+(i+1)+'</div><div class="q-rn"><b>'+esc(r.nome)+'</b><small>'+r.bats+' bateria(s) · '+r.wins+' vitória(s) · melhor '+fmt(r.best)+'</small></div><div class="q-rpts">'+r.pts+'<small>pts</small></div></div>';
+    }).join('')+'</div>';
+    h+='</section>';
+    h+='<section class="q-sec"><h3><i>📅</i>EVENTOS'+(ed?'<span class="q-mini"><button onclick="FK.qualy.newEvent(\'duplas\')">+ Treino em duplas</button><button onclick="FK.qualy.newEvent(\'individual\')">+ Evento FKart (individual)</button></span>':'')+'</h3>';
+    h+=evs.length?'<div class="q-evs">'+evs.map(function(ev){
+      var done=ev.baterias.filter(function(b){return b.laps&&Object.keys(b.laps).length;}).length;
+      return '<button class="q-ev" onclick="FK.qualy.go(\'ev\',\''+ev.id+'\')"><span class="q-evd">'+dtxt(ev.data)+'</span><b>'+esc(ev.nome)+'</b><small>'+(ev.tipo==='duplas'?'duplas · ':'individual · ')+done+'/'+ev.baterias.length+' bateria(s) com tempos</small></button>';
+    }).join('')+'</div>':'<div class="q-empty">Nenhum evento ainda.</div>';
+    h+='</section>';
+    h+='<section class="q-sec"><h3><i>⚙</i>REGRAS DE PONTUAÇÃO</h3><div class="q-rules">'+
+      '<div class="q-note">Cada bateria: 1º lugar (melhor volta) = número de pilotos na bateria em pontos, 2º = um a menos… último = 1. Sem tempo = 0.</div>'+
+      Q.rule('xDupla','Extra para o mais rápido de cada dupla',ed)+
+      Q.rule('xMedia','Extra para cada piloto da dupla com melhor média',ed)+
+      Q.rule('xBateria','Extra para o mais rápido da bateria',ed)+
+      Q.rule('xRoubada','Extra para a melhor volta roubada',ed)+
+      '<label class="q-chk"><input type="checkbox" '+(c.roubada?'checked':'')+' '+(ed?'':'disabled')+' onchange="FK.qualy.setCfg(\'roubada\',this.checked)"> 1ª volta registrada = volta roubada (saída dos boxes): fica fora da melhor volta e da média</label>'+
+      '<label class="q-num">Ignorar na média voltas acima de <input type="number" min="105" max="300" step="5" value="'+c.slowPct+'" '+(ed?'':'disabled')+' onchange="FK.qualy.setCfg(\'slowPct\',+this.value)">% da melhor volta do piloto (volta de box)</label>'+
+      '<label class="q-num">Vagas para a classificação das 500 Milhas <input type="number" min="1" max="10" value="'+c.vagas+'" '+(ed?'':'disabled')+' onchange="FK.qualy.setCfg(\'vagas\',+this.value)"></label>'+
+      '<div class="q-note">Média = voltas válidas tirando a melhor e a pior. Média da dupla = todas as voltas válidas dos dois, tirando a melhor e a pior.</div>'+
+    '</div></section>';
+    return h;
+  },
+  rule:function(f,txt,ed){ var v=Q.st.cfg[f]||0; return '<label class="q-num">'+txt+': <input type="number" min="0" max="5" value="'+v+'" '+(ed?'':'disabled')+' onchange="FK.qualy.setCfg(\''+f+'\',+this.value)"> ponto(s)</label>'; },
+  htmlEv:function(ev){
+    var ed=Q.canEdit(), c=Q.st.cfg;
+    var h='<section class="q-sec q-evhead">'+
+      '<label>Nome <input type="text" value="'+esc(ev.nome)+'" '+(ed?'':'disabled')+' onchange="FK.qualy.setEv(\'nome\',this.value);FK.qualy.render(true)"></label>'+
+      '<label>Data <input type="date" value="'+esc(ev.data)+'" '+(ed?'':'disabled')+' onchange="FK.qualy.setEv(\'data\',this.value);FK.qualy.render(true)"></label>'+
+      (ed?'<button class="q-btn danger" onclick="FK.qualy.delEvent()">Apagar evento</button>':'')+'</section>';
+    ev.baterias.forEach(function(b,bi){
+      var has=b.laps&&Object.keys(b.laps).length, km=Q.kartMap(b);
+      h+='<section class="q-sec q-bat"><h3><i>'+(bi+1)+'</i>'+esc(b.nome.toUpperCase())+
+        (b.src?'<span class="q-mut">'+(b.src.tipo==='rm'?'Race Monitor · '+esc(b.src.nome||''):'tempos colados')+'</span>':'')+'</h3>';
+      if(ed){
+        h+='<div class="q-tools">';
+        if(ev.tipo==='duplas')h+='<button class="q-btn" onclick="FK.qualy.pullSorteio('+bi+')">Puxar duplas do Sorteio</button>';
+        h+='<span class="q-grp">Race Monitor: corrida <input id="q-rid-'+bi+'" type="text" value="'+esc(c.raceId)+'" style="width:80px"><button class="q-btn" onclick="FK.qualy.listSessions('+bi+')">Listar sessões</button><span id="q-sess-'+bi+'" class="q-sess"></span></span>'+
+          '<details class="q-det"><summary>Colar tempos manualmente</summary><textarea id="q-paste-'+bi+'" placeholder="Uma linha por kart:\n12: 1:02.345 1:01.980 1:01.870\n7: 1:03.100 1:02.010 1:01.950"></textarea><button class="q-btn pri" onclick="FK.qualy.pasteLaps('+bi+')">Usar estes tempos</button></details>'+
+          (has?'<button class="q-btn" onclick="FK.qualy.clearLaps('+bi+')">Apagar tempos</button>':'')+'</div>';
+        h+='<details class="q-det"'+(ev.tipo!=='duplas'&&!b.mapTxt?' open':'')+'><summary>Mapa kart → piloto'+(ev.tipo==='duplas'?' (só se precisar corrigir o do Sorteio)':'')+'</summary><textarea placeholder="Um por linha:\n12 = Rapha Cardozo\n7 = Marcos Takuma" onchange="FK.qualy.setB('+bi+',\'mapTxt\',this.value);FK.qualy.render(true)">'+esc(b.mapTxt||'')+'</textarea></details>';
+      }
+      if(ev.tipo==='duplas'&&!b.duplas.length)h+='<div class="q-warn">Sem duplas nesta bateria. Use "Puxar duplas do Sorteio".</div>';
+      if(!has){ h+='<div class="q-empty">Sem tempos ainda.</div></section>'; return; }
+      var R=Q.calc(ev,b), T=R.top;
+      h+='<div class="q-tops">'+
+        Q.top('Mais rápido',T.rapido&&T.rapido.nome,T.rapido&&fmt(T.rapido.best))+
+        Q.top('Melhor média',T.media&&T.media.nome,T.media&&fmt(T.media.avg))+
+        Q.top('Volta roubada',T.roubada&&T.roubada.nome,T.roubada&&fmt(T.roubada.roub))+
+        (ev.tipo==='duplas'?
+          Q.top('Dupla mais rápida',T.duplaRapida&&Q.dn(T.duplaRapida),T.duplaRapida&&'média das melhores '+fmt(T.duplaRapida.meanBest))+
+          Q.top('Melhor média de dupla',T.duplaMedia&&Q.dn(T.duplaMedia),T.duplaMedia&&fmt(T.duplaMedia.avg))+
+          Q.top('Dupla mais parelha',T.duplaParelha&&Q.dn(T.duplaParelha),T.duplaParelha&&'diferença '+(T.duplaParelha.diff/1000).toFixed(3)+'s'):'')+
+      '</div>';
+      h+='<div class="q-tw"><table class="q-tb"><thead><tr><th>Pos</th><th>Piloto</th><th>Kart</th>'+(ev.tipo==='duplas'?'<th>Dupla</th>':'')+'<th>Melhor</th><th>Dif.</th><th title="Tirando a melhor e a pior">Média*</th><th>Roubada</th><th>Voltas</th><th>Pontos</th></tr></thead><tbody>'+
+        R.rows.map(function(r){
+          return '<tr class="'+(r.orphan?'orph':'')+(r.pos===1?' p1':'')+'"><td>'+(r.pos||'—')+'</td><td><b>'+esc(r.nome)+'</b>'+(r.extras.length?'<div class="q-ex">'+r.extras.map(esc).join(' · ')+'</div>':'')+'</td><td><span class="q-k">'+pad(r.kart)+'</span></td>'+
+            (ev.tipo==='duplas'?'<td>'+(r.dupla!=null?r.dupla+1:'—')+'</td>':'')+
+            '<td class="q-t">'+fmt(r.best)+'</td><td class="q-t q-mut">'+(r.pos>1?gap(r.gapLead):'')+'</td><td class="q-t">'+fmt(r.avg)+'</td><td class="q-t">'+fmt(r.roub)+'</td><td>'+(r.n||0)+'</td><td class="q-pts">'+(r.orphan?'—':r.pts)+'</td></tr>';
+        }).join('')+'</tbody></table></div>';
+      if(ev.tipo==='duplas'&&R.duplas.length){
+        h+='<div class="q-dps">'+R.duplas.map(function(d){
+          return '<div class="q-dp'+(T.duplaMedia===d?' gold':'')+'"><div class="q-dpn">'+(d.i+1)+'</div><div class="q-dpb">'+d.mem.map(function(m){ return '<div class="'+(d.fast===m?'f':'')+'">'+esc(m.nome)+' <span>'+fmt(m.best)+'</span></div>'; }).join('')+
+            '<small>média '+fmt(d.avg)+' · dif. '+(d.diff!=null?(d.diff/1000).toFixed(3)+'s':'—')+'</small></div></div>';
+        }).join('')+'</div>';
+      }
+      h+='</section>';
+    });
+    return h;
+  },
+  dn:function(d){ return d.mem.map(function(m){return m.nome;}).join(' + '); },
+  top:function(t,n,v){ return '<div class="q-top1"><small>'+t+'</small><b>'+(n?esc(n):'—')+'</b><span>'+(v||'')+'</span></div>'; }
+};
+
+Q.load();
+var box=document.createElement('div'); box.id='fk-qualy'; document.body.appendChild(box);
+var _aui=FK.applyAuthUI;
+if(_aui)FK.applyAuthUI=function(){ var r=_aui.apply(FK,arguments); try{ if(FK.state.authProfile&&FK.state.authProfile.approved)Q.listen(); if(Q.isOpen)Q.render(true); }catch(e){} return r; };
+document.addEventListener('keydown',function(e){ if(Q.isOpen&&e.key==='Escape'&&!/INPUT|TEXTAREA|SELECT/.test((e.target&&e.target.tagName)||'')){ if(Q.view==='ev')Q.go('home'); else Q.close(); } });
+
+var css=document.createElement('style');
+css.textContent=[
+'#fk-qualy{position:fixed;inset:0;z-index:9002;display:none;flex-direction:column;color:#fff;background:radial-gradient(900px 500px at 90% -10%,rgba(21,101,192,.3),transparent 60%),linear-gradient(180deg,#0b0f18,#121826 60%,#0a0d14)}',
+'#fk-qualy.on{display:flex}',
+'.q-top{display:flex;align-items:center;gap:16px;padding:14px 3vw;border-bottom:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.35);flex-wrap:wrap}',
+'.q-back{background:#fff;color:#000;border:0;font-weight:900;letter-spacing:1px;padding:8px 14px;border-radius:2px;cursor:pointer}',
+'.q-title{display:flex;flex-direction:column;line-height:1.05;flex:1;min-width:180px}.q-title b{font-size:24px;font-style:italic;letter-spacing:2px;text-transform:uppercase}.q-title span{font-size:10px;letter-spacing:2.5px;color:#9aa4b8}',
+'.q-actions button,.q-mini button,.q-btn{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.3);padding:7px 12px;border-radius:2px;font-weight:700;font-size:12px;cursor:pointer}',
+'.q-btn.pri{background:#1565c0;border-color:#1565c0}.q-btn.danger{border-color:#ff6b6b;color:#ff6b6b}',
+'.q-body{flex:1;overflow:auto;padding:16px 3vw 60px;display:flex;flex-direction:column;gap:16px}',
+'.q-sec{background:rgba(5,6,8,.75);box-shadow:0 0 0 1px rgba(255,255,255,.07);padding:14px 16px;border-radius:2px}',
+'.q-sec h3{margin:0 0 12px;font-size:14px;letter-spacing:1.5px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:#fff!important}',
+'.q-sec h3 i{font-style:normal;background:#1565c0;min-width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;color:#fff}',
+'.q-mini{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}',
+'.q-mut{color:#8f9ab0;font-size:11px;font-weight:400;letter-spacing:.5px}.q-bad{color:#ff6b6b;font-size:12px}',
+'.q-empty{color:#7f8aa0;font-size:13px;padding:6px 0}',
+'.q-warn{background:rgba(255,167,38,.15);color:#ffb74d;font-size:12px;padding:6px 10px;margin:6px 0}',
+'.q-rk{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px}',
+'.q-rr{display:flex;align-items:center;background:#0f1420;box-shadow:0 0 0 1px rgba(255,255,255,.07)}',
+'.q-rr.in{box-shadow:0 0 0 1px #2fbf71;background:linear-gradient(90deg,rgba(47,191,113,.18),#0f1420 60%)}',
+'.q-rp{width:40px;align-self:stretch;display:flex;align-items:center;justify-content:center;background:#1a2030;font-weight:900;font-size:18px}.q-rr.in .q-rp{background:#2fbf71;color:#04160c}',
+'.q-rn{flex:1;padding:8px 10px;min-width:0}.q-rn b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.q-rn small{font-size:10px;color:#8f9ab0}',
+'.q-rpts{padding:0 14px;font-size:22px;font-weight:900;font-variant-numeric:tabular-nums}.q-rpts small{font-size:10px;color:#8f9ab0;margin-left:3px}',
+'.q-evs{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}',
+'.q-ev{text-align:left;background:#0f1420;border:0;box-shadow:0 0 0 1px rgba(255,255,255,.08);color:#fff;padding:12px 14px;cursor:pointer;display:flex;flex-direction:column;gap:3px;border-radius:2px}',
+'.q-ev:hover{box-shadow:0 0 0 2px #d7263d}.q-evd{font-size:11px;color:#8fd3ff;font-weight:800;letter-spacing:1px}.q-ev b{font-size:15px}.q-ev small{font-size:11px;color:#8f9ab0}',
+'.q-rules{display:flex;flex-direction:column;gap:8px;font-size:13px;color:#c9d1e0}',
+'.q-rules input[type=number]{width:60px;background:#0f1420;border:1px solid rgba(255,255,255,.2);color:#fff;padding:4px 6px;margin:0 4px}',
+'.q-note{font-size:11px;color:#8f9ab0}',
+'.q-evhead{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap}.q-evhead label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:#9aa4b8}',
+'.q-evhead input,.q-tools input,.q-sess select,.q-det textarea{background:#0f1420;border:1px solid rgba(255,255,255,.2);color:#fff;padding:6px 8px;border-radius:2px;font-size:13px}',
+'.q-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}',
+'.q-grp{display:inline-flex;gap:6px;align-items:center;font-size:12px;color:#c9d1e0;flex-wrap:wrap}',
+'.q-sess{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap}.q-sess select{max-width:340px}',
+'.q-det{font-size:12px;color:#c9d1e0;margin:4px 0}.q-det summary{cursor:pointer;color:#8fd3ff}.q-det textarea{display:block;width:100%;min-height:110px;margin:6px 0;font-family:ui-monospace,monospace}',
+'.q-tops{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px;margin:6px 0 12px}',
+'.q-top1{background:#0f1420;padding:8px 10px;box-shadow:inset 3px 0 0 #d7263d}.q-top1 small{display:block;font-size:9px;letter-spacing:1.5px;color:#8f9ab0;text-transform:uppercase;font-weight:800}.q-top1 b{display:block;font-size:14px;margin-top:2px}.q-top1 span{font-size:12px;color:#8fd3ff;font-variant-numeric:tabular-nums}',
+'.q-tw{overflow-x:auto}',
+'.q-tb{width:100%;border-collapse:collapse;font-size:13px}.q-tb th{font-size:10px;letter-spacing:1px;color:#8f9ab0;text-align:left;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.1);white-space:nowrap}',
+'.q-tb td{padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:middle}.q-tb tr.p1 td{background:rgba(215,38,61,.12)}.q-tb tr.orph td{opacity:.5}',
+'.q-t{font-variant-numeric:tabular-nums;white-space:nowrap}.q-pts{font-weight:900;font-size:16px;text-align:right}',
+'.q-k{background:#fff;color:#000;font-weight:900;padding:1px 6px;border-radius:2px;font-variant-numeric:tabular-nums}',
+'.q-ex{font-size:10px;color:#2fbf71;margin-top:2px}',
+'.q-dps{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px;margin-top:12px}',
+'.q-dp{display:flex;background:#0f1420;box-shadow:0 0 0 1px rgba(255,255,255,.07)}.q-dp.gold{box-shadow:0 0 0 1px #f2c230}',
+'.q-dpn{width:30px;display:flex;align-items:center;justify-content:center;background:#1565c0;font-weight:900}',
+'.q-dpb{flex:1;padding:6px 10px;font-size:13px}.q-dpb div{display:flex;justify-content:space-between}.q-dpb div.f{color:#2fbf71;font-weight:800}.q-dpb span{font-variant-numeric:tabular-nums}.q-dpb small{font-size:10px;color:#8f9ab0}',
+'.q-chk{display:flex;gap:8px;align-items:flex-start}',
+'#fk-qualy .hub-toast{position:fixed;left:50%;bottom:30px;transform:translate(-50%,20px);background:#fff;color:#000;font-weight:800;font-size:13px;padding:10px 16px;border-radius:3px;opacity:0;transition:all .25s;pointer-events:none}',
+'#fk-qualy .hub-toast.on{opacity:1;transform:translate(-50%,0)}',
+'@media(max-width:700px){.q-title b{font-size:18px}.q-tb{font-size:12px}.q-tb th:nth-child(6),.q-tb td:nth-child(6){display:none}}'
 ].join('\n');
 document.head.appendChild(css);
 })();
