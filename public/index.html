@@ -8353,6 +8353,7 @@ var A=FK.audio={
     return null; /* Endurance / dia de corrida: silencio */
   },
   tick:function(){
+    if(!A.unlocked&&navigator.userActivation&&navigator.userActivation.hasBeenActive)A.unlock();
     var want=A.musicOn()&&A.unlocked?A.context():null;
     if(want&&!A.ok[want])want=null;
     if(want!==A.cur){
@@ -8372,9 +8373,24 @@ var A=FK.audio={
       g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(v||0.05,t+0.008); g.gain.exponentialRampToValueAtTime(0.0001,t+d);
       o.connect(g); g.connect(c.destination); o.start(t); o.stop(t+d+0.02); }catch(e){}
   },
-  hover:function(){ var n=Date.now(); if(n-(A._h||0)<70)return; A._h=n; A.blip(1800,2400,0.035,0.018,'triangle'); },
-  click:function(){ A.blip(520,880,0.09,0.05,'triangle'); setTimeout(function(){ A.blip(1320,null,0.06,0.025,'sine'); },45); },
-  back:function(){ A.blip(700,300,0.12,0.045,'triangle'); },
+  noise:function(d,v,f0,f1){
+    if(!A.sfxOn()||!A.unlocked)return;
+    try{ var c=A.ctx, t=c.currentTime, n=Math.floor(c.sampleRate*d), buf=c.createBuffer(1,n,c.sampleRate), x=buf.getChannelData(0);
+      for(var i=0;i<n;i++)x[i]=(Math.random()*2-1)*(1-i/n);
+      var src=c.createBufferSource(), bp=c.createBiquadFilter(), g=c.createGain(); src.buffer=buf; bp.type='bandpass'; bp.Q.value=1.2;
+      bp.frequency.setValueAtTime(f0,t); bp.frequency.exponentialRampToValueAtTime(f1,t+d); g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+      src.connect(bp); bp.connect(g); g.connect(c.destination); src.start(t); }catch(e){}
+  },
+  /* passar o mouse/foco num card: tique curto */
+  hover:function(){ var n=Date.now(); if(n-(A._h||0)<60)return; A._h=n; A.blip(2200,2600,0.03,0.045,'square'); },
+  /* confirmar: "ka-ching" de menu de jogo (whoosh + dois tons subindo) */
+  click:function(){ A.noise(0.12,0.10,800,3500); A.blip(660,null,0.08,0.11,'triangle'); setTimeout(function(){ A.blip(990,null,0.12,0.10,'triangle'); },55); },
+  /* botao comum dentro dos modulos: clique seco */
+  tap:function(){ A.blip(1200,800,0.05,0.08,'square'); },
+  /* voltar: whoosh descendo */
+  back:function(){ A.noise(0.16,0.10,3000,500); A.blip(520,260,0.12,0.09,'triangle'); },
+  /* tela de inicio */
+  start:function(){ A.noise(0.5,0.14,300,6000); [523,659,784,1047].forEach(function(f,i){ setTimeout(function(){ A.blip(f,null,i===3?0.5:0.16,0.10,'triangle'); },120+i*110); }); },
   /* ---- controle na tela ---- */
   toggleMusic:function(){ lsS('fk_mus_on',!A.musicOn()); A.unlock(); A.ui(); A.tick(); },
   toggleSfx:function(){ lsS('fk_sfx_on',!A.sfxOn()); A.ui(); if(A.sfxOn()){ A.unlock(); A.click(); } },
@@ -8398,14 +8414,46 @@ css.textContent=[
 ].join('\n');
 document.head.appendChild(css);
 /* desbloqueia o audio no primeiro toque/tecla (regra dos navegadores) */
-['pointerdown','keydown','touchstart'].forEach(function(ev){ document.addEventListener(ev,function(){ A.unlock(); },{once:true,passive:true}); });
+['pointerdown','mousedown','click','keydown','touchstart'].forEach(function(ev){ window.addEventListener(ev,function(){ A.unlock(); },{capture:true,passive:true}); });
 /* efeitos nos elementos da interface */
 document.addEventListener('mouseover',function(e){ var t=e.target.closest&&e.target.closest('#fk-hub .hub-tile'); if(t&&t!==A._lt){ A._lt=t; A.hover(); } else if(!t)A._lt=null; },true);
 document.addEventListener('click',function(e){ var t=e.target.closest&&e.target.closest('button,.hub-tile,label.q-file'); if(!t||t.closest('#fk-audio'))return;
-  if(t.matches('.q-back,.st-back,.hub-back'))A.back(); else if(t.closest('#fk-hub,#fk-sorteio,#fk-qualy,#fk-post'))A.click(); },true);
+  if(t.matches('.q-back,.st-back,.hub-back'))A.back();
+  else if(t.matches('.hub-tile,.st-draw,.q-btn.pri,.q-ev,.st-tabs button'))A.click();
+  else if(t.closest('#fk-hub,#fk-sorteio,#fk-qualy,#fk-post'))A.tap(); },true);
+/* teclado no menu (setas) */
+document.addEventListener('keydown',function(e){ var h=document.getElementById('fk-hub'); if(!h||!h.classList.contains('on'))return; if(/^Arrow/.test(e.key))A.hover(); else if(e.key==='Enter')A.click(); },true);
 /* vinheta no fim das revelacoes (Sorteio/Qualy), se existir audio/podio.mp3 */
 ['sorteio','qualy'].forEach(function(m){ var M=FK[m]; if(!M)return; var fn=m==='sorteio'?'finish':'revealEnd'; var o=M[fn]; if(typeof o==='function')M[fn]=function(){ var r=o.apply(M,arguments); try{ A.podio(); }catch(e){} return r; }; });
-A.probe(); A.ui(); setInterval(A.tick,700);
+/* ---- tela "PRESSIONE PARA COMECAR" (estilo game): o navegador so libera som depois de um toque ---- */
+A.splash=function(){
+  var nav=navigator.userActivation&&navigator.userActivation.hasBeenActive;
+  if(nav||A.unlocked)return;
+  try{ if(sessionStorage.getItem('fk_started'))return; }catch(e){}
+  if(/^#(sorteio\/tv|qualy\/tv|endurance)/.test(location.hash||''))return;
+  var logo=(document.querySelector('.topbar img')||{}).src||'';
+  var el=document.createElement('div'); el.id='fk-start';
+  el.innerHTML='<div class="fs-bg"></div><div class="fs-c">'+(logo?'<img src="'+logo+'" alt="">':'')+'<div class="fs-t">SEMBOX</div><div class="fs-s">KART RACING MANAGEMENT</div><div class="fs-p">TOQUE OU PRESSIONE QUALQUER TECLA</div></div><div class="fs-f">FKART · '+new Date().getFullYear()+'</div>';
+  document.body.appendChild(el);
+  var go=function(){ if(el._done)return; el._done=true; var blk=function(e){ e.stopPropagation(); e.preventDefault(); }; window.addEventListener('click',blk,true); setTimeout(function(){ window.removeEventListener('click',blk,true); },600); try{ sessionStorage.setItem('fk_started','1'); }catch(e){} A.unlock(); A.start(); el.classList.add('out'); setTimeout(function(){ el.remove(); },700);
+    ['pointerdown','keydown'].forEach(function(ev){ window.removeEventListener(ev,go,true); }); };
+  ['pointerdown','keydown'].forEach(function(ev){ window.addEventListener(ev,go,true); });
+};
+var css2=document.createElement('style');
+css2.textContent=[
+'#fk-start{position:fixed;inset:0;z-index:9500;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:opacity .6s,transform .6s;color:#fff}',
+'#fk-start.out{opacity:0;transform:scale(1.04);pointer-events:none}',
+'#fk-start .fs-bg{position:absolute;inset:0;background:radial-gradient(1200px 700px at 50% 40%,rgba(215,38,61,.35),transparent 60%),repeating-linear-gradient(115deg,rgba(255,255,255,.03) 0 2px,transparent 2px 22px),#05070c}',
+'#fk-start .fs-c{position:relative;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px}',
+'#fk-start img{height:clamp(50px,9vw,110px);filter:drop-shadow(0 0 30px rgba(215,38,61,.5))}',
+'#fk-start .fs-t{font-size:clamp(46px,9vw,120px);font-weight:900;font-style:italic;letter-spacing:8px;line-height:1;text-shadow:0 0 40px rgba(215,38,61,.6)}',
+'#fk-start .fs-s{font-size:clamp(11px,1.4vw,16px);letter-spacing:6px;color:#9aa4b8}',
+'#fk-start .fs-p{margin-top:clamp(30px,6vh,70px);font-size:clamp(12px,1.5vw,18px);letter-spacing:4px;font-weight:800;animation:fsBlink 1.3s ease-in-out infinite}',
+'@keyframes fsBlink{50%{opacity:.25}}',
+'#fk-start .fs-f{position:absolute;bottom:24px;font-size:11px;letter-spacing:3px;color:#59627a}'
+].join('\n');
+document.head.appendChild(css2);
+A.probe(); A.ui(); A.splash(); setInterval(A.tick,700);
 })();
 </script>
 
