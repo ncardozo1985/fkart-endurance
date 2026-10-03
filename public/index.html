@@ -6974,21 +6974,50 @@ var P=FK.post={
   analyze:function(raw){
     var cfg=FK.cfg||{}, minS=(cfg.minPitDurationSec>0?cfg.minPitDurationSec:300)*1000, longS=(cfg.longPitDurationSec>0?cfg.longPitDurationSec:0)*1000;
     var comps=(raw.competitors||[]).map(function(c){
-      var seen={}, L=(c.L||[]).filter(function(x){ if(!(x[1]>0)||seen[x[0]])return false; seen[x[0]]=1; return true; }).sort(function(a,b){return a[0]-b[0];}).map(function(x){return {lap:x[0],ms:x[1],tot:x[2]||null};});
-      var t=0; L.forEach(function(x){ if(x.tot==null){t+=x.ms;x.tot=t;} else t=x.tot; });
-      return {k:normK(c.n), name:P.cleanName(c.name), cat:String(c.cat||'').trim().toUpperCase()||'GERAL', L:L};
+      /* passagens pela linha (horario absoluto da prova) de todas as sessoes; as voltas sao recalculadas
+         pela diferenca entre passagens -- pedacos que perderam uma passagem nao geram voltas/paradas falsas */
+      var raw=(c.L||[]).filter(function(x){return x[1]>0;}), L;
+      var hasTot=raw.length&&raw.every(function(x){return x[2]>0;});
+      if(hasTot){
+        var cr=raw.map(function(x){return {t:x[2],lab:x[0]};}).sort(function(a,b){return a.t-b.t;}), u=[];
+        cr.forEach(function(x){ var p=u[u.length-1]; if(p&&Math.abs(x.t-p.t)<1500){ p.lab=Math.max(p.lab,x.lab); } else u.push({t:x.t,lab:x.lab}); });
+        var first=raw.filter(function(x){return x[2]===u[0].t;})[0];
+        L=[{lap:u[0].lab,ms:first?first[1]:u[0].t,tot:u[0].t,dl:1}];
+        for(var i=1;i<u.length;i++){ L.push({lap:u[i].lab,ms:u[i].t-u[i-1].t,tot:u[i].t,dl:Math.max(1,u[i].lab-u[i-1].lab)}); }
+        c._maxLap=Math.max.apply(null,u.map(function(x){return x.lab;}));
+      }else{
+        var seen={}; L=raw.filter(function(x){ if(seen[x[0]])return false; seen[x[0]]=1; return true; }).sort(function(a,b){return a[0]-b[0];}).map(function(x){return {lap:x[0],ms:x[1],tot:null,dl:1};});
+        var t=0; L.forEach(function(x){t+=x.ms;x.tot=t;}); c._maxLap=L.length?L[L.length-1].lap:0;
+      }
+      return {k:normK(c.n), name:P.cleanName(c.name), cat:String(c.cat||'').trim().toUpperCase()||'GERAL', L:L, maxLap:c._maxLap};
     }).filter(function(c){return c.L.length;});
     comps.forEach(function(c){
       var base=med(c.L.map(function(x){return x.ms;}));
       c.base=base;
+      var base=med(c.L.filter(function(x){return x.dl===1;}).map(function(x){return x.ms;}))||base;
+      c.base=base;
       c.L.forEach(function(x,i){
-        x.pit=x.ms>=minS*0.9||x.ms>base*2.5;
-        /* buraco entre sessoes (voltas faltando): se o tempo do trecho nao cabe em voltas normais, houve parada ali dentro */
-        var prev=c.L[i-1], g=prev?x.lap-prev.lap:1;
-        if(g>1&&prev.tot!=null&&x.tot!=null){ var span=x.tot-prev.tot, extra=span-g*base; x.gap=g-1; if(extra>=minS*0.8){ x.pit=true; x.gapPit=extra+base; } }
-        x.out=i>0&&(c.L[i-1].pit)||!!x.gap&&!x.pit;
+        var g=x.dl||1;
+        if(g>1){
+          /* buraco (voltas sem registro): se o trecho nao cabe em voltas normais, houve parada dentro dele */
+          var extra=x.ms-g*base; x.gap=g-1;
+          x.pit=extra>=minS*0.5;
+          if(x.pit){
+            /* trecho = 1 volta de box (parada curta ou longa) + j voltas normais; escolhe o encaixe mais proximo */
+            var best=null; [minS+3000,longS?longS+3000:0].forEach(function(tg){ if(!tg)return; var j=Math.max(0,Math.min(g-1,Math.round((x.ms-tg)/base))), r=Math.abs(x.ms-j*base-tg); if(!best||r<best.r)best={r:r,j:j}; });
+            x.gapPit=x.ms-best.j*base;
+          }
+        }else{
+          x.pit=x.ms>=minS*0.9;
+          x.slow=!x.pit&&x.ms>base*1.6; /* neutralizacao, drive-through, incidente */
+        }
+        x.out=i>0&&c.L[i-1].pit;
       });
-      c.L.forEach(function(x){ x.clean=!x.pit&&!x.out&&x.ms<base*1.10; });
+      /* parada partida em duas passagens (passagem extra registrada no meio do box): junta as duas */
+      for(var j=0;j+1<c.L.length;j++){ var a1=c.L[j], a2=c.L[j+1];
+        if(!a1.pit&&!a2.pit&&(a1.ms>=minS*0.5||a2.ms>=minS*0.5)&&a1.ms+a2.ms-base>=minS*0.85){
+          a1.pit=true; a1.slow=false; a1.gapPit=a1.ms+a2.ms-base; a1.split=true; a2.slow=true; a2.out=true; if(c.L[j+2])c.L[j+2].out=true; j++; } }
+      c.L.forEach(function(x){ x.clean=!x.pit&&!x.out&&!x.gap&&!x.slow&&x.ms<base*1.10; });
     });
     /* passagem pelo pitlane (volta de box - parada minima), mediana do pelotao */
     var ovs=[]; comps.forEach(function(c){ c.L.forEach(function(x){ if(x.pit&&!x.gapPit&&x.ms>=minS*0.9){ var d=(longS&&x.ms>=longS*0.95)?longS:minS, o=x.ms-d; if(o>-30000&&o<60000)ovs.push(o);} }); });
@@ -6996,7 +7025,7 @@ var P=FK.post={
     comps.forEach(function(c){
       var clean=c.L.filter(function(x){return x.clean;}).map(function(x){return x.ms;});
       var last=c.L[c.L.length-1];
-      c.laps=last.lap; c.total=last.tot; c.missing=c.L.reduce(function(n,x){return n+(x.gap||0);},0); c.best=clean.length?Math.min.apply(null,clean):Math.min.apply(null,c.L.map(function(x){return x.ms;}));
+      c.laps=Math.max(c.maxLap||0,last.lap); c.total=last.tot; c.missing=Math.max(0,c.laps-c.L.length); c.slowLaps=c.L.filter(function(x){return x.slow;}).length; c.best=clean.length?Math.min.apply(null,clean):Math.min.apply(null,c.L.map(function(x){return x.ms;}));
       c.pace=med(clean); c.cons=sd(clean.filter(function(x){return x<(c.pace||x)*1.04;}));
       c.pits=[]; c.stints=[]; var st={from:0};
       c.L.forEach(function(x,i){
