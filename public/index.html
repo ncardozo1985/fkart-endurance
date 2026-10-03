@@ -7008,14 +7008,14 @@ var P=FK.post={
             x.gapPit=x.ms-best.j*base;
           }
         }else{
-          x.pit=x.ms>=minS*0.9;
+          x.pit=x.ms>=minS*0.8; /* >=80%: passou pelo box (abaixo de 90% = parada mais curta que a obrigatoria) */
           x.slow=!x.pit&&x.ms>base*1.6; /* neutralizacao, drive-through, incidente */
         }
         x.out=i>0&&c.L[i-1].pit;
       });
       /* parada partida em duas passagens (passagem extra registrada no meio do box): junta as duas */
       for(var j=0;j+1<c.L.length;j++){ var a1=c.L[j], a2=c.L[j+1];
-        if(!a1.pit&&!a2.pit&&(a1.ms>=minS*0.5||a2.ms>=minS*0.5)&&a1.ms+a2.ms-base>=minS*0.85){
+        if((a1.dl||1)===1&&(a2.dl||1)===1&&!a1.pit&&!a2.pit&&(a1.ms>=minS*0.5||a2.ms>=minS*0.5)&&a1.ms+a2.ms-base>=minS*0.85){
           a1.pit=true; a1.slow=false; a1.gapPit=a1.ms+a2.ms-base; a1.split=true; a2.slow=true; a2.out=true; if(c.L[j+2])c.L[j+2].out=true; j++; } }
       c.L.forEach(function(x){ x.clean=!x.pit&&!x.out&&!x.gap&&!x.slow&&x.ms<base*1.10; });
     });
