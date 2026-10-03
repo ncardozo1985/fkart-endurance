@@ -6407,11 +6407,11 @@ var S=FK.sorteio={
   save:function(){
     S.st.updatedAt=Date.now(); S.st.by=(FK.state.authUser&&(FK.state.authUser.displayName||FK.state.authUser.email))||'';
     lsSet(LS,S.st);
-    clearTimeout(S._t); S._t=setTimeout(function(){ try{ db().doc('sorteio').set(JSON.parse(JSON.stringify(S.st))).catch(function(e){console.warn('sorteio sync',e);}); }catch(e){} },400);
+    clearTimeout(S._t); S._t=setTimeout(function(){ try{ db().doc('sorteio').set({json:JSON.stringify(S.st),updatedAt:S.st.updatedAt}) /* sem listas aninhadas no Firestore */.catch(function(e){console.warn('sorteio sync',e);}); }catch(e){} },400);
   },
   saveHist:function(){
     S.hist.sort(function(a,b){return b.at-a.at;}); S.hist=S.hist.slice(0,HMAX); lsSet(LSH,S.hist);
-    try{ db().doc('sorteio_hist').set({items:JSON.parse(JSON.stringify(S.hist)),updatedAt:Date.now()}).catch(function(e){console.warn('hist sync',e);}); }catch(e){}
+    try{ db().doc('sorteio_hist').set({json:JSON.stringify(S.hist),updatedAt:Date.now()}).catch(function(e){console.warn('hist sync',e);}); }catch(e){}
   },
   /* horario do sorteio mais recente (para a TV saber quando tocar a animacao) */
   lastAt:function(s){ s=s||S.st; var a=0; ['b1','b2'].forEach(function(b){ if(s[b]&&s[b].at>a)a=s[b].at; }); ((s.prova&&s.prova.res)||[]).forEach(function(r){ if(r.at>a)a=r.at; }); return a; },
@@ -6419,7 +6419,7 @@ var S=FK.sorteio={
     if(S._unsub)return;
     try{
       S._unsub=db().doc('sorteio').onSnapshot(function(snap){
-        if(!snap.exists)return; var d=snap.data();
+        if(!snap.exists)return; var d=snap.data(); if(d&&d.json){ try{ d=JSON.parse(d.json); }catch(e){ return; } }
         if(d&&(d.updatedAt||0)>(S.st.updatedAt||0)){
           S.st=d; S.fix(); lsSet(LS,S.st);
           var la=S.lastAt(), play=la>S.seen; S.seen=Math.max(S.seen,la);
@@ -6428,7 +6428,7 @@ var S=FK.sorteio={
         }
       },function(e){ S._unsub=null; });
       S._unsubH=db().doc('sorteio_hist').onSnapshot(function(snap){
-        if(!snap.exists)return; var d=snap.data()||{}; S.hist=(d.items||[]).sort(function(a,b){return b.at-a.at;}); lsSet(LSH,S.hist);
+        if(!snap.exists)return; var d=snap.data()||{}; var items=d.items||[]; if(d.json){ try{ items=JSON.parse(d.json); }catch(e){} } S.hist=items.sort(function(a,b){return b.at-a.at;}); lsSet(LSH,S.hist);
         if(S.isOpen&&S.tab==='hist'&&!S._rv)S.render(true);
       },function(){ S._unsubH=null; });
     }catch(e){}
@@ -6993,12 +6993,12 @@ var Q=FK.qualy={
   save:function(){
     Q.st.updatedAt=Date.now();
     try{ localStorage.setItem(LS,JSON.stringify(Q.st)); }catch(e){}
-    clearTimeout(Q._t); Q._t=setTimeout(function(){ try{ firebase.firestore().collection('sync').doc('qualy').set(JSON.parse(JSON.stringify(Q.st))).catch(function(e){console.warn('qualy sync',e);}); }catch(e){} },500);
+    clearTimeout(Q._t); Q._t=setTimeout(function(){ try{ firebase.firestore().collection('sync').doc('qualy').set({json:JSON.stringify(Q.st),updatedAt:Q.st.updatedAt}) /* Firestore nao aceita listas dentro de listas: guarda como texto */.catch(function(e){console.warn('qualy sync',e);}); }catch(e){} },500);
   },
   listen:function(){
     if(Q._unsub)return;
     try{ Q._unsub=firebase.firestore().collection('sync').doc('qualy').onSnapshot(function(snap){
-      if(!snap.exists)return; var d=snap.data();
+      if(!snap.exists)return; var d=snap.data(); if(d&&d.json){ try{ d=JSON.parse(d.json); }catch(e){ return; } }
       if(d&&(d.updatedAt||0)>(Q.st.updatedAt||0)){ Q.st=d; Q.st.cfg=Object.assign({},Q.DEF,d.cfg||{}); try{localStorage.setItem(LS,JSON.stringify(Q.st));}catch(e){}
         try{ Q.afterSync(); }catch(e){ console.warn(e); }
         if(Q.isOpen&&!Q._rv){ var ae=document.activeElement; if(!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)&&ae.closest('#fk-qualy')))Q.render(true); } }
@@ -7653,10 +7653,10 @@ document.head.appendChild(css2);
    DQ (por evento): fim dos rankings individuais; a dupla vai para o fim dos rankings de dupla; o
    parceiro mantem os pontos individuais.
    ============================================================================================= */
-function r2(ms){ return ms==null?null:Math.round(ms/10)*10; }
+function r2(ms){ return ms==null?null:Math.round(ms/10+1e-6)*10; } /* 0,01 s, meio para cima */
 function f2(ms){ return ms==null||!isFinite(ms)?'—':(ms/1000).toFixed(2); }
 function lt2(ms){ if(ms==null||!isFinite(ms))return '—'; var s=ms/1000, m=Math.floor(s/60), r=s-m*60; return (m?m+':'+(r<10?'0':''):'')+r.toFixed(2); }
-function lcn(s){ return String(s||'').trim().toLowerCase(); }
+function lcn(s){ return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); } /* sem acento: Vinicius = Vinícius */
 function nearest(T,x){ var b=null; for(var i=0;i<T.length;i++){ var d=Math.abs(T[i]-x); if(b==null||d<b)b=d; } return b; }
 function meanOf(a){ return a.length?a.reduce(function(s,x){return s+x;},0)/a.length:null; }
 /* posicoes com empate dividido: items ja ordenados; key(x) = valor comparado */
@@ -7679,9 +7679,9 @@ Object.assign(Q,{
   pstat:function(b,k,vd){
     var L=Q.lapsOf(b,k).filter(function(x){return x.ms>0;}), v=vd[k]||{};
     var valid=L.filter(function(x){return x.lap>=2&&!v[x.lap];});
-    var bestL=valid.slice().sort(function(a,c){return a.ms-c.ms;})[0]||null, best=bestL?r2(bestL.ms):null;
+    var bestL=valid.slice().sort(function(a,c){return a.ms-c.ms;})[0]||null, best=bestL?bestL.ms:null; /* milesimos, como o cronometro */
     var l1=L.filter(function(x){return x.lap===1;})[0], roub=null, roubAprox=false;
-    if(l1&&l1.s2&&l1.s3)roub=r2(l1.s2+l1.s3); else if(l1){ roub=r2(l1.ms); roubAprox=true; }
+    if(l1&&l1.s2&&l1.s3)roub=l1.s2+l1.s3; else if(l1){ roub=l1.ms; roubAprox=true; }
     var clean=best?valid.filter(function(x){return x.ms<=best*1.5;}).map(function(x){return x.ms;}):[];
     var tr=clean.slice().sort(function(a,c){return a-c;}); if(tr.length>=3)tr=tr.slice(1,-1);
     var T=L.filter(function(x){return x.t!=null;}).map(function(x){return x.t;}).sort(function(a,c){return a-c;});
@@ -7693,7 +7693,10 @@ Object.assign(Q,{
     if(!p.bestL||p.bestL.t==null||!TB.length)return null;
     var prev=p.L.filter(function(x){return x.lap===p.bestL.lap-1&&x.t!=null;})[0];
     var t0=prev?prev.t:p.bestL.t-p.bestL.ms, t1=p.bestL.t;
-    return (nearest(TB,t0)+nearest(TB,t1))/2;
+    /* em segundos (hora do dia em ponto flutuante) e arredondado a 0,01 s -- igual a planilha de referencia de 30/09 */
+    var sec=function(ms){ var h=Math.floor(ms/3600000), m=Math.floor(ms%3600000/60000); return (h*3600+m*60)+(ms%60000)/1000; };
+    var nb=function(x){ var b=null; for(var i=0;i<TB.length;i++){ var d=Math.abs(sec(x)-sec(TB[i])); if(b==null||d<b)b=d; } return b; };
+    return Math.round(Number(((nb(t0)+nb(t1))/2).toFixed(2))*1000);
   },
   regOf:function(A,TB){
     if(!A.T.length||!TB.length)return null;
@@ -7729,19 +7732,19 @@ Object.assign(Q,{
       var A=mem[0], TBa=[]; mem.slice(1).forEach(function(o){ TBa=TBa.concat(o.T); }); TBa.sort(function(a,c){return a-c;});
       var reg=A?Q.regOf(A,TBa):null;
       var bests=mem.filter(function(m){return m.best!=null;}), fast=bests.slice().sort(function(a,c){return a.best-c.best;})[0];
-      return {i:i,mem:mem,gap:gok.length===mem.length&&mem.length>=2?r2(meanOf(gok)):null,reg:reg?r2(reg.v):null,regN:reg?reg.n:0,regAll:reg?reg.all:[],
+      return {i:i,mem:mem,gaps:gaps,gap:gok.length===mem.length&&mem.length>=2?r2(meanOf(gok)):null,reg:reg?reg.v:null,regN:reg?reg.n:0,regAll:reg?reg.all:[],
         dq:mem.some(dqf),inG:grp!=='fkart'||mem.some(function(m){return !Q.isGuest(m.nome);}),fast:fast,
         diff:bests.length>=2?Math.max.apply(null,bests.map(function(m){return m.best;}))-Math.min.apply(null,bests.map(function(m){return m.best;})):null,
         meanBest:bests.length?meanOf(bests.map(function(m){return m.best;})):null, avg:meanOf(mem.filter(function(m){return m.avg!=null;}).map(function(m){return m.avg;})), c:{}};
     });
     var D=duplas.filter(function(d){return d.inG&&d.mem.length;}), ND=D.length, ddq=function(d){return d.dq;};
     Q.rankCrit(D,function(d){return d.gap;},ddq,ND,function(d,p,pt){ d.c.g={p:p,pts:pt}; });
-    Q.rankCrit(D,function(d){return d.reg;},ddq,ND,function(d,p,pt){ d.c.reg={p:p,pts:pt}; });
+    Q.rankCrit(D,function(d){return r2(d.reg);},ddq,ND,function(d,p,pt){ d.c.reg={p:p,pts:pt}; }); /* gap medio comparado a 0,01 s */
     D.forEach(function(d){ d.pts=(d.c.g.pts||0)+(d.c.reg.pts||0); d.mem.forEach(function(m){ m.c.g=d.c.g; m.c.reg=d.c.reg; }); });
     P.forEach(function(r){ var q=r.c.q||{}, ro=r.c.r||{}, g=r.c.g||{}, rg=r.c.reg||{};
       r.pts=(q.pts||0)+(ro.pts||0)+(g.pts||0)+(rg.pts||0); r.dq=dqf(r);
       r.extras=['Q '+ptxt(q.pts),'VR '+ptxt(ro.pts)].concat(ev.tipo==='duplas'?['GAP '+ptxt(g.pts),'REG '+ptxt(rg.pts)]:[]); });
-    var sorted=P.slice().sort(function(a,c){ return (c.pts-a.pts)||((a.c.q&&a.c.q.p||999)-(c.c.q&&c.c.q.p||999)); });
+    var sorted=P.slice().sort(function(a,c){ return (c.pts-a.pts)||(((c.c.q&&c.c.q.pts)||0)-((a.c.q&&a.c.q.pts)||0)); });
     sorted.forEach(function(r,i){ r.pos=r.n||r.dq?i+1:null; });
     var lead=P.filter(function(r){return r.best!=null&&!r.dq;}).sort(function(a,c){return a.best-c.best;})[0];
     P.forEach(function(r){ r.gapLead=lead&&r.best!=null?r.best-lead.best:null; });
@@ -7769,7 +7772,7 @@ Object.assign(Q,{
     /* todos os pilotos do cadastro entram, mesmo sem ter ido a nenhum evento */
     var have={}; Object.keys(tot).forEach(function(k){ have[lcn(k)]=1; });
     Q.cadastroNames().forEach(function(n){ if(have[lcn(n)]||!Q.inGrp(n,grp))return; tot[n]={nome:n,pts:0,bats:0,best:null,wins:0,q:0,r:0,g:0,reg:0,det:[],byDate:{},evs:{},absent:true}; });
-    return Object.keys(tot).map(function(k){ var t=tot[k]; t.pres=Object.keys(t.evs).length; return t; }).sort(function(a,b){ return (b.pts-a.pts)||(b.pres-a.pres)||(b.wins-a.wins)||((a.best||9e9)-(b.best||9e9))||a.nome.localeCompare(b.nome,'pt-BR'); });
+    return Object.keys(tot).map(function(k){ var t=tot[k]; t.pres=Object.keys(t.evs).length; return t; }).sort(function(a,b){ return (b.pts-a.pts)||(b.q-a.q)||(b.pres-a.pres)||(b.wins-a.wins)||((a.best||9e9)-(b.best||9e9))||a.nome.localeCompare(b.nome,'pt-BR'); });
   },
   /* datas da temporada: agenda configurada + datas dos eventos criados */
   nextDate:function(){ var used={}; (Q.st.events||[]).forEach(function(e){used[e.data]=1;}); var t=today(); var d=(Q.st.cfg.agenda||[]).filter(function(x){return !used[x];})[0]; return d||t; },
@@ -7785,8 +7788,8 @@ Object.assign(Q,{
       R.map(function(r,i){ return (i===c.vagas?'<tr class="q-cutr"><td colspan="'+(ds.length+6)+'">LINHA DE CORTE — QUALIFY 500 MILHAS</td></tr>':'')+
         '<tr class="'+(i<c.vagas?'in':'')+(r.absent?' abs':'')+'"><td><b>'+(i+1)+'</b></td><td><b class="q-pl" data-n="'+esc(r.nome)+'" onclick="FK.qualy.openPil(this.dataset.n)">'+esc(r.nome)+'</b>'+(Q.isGuest(r.nome)?' <em class="q-gst">conv.</em>':'')+'</td>'+
         ds.map(function(d){ var v=r.byDate[d]; return '<td class="q-t q-snv">'+(v!=null?ptxt(v):(hasRes(d)?'<span class="q-mut">ausente</span>':'<span class="q-mut">—</span>'))+'</td>'; }).join('')+
-        '<td>'+r.pres+'/'+done+'</td><td>'+(r.wins||'')+'</td><td class="q-t">'+(r.best!=null?lt2(r.best):'—')+'</td><td class="q-pts">'+ptxt(r.pts)+'</td></tr>'; }).join('')+'</tbody></table></div>';
-    h+='<div class="q-note">Pontos de cada evento = soma das baterias daquele dia (Qualify + Volta Roubada + GAP + Regularidade). Desempate: total, presenças, vitórias de bateria, melhor volta.</div></div>';
+        '<td>'+r.pres+'/'+done+'</td><td>'+(r.wins||'')+'</td><td class="q-t">'+(r.best!=null?fmt(r.best):'—')+'</td><td class="q-pts">'+ptxt(r.pts)+'</td></tr>'; }).join('')+'</tbody></table></div>';
+    h+='<div class="q-note">Pontos de cada evento = soma das baterias daquele dia (Qualify + Volta Roubada + GAP + Regularidade). Desempate: total, depois soma dos pontos de Qualify, presenças e vitórias de bateria.</div></div>';
     return h;
   },
   /* ---------- telas ---------- */
@@ -7813,9 +7816,9 @@ Object.assign(Q,{
     var names=Q.allNames();
     h+='<section class="q-sec"><h3><i>⚙</i>REGRAS DE PONTUAÇÃO</h3><div class="q-rules">'+
       '<div class="q-rgrid">'+
-      '<div><b>QUALIFY</b><span>Melhor volta oficial: sem a volta 1 e sem voltas anuladas. Arredondada a 0,01 s.</span></div>'+
+      '<div><b>QUALIFY</b><span>Melhor volta oficial: sem a volta 1 e sem voltas anuladas (em milésimos, como o cronômetro).</span></div>'+
       '<div><b>VOLTA ROUBADA</b><span>S2 + S3 da volta 1 (saída do box). Sem setores no arquivo, usa o tempo da volta 1 (aproximado).</span></div>'+
-      '<div><b>GAP DA DUPLA</b><span>Separação na pista entre os dois karts no início e no fim da melhor volta de cada piloto (passagem mais próxima do parceiro). Média dos dois.</span></div>'+
+      '<div><b>GAP DA DUPLA</b><span>Separação na pista entre os dois karts no início e no fim da melhor volta de cada piloto (passagem mais próxima do parceiro, a 0,01 s). Média dos dois; empate a 0,01 s divide os pontos.</span></div>'+
       '<div><b>REGULARIDADE</b><span>Separação a cada passagem do piloto A (voltas ≥ 2, dentro da janela do parceiro). Descarta a menor e a maior; vale a média do resto.</span></div></div>'+
       '<div class="q-note">Cada critério: N+1−posição (N = pilotos do grupo; nos critérios de dupla, N = duplas do grupo e os dois pilotos recebem os mesmos pontos). Empate divide os pontos pela média da posição. DQ (marcado no evento) vai para o fim dos rankings; a dupla dele vai para o fim nos critérios de dupla, e o parceiro mantém os pontos individuais. O cronômetro mede no mínimo ~0,10 s quando os karts estão colados.</div>'+
       '<div class="q-note" style="margin-top:6px"><b style="color:#fff">Convidados</b> (ficam fora do ranking FKART; no FKART só contam as duplas com pelo menos um piloto FKART). Toque para marcar:</div>'+
@@ -7856,8 +7859,8 @@ Object.assign(Q,{
       if(!R.hasSec)h+='<div class="q-note" style="margin:4px 0 8px">Sem setores no arquivo: a Volta Roubada usa o tempo da volta 1 (aproximado).</div>';
       h+='<div class="q-tools"><button class="q-btn pri" onclick="FK.qualy.reveal(\'bat\',\''+ev.id+'\','+bi+')">▶ Revelar resultado (estilo TV)</button><span class="q-mut">'+(R.grp==='fkart'?'Ranking FKART · '+R.N+' pilotos'+(du?' · '+R.ND+' duplas':''):'Ranking Todos · '+R.N+' pilotos'+(du?' · '+R.ND+' duplas':''))+'</span></div>';
       h+='<div class="q-tops">'+
-        Q.top('Qualify',T.rapido&&T.rapido.nome,T.rapido&&lt2(T.rapido.best))+
-        Q.top('Volta roubada',T.roubada&&T.roubada.nome,T.roubada&&f2(T.roubada.roub)+'s'+(T.roubada.roubAprox?' (aprox.)':''))+
+        Q.top('Qualify',T.rapido&&T.rapido.nome,T.rapido&&fmt(T.rapido.best))+
+        Q.top('Volta roubada',T.roubada&&T.roubada.nome,T.roubada&&(T.roubada.roub/1000).toFixed(3)+'s'+(T.roubada.roubAprox?' (aprox.)':''))+
         Q.top('Melhor média',T.media&&T.media.nome,T.media&&lt2(T.media.avg))+
         (du?Q.top('Melhor GAP de dupla',T.duplaGap&&Q.dn(T.duplaGap),T.duplaGap&&f2(T.duplaGap.gap)+'s')+Q.top('Dupla mais regular',T.duplaReg&&Q.dn(T.duplaReg),T.duplaReg&&'gap médio '+f2(T.duplaReg.reg)+'s'):'')+
       '</div>';
@@ -7866,7 +7869,7 @@ Object.assign(Q,{
         R.rows.map(function(r){
           return '<tr class="'+(r.orphan?'orph':'')+(r.pos===1?' p1':'')+(r.dq?' dq':'')+'"><td>'+(r.pos||'—')+'</td><td><b'+(r.orphan?'':' class="q-pl" data-n="'+esc(r.nome)+'" onclick="FK.qualy.openPil(this.dataset.n)"')+'>'+esc(r.nome)+'</b>'+(r.dq?' <em class="q-dqt">DQ</em>':'')+(Q.isGuest(r.nome)?' <em class="q-gst">conv.</em>':'')+(r.voided&&r.voided.length?'<div class="q-ex" style="color:#ffb74d">anulada(s): volta '+esc(r.voided.join(', '))+'</div>':'')+'</td><td><span class="q-k">'+pad(r.kart)+'</span></td>'+
             (du?'<td>'+(r.dupla!=null?r.dupla+1:'—')+'</td>':'')+
-            (r.orphan?'<td class="q-t">'+lt2(r.best)+'</td><td></td>'+(du?'<td></td><td></td>':''):cp(r.c.q,lt2(r.best))+cp(r.c.r,r.roub!=null?f2(r.roub)+(r.roubAprox?'*':''):null)+(du?cp(r.c.g,null)+cp(r.c.reg,null):''))+
+            (r.orphan?'<td class="q-t">'+fmt(r.best)+'</td><td></td>'+(du?'<td></td><td></td>':''):cp(r.c.q,fmt(r.best))+cp(r.c.r,r.roub!=null?(r.roub/1000).toFixed(3)+(r.roubAprox?'*':''):null)+(du?cp(r.c.g,null)+cp(r.c.reg,null):''))+
             '<td class="q-t">'+lt2(r.avg)+'</td><td>'+(r.n||0)+'</td><td class="q-pts">'+(r.orphan?'—':ptxt(r.pts))+'</td></tr>';
         }).join('')+'</tbody></table></div>';
       if(du&&R.duplas.length){
@@ -7877,7 +7880,7 @@ Object.assign(Q,{
               '<td class="q-t">'+(d.reg!=null?f2(d.reg)+'s <small class="q-mut">'+d.regN+' passagens</small>':'—')+'</td><td class="q-t q-cp">'+(rg?'<b>'+ptxt(rg.pts)+'</b><small>'+(rg.p!=null?ptxt(rg.p)+'º':'—')+'</small>':'—')+'</td>'+
               '<td class="q-pts">'+(d.inG?ptxt(d.pts||0):'—')+'</td></tr>'; }).join('')+'</tbody></table></div>';
       }
-      h+='<div class="q-note">Qualify e Volta Roubada em segundos (0,01). Em cada coluna: valor, <b style="color:#fff">pontos</b> e posição. * Volta Roubada aproximada (sem setores) · Média* = voltas válidas tirando a melhor e a pior.</div>';
+      h+='<div class="q-note">Qualify e Volta Roubada em milésimos, como o cronômetro; GAP e Regularidade comparados a 0,01 s. Em cada coluna: valor, <b style="color:#fff">pontos</b> e posição. * Volta Roubada aproximada (sem setores) · Média* = voltas válidas tirando a melhor e a pior.</div>';
       h+='</section>';
     });
     return h;
