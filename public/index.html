@@ -6972,7 +6972,7 @@ var P=FK.post={
   data:null, sel:[], cat:null, isOpen:false,
   /* ---------- analise ---------- */
   analyze:function(raw){
-    var cfg=FK.cfg||{}, minS=(cfg.minPitDurationSec>0?cfg.minPitDurationSec:300)*1000, longS=(cfg.longPitDurationSec>0?cfg.longPitDurationSec:0)*1000;
+    var R=P.rule(raw), minS=R.min*1000, longS=R.long*1000;
     var comps=(raw.competitors||[]).map(function(c){
       /* passagens pela linha (horario absoluto da prova) de todas as sessoes; as voltas sao recalculadas
          pela diferenca entre passagens -- pedacos que perderam uma passagem nao geram voltas/paradas falsas */
@@ -7120,10 +7120,20 @@ var P=FK.post={
       var comps=Object.keys(by).map(function(k){return by[k];}).filter(function(c){return c.L.length;});
       if(!comps.length){ prog.textContent=' nenhuma volta encontrada.'; return; }
       var raw={competitors:comps, session:(all[all.length-1]||{}).session||{}, _src:{raceId:rid,sessionId:sid,sessions:ids.length,name:sname.replace(/\s*\(#\d+\)$/,'')+(ids.length>1?' · '+ids.length+' sessões juntas':''),at:Date.now()}};
+      var a=parseFloat((document.getElementById('pa-min')||{}).value), b=parseFloat((document.getElementById('pa-long')||{}).value);
+      if(a>0)raw._rule={min:Math.round(a*60), long:b>0?Math.round(b*60):0};
       P.load(raw,true);
     };
     next();
   },
+  /* regra de paradas da prova analisada (salva junto com a importacao; padrao = Config atual) */
+  rule:function(raw){ var cfg=FK.cfg||{}, r=(raw&&raw._rule)||{};
+    return {min:r.min>0?r.min:(cfg.minPitDurationSec>0?cfg.minPitDurationSec:300), long:r.long!=null?r.long:(cfg.longPitDurationSec>0?cfg.longPitDurationSec:0), own:!!(raw&&raw._rule)}; },
+  setRule:function(){ if(!P.raw)return; var a=parseFloat((document.getElementById('pa-min')||{}).value), b=parseFloat((document.getElementById('pa-long')||{}).value);
+    if(!(a>0)){alert('Informe a parada mínima em minutos.');return;}
+    P.raw._rule={min:Math.round(a*60), long:b>0?Math.round(b*60):0}; var keep=P.sel.slice(), cat=P.cat;
+    P.data=P.analyze(P.raw); try{ localStorage.setItem(LS,JSON.stringify(P.raw)); }catch(e){}
+    if(cat&&P.data.byCat[cat]){P.cat=cat; P.sel=keep.filter(function(k){return !!P.comp(k);});} else {P.cat=null;P.defaults();} P.render(true); },
   load:function(raw,save){
     P.raw=raw; P.data=P.analyze(raw); P.cat=null; P.defaults();
     if(save){ try{ localStorage.setItem(LS,JSON.stringify(raw)); }catch(e){} }
@@ -7179,7 +7189,8 @@ var P=FK.post={
     var h='<div class="q-top"><button class="q-back" onclick="FK.post.close()">‹ MENU</button><div class="q-title"><b>ANÁLISE PÓS-CORRIDA</b><span>'+(D?esc(src.name||(D.info.name||'sessão importada'))+' · '+D.comps.length+' karts':'IMPORTE UMA SESSÃO DO RACE MONITOR')+'</span></div></div>';
     h+='<div class="q-body">';
     h+='<section class="q-sec"><h3><i>⇩</i>IMPORTAR PROVA</h3><div class="q-tools"><span class="q-grp">Race Monitor: prova <input id="pa-rid" type="text" value="'+esc(src.raceId||(FK.cfg&&FK.cfg.raceId)||'')+'" style="width:90px"><button class="q-btn" onclick="FK.post.listSessions()">Listar sessões</button><span id="pa-sess" class="q-sess"></span></span></div>'+
-      '<div class="q-note">Use a sessão da corrida (ex.: "PROVA"). Paradas são detectadas pela regra configurada em Config (mínimo '+Math.round(((FK.cfg&&FK.cfg.minPitDurationSec)||300)/60)+' min'+((FK.cfg&&FK.cfg.longPitDurationSec)?' · longa '+Math.round(FK.cfg.longPitDurationSec/60)+' min':'')+').</div></section>';
+      (function(){ var R=P.rule(P.raw); return '<div class="q-tools" style="margin-top:8px"><span class="q-grp">Regra de paradas desta prova: mínima <input id="pa-min" type="number" min="0" step="0.5" value="'+(R.min/60)+'" style="width:60px"> min · longa <input id="pa-long" type="number" min="0" step="0.5" value="'+(R.long/60)+'" style="width:60px"> min <small style="color:#8f9ab0">(0 = sem longa)</small>'+(P.raw?'<button class="q-btn" onclick="FK.post.setRule()">Recalcular</button>':'')+'</span></div>'+
+      '<div class="q-note">Use a sessão da corrida (ex.: "PROVA"). '+(R.own?'Regra salva com esta prova.':'Por padrão usa a regra da Config; ajuste aqui se a prova importada tinha outra regra.')+'</div>'; })()+'</section>';
     if(!D){ h+='</div>'; el.innerHTML=h; return; }
     var cats=Object.keys(D.byCat), cl=D.byCat[P.cat]||[], mine=P.mine();
     h+='<section class="q-sec"><h3><i>⚑</i>CATEGORIA E KARTS</h3><div class="pa-cats">'+cats.map(function(c){return '<button class="st-chip'+(c===P.cat?' on':'')+'" onclick="FK.post.pickCat(\''+esc(c)+'\')">'+esc(c)+' ('+D.byCat[c].length+')</button>';}).join('')+'</div>'+
