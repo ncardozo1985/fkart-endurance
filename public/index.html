@@ -6141,6 +6141,8 @@ var ICON={
   search:'<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="20" cy="20" r="13"/><path d="M30 30l12 12"/><path d="M13 24v-4M18 24v-8M23 24v-6M28 24v-10" stroke-width="2"/></svg>',
   users:'<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="18" cy="16" r="7"/><path d="M4 40c1-8 7-12 14-12s13 4 14 12"/><circle cx="34" cy="14" r="5"/><path d="M34 24c5 0 9 3 10 9"/></svg>'
 };
+var ACC={endurance:'#d7263d',qualy:'#1e88e5',sorteio:'#f2a900',piloto:'#26c6da',tv:'#2fbf71',fila:'#4fc3f7',analise:'#ab47bc',pilotos:'#cfd8e3',estrategia:'#ff8f00',config:'#78909c',users:'#90a4ae'};
+var MESES=['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
 var TILES=[
   {id:'endurance', cls:'hero hero-end', area:'end', title:'Endurance', sub:'Gestão de prova ao vivo', tab:null, live:true},
   {id:'qualy', cls:'hero hero-qualy', area:'qua', title:'Treino de Qualy', sub:'Academia FKR · rumo às 500 Milhas', module:'qualy'},
@@ -6170,14 +6172,67 @@ var H=FK.hub={
     var live=!!(s.liveSocket&&s.liveSocket.readyState===1)||(Date.now()-rx<180000);
     return {race:c.raceName||'—', karts:karts, live:live, elapsed:s.elapsed||0};
   },
+  /* dados ao vivo dos karts da equipe (Race Monitor) */
+  teamLive:function(){
+    var d=(FK.state&&FK.state.liveData)||[], mine=((FK.cfg&&FK.cfg.myKarts)||[]).map(function(k){return String(parseInt(k,10));});
+    if(!d.length||!mine.length)return [];
+    var byCat={}; d.forEach(function(c){ (byCat[c.cat||'']=byCat[c.cat||'']||[]).push(c); });
+    Object.keys(byCat).forEach(function(k){ byCat[k].sort(function(a,b){return a.pos-b.pos;}); });
+    return d.filter(function(c){ return mine.indexOf(String(parseInt(c.kart,10)))>=0; }).map(function(c){
+      var cl=byCat[c.cat||'']||[], i=cl.indexOf(c), ld=cl[0], gap='';
+      if(ld&&ld!==c){ var dl=(ld.laps||0)-(c.laps||0); gap=dl>0?'+'+dl+'V':(ld.totalTimeSec!=null&&c.totalTimeSec!=null?'+'+(c.totalTimeSec-ld.totalTimeSec).toFixed(1)+'s':''); }
+      return {kart:c.kart,cat:c.cat||'',pc:i+1,nc:cl.length,pos:c.pos,laps:c.laps,best:c.best,gap:gap||'LÍDER'};
+    }).sort(function(a,b){return a.pc-b.pc;});
+  },
+  liveHTML:function(){
+    var T=H.teamLive(); if(!T.length)return '';
+    var t=T[(H._li||0)%T.length];
+    return '<div class="hud-k">#'+esc(String(t.kart).replace(/^0+/,''))+'</div><div><small>'+esc(t.cat||'GERAL')+'</small><b>P'+t.pc+'<i>/'+t.nc+'</i></b></div><div><small>VOLTA</small><b>'+(t.laps||0)+'</b></div><div><small>GAP P1</small><b>'+esc(t.gap)+'</b></div><div><small>MELHOR</small><b>'+esc(String(t.best||'—').replace(/^00:0?/,''))+'</b></div>'+(T.length>1?'<div class="hud-n">'+((H._li||0)%T.length+1)+'/'+T.length+'</div>':'');
+  },
+  qualyInfo:function(){
+    var Q=FK.qualy; if(!Q)return null;
+    var ds=Q.seasonDates?Q.seasonDates():[], today=new Date().toISOString().slice(0,10);
+    var done=ds.filter(function(d){ return (Q.st.events||[]).some(function(e){ return e.data===d&&e.baterias.some(function(b){return b.laps&&Object.keys(b.laps).length;}); }); }).length;
+    var next=ds.filter(function(d){return d>=today;}).filter(function(d){ return !(Q.st.events||[]).some(function(e){ return e.data===d&&e.baterias.some(function(b){return b.laps&&Object.keys(b.laps).length;}); }); })[0];
+    var R=[]; try{ R=Q.ranking('fkart').filter(function(r){return !r.absent;}); }catch(e){ R=Q.ranking(); }
+    return {done:done,total:ds.length,next:next,leader:R[0],vagas:(Q.st.cfg&&Q.st.cfg.vagas)||3};
+  },
+  clock:function(){ var d=new Date(); return String(d.getDate()).padStart(2,'0')+' '+MESES[d.getMonth()]+' '+d.getFullYear()+' · '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0'); },
+  status:function(){
+    var inf=H.info(), on=navigator.onLine!==false;
+    var u=null; try{ u=firebase.auth().currentUser; }catch(e){}
+    var p=FK.state&&FK.state.authProfile, role=p?(p.isAdmin?'ADMIN':'EQUIPE'):'';
+    return '<span class="hs-chip'+(on?' ok':' off')+'"><i></i>RACE CONTROL '+(on?'ONLINE':'OFFLINE')+'</span>'+
+      (inf.live?'<span class="hs-chip live"><i></i>TIMING AO VIVO</span>':'')+
+      '<span class="hs-clock" id="hub-clock">'+H.clock()+'</span>'+
+      (u?'<span class="hs-user">'+(u.photoURL?'<img src="'+esc(u.photoURL)+'" alt="">':'')+'<span><b>'+esc(u.displayName||u.email||'')+'</b>'+(role?'<small>'+role+'</small>':'')+'</span></span>':'');
+  },
+  /* atualiza so as partes vivas (sem redesenhar o menu nem repetir a animacao de entrada) */
+  tickLive:function(){
+    if(!H.isOpen)return;
+    var c=document.getElementById('hub-clock'); if(c)c.textContent=H.clock();
+  },
+  tickData:function(){
+    if(!H.isOpen)return;
+    H._li=(H._li||0)+1;
+    var hud=document.getElementById('hub-hud'); if(hud){ var h=H.liveHTML(); hud.innerHTML=h; hud.classList.toggle('on',!!h); }
+    var st=document.getElementById('hub-status'); if(st)st.innerHTML=H.status();
+  },
+  /* tracado da pista (25 tracados GPS do KGV) desenhado no fundo */
+  trackSVG:function(){
+    var raw=(FK._tracks&&(FK._tracks[(FK.cfg||{}).tracado]||FK._tracks['500_milhas']))||[]; if(raw.length<4)return '';
+    var W=1000,Hh=600, d=raw.map(function(p,i){ return (i?'L':'M')+(p[0]*W).toFixed(1)+' '+(p[1]*Hh).toFixed(1); }).join(' ')+'Z';
+    return '<svg class="hub-track" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><path class="tr-base" d="'+d+'"/><path class="tr-run" d="'+d+'" pathLength="1000"/><circle r="6" class="tr-kart"><animateMotion dur="38s" repeatCount="indefinite" path="'+d+'"/></circle></svg>';
+  },
   fmt:function(sec){sec=Math.max(0,Math.floor(sec||0));var h=Math.floor(sec/3600),m=Math.floor(sec%3600/60);return h+'h'+String(m).padStart(2,'0');},
   render:function(){
     var el=document.getElementById('fk-hub'); if(!el)return;
     var inf=H.info(), logo=(document.querySelector('.topbar img')||{}).src||'';
     var tiles=TILES.filter(function(t){ return !t.tab||allowed(t.tab); });
-    var html='<div class="hub-top"><div class="hub-brand">'+(logo?'<img src="'+logo+'" alt="">':'')+
+    var Qi=H.qualyInfo();
+    var html='<div class="hub-bgfx">'+H.trackSVG()+'</div><div class="hub-top"><div class="hub-brand">'+(logo?'<img src="'+logo+'" alt="">':'')+
       '<div class="hub-name"><b>SEMBOX</b><span>KART RACING MANAGEMENT</span></div><div class="hub-sep"></div><div class="hub-season">'+new Date().getFullYear().toString().slice(2)+'</div></div>'+
-      '<div class="hub-user" id="hub-user"></div></div>'+
+      '<div class="hub-status" id="hub-status">'+H.status()+'</div></div>'+
       '<div class="hub-grid">'+tiles.map(function(t,i){
         var body='';
         if(t.id==='endurance'){
@@ -6185,32 +6240,37 @@ var H=FK.hub={
             '<div class="hub-t">'+t.title+'</div>'+
             '<div class="hub-kv"><span>'+(inf.live?'<i class="hub-dot"></i>AO VIVO':'PROVA ATUAL')+'</span><b>'+esc(inf.race)+'</b></div>'+
             '<div class="hub-foot"><div><small>KARTS DA EQUIPE</small><b>'+inf.karts+'</b></div>'+
-              (inf.live?'<div><small>DECORRIDO</small><b>'+H.fmt(inf.elapsed)+'</b></div>':'<div><small>MÓDULO</small><b>Ativo</b></div>')+'</div>';
+              (inf.live?'<div><small>DECORRIDO</small><b>'+H.fmt(inf.elapsed)+'</b></div>':'<div><small>STATUS</small><b>Aguardando largada</b></div>')+'</div>'+
+            (function(){ var h=inf.live?H.liveHTML():''; return '<div class="hub-hud'+(h?' on':'')+'" id="hub-hud">'+h+'</div>'; })();
         }else if(t.id==='qualy'){
           body='<div class="hub-art art-qua"><div class="art-word">QUALY</div><div class="art-lines"></div></div>'+
             '<div class="hub-t">'+t.title+'</div><div class="hub-s">'+t.sub+'</div>'+
-            (function(){ var R=FK.qualy?FK.qualy.ranking():[], L=R[0]; return '<div class="hub-foot"><div><small>EVENTOS</small><b>'+(FK.qualy?(FK.qualy.st.events||[]).length:0)+'</b></div><div><small>LÍDER</small><b>'+(L?esc(L.nome)+' · '+L.pts+' pts':'—')+'</b></div></div>'; })();
+            (function(){ if(!Qi)return ''; var L=Qi.leader, pct=Qi.total?Math.round(Qi.done/Qi.total*100):0, nd=Qi.next?Qi.next.split('-'):null;
+              return '<div class="hub-career"><div class="hc-bar"><i style="width:'+pct+'%"></i>'+Array.apply(null,Array(Qi.total)).map(function(_,k){return '<em style="left:'+((k+1)/Qi.total*100)+'%" class="'+(k<Qi.done?'on':'')+'"></em>';}).join('')+'</div>'+
+                '<div class="hc-txt">TEMPORADA <b>'+Qi.done+'/'+Qi.total+'</b> EVENTOS'+(nd?' · PRÓXIMO <b>'+nd[2]+'/'+nd[1]+'</b>':'')+'</div></div>'+
+                '<div class="hub-foot"><div><small>LÍDER FKART</small><b>'+(L?esc(L.nome)+' · '+(String(L.pts).replace('.',','))+' pts':'—')+'</b></div><div><small>VAGAS</small><b>'+Qi.vagas+'</b></div></div>'; })();
         }else{
           body='<div class="hub-t">'+t.title+'</div>'+(t.sub?'<div class="hub-s">'+t.sub+'</div>':'')+'<div class="hub-ic">'+ICON[t.icon]+'</div>';
         }
-        return '<button class="hub-tile '+(t.cls||'small')+(t.soon?' soon':'')+'" style="grid-area:'+t.area+';--d:'+(i*40)+'ms" data-id="'+t.id+'" data-i="'+i+'">'+
+        return '<button class="hub-tile '+(t.cls||'small')+(t.soon?' soon':'')+'" style="grid-area:'+t.area+';--d:'+(120+i*80)+'ms;--acc:'+(ACC[t.id]||'#d7263d')+'" data-id="'+t.id+'" data-i="'+i+'">'+
           (t.soon?'<span class="hub-badge">EM BREVE</span>':'')+body+'</button>';
       }).join('')+'</div>'+
-      '<div class="hub-bottom"><div class="hub-news">NOVO: TREINO DE QUALY E SORTEIO DE DUPLAS — RUMO ÀS 500 MILHAS</div>'+
+      '<div class="hub-bottom"><div class="hub-news">NOVO: TREINO DE QUALY E SORTEIO DE DUPLAS — RUMO ÀS 500 MILHAS</div><div class="hub-tag">RACE <i>•</i> ANALYZE <i>•</i> IMPROVE</div>'+
       '<div class="hub-keys"><span><i>↵</i>SELECIONAR</span><span><i>⇦⇨</i>NAVEGAR</span>'+(H.back?'<span><i>ESC</i>VOLTAR</span>':'')+'</div></div>'+
       '<div class="hub-toast" id="hub-toast"></div>';
     el.innerHTML=html;
+    el.classList.toggle('enter',!!H._enter); H._enter=false;
     el.querySelectorAll('.hub-tile').forEach(function(b){
       b.onclick=function(){ H.pick(b.getAttribute('data-id')); };
       b.onmouseenter=function(){ H.setFocus(+b.getAttribute('data-i')); };
     });
-    try{ var u=firebase.auth().currentUser; if(u)document.getElementById('hub-user').innerHTML=(u.photoURL?'<img src="'+esc(u.photoURL)+'" alt="">':'')+'<span>'+esc(u.displayName||u.email||'')+'</span>'; }catch(e){}
     H.setFocus(Math.min(H.focus,tiles.length-1));
   },
   setFocus:function(i){
     var els=document.querySelectorAll('#fk-hub .hub-tile'); if(!els.length)return;
     H.focus=Math.max(0,Math.min(els.length-1,i));
     els.forEach(function(e,k){ e.classList.toggle('focus',k===H.focus); });
+    var cur=els[H.focus], hub=document.getElementById('fk-hub'); if(cur&&hub)hub.style.setProperty('--hacc',ACC[cur.getAttribute('data-id')]||'#d7263d');
   },
   move:function(dx,dy){
     var els=[].slice.call(document.querySelectorAll('#fk-hub .hub-tile')); var cur=els[H.focus]; if(!cur)return;
@@ -6230,7 +6290,7 @@ var H=FK.hub={
   open:function(){
     var el=document.getElementById('fk-hub'); if(!el)return;
     H.lastTab=curTab()||H.lastTab; H.back=!!H.lastTab&&H.everClosed;
-    H.render(); el.classList.add('on'); H.isOpen=true; document.body.classList.add('hub-open'); setHash('');
+    H._enter=!el.classList.contains('on'); H.render(); el.classList.add('on'); H.isOpen=true; document.body.classList.add('hub-open'); setHash('');
   },
   hideOnly:function(){ var el=document.getElementById('fk-hub'); if(el)el.classList.remove('on'); H.isOpen=false; },
   close:function(tab){
@@ -6268,7 +6328,8 @@ document.addEventListener('keydown',function(e){
   else if(k==='Enter'||k===' '){ var t=document.querySelectorAll('#fk-hub .hub-tile')[H.focus]; if(t)H.pick(t.getAttribute('data-id')); e.preventDefault(); }
   else if(k==='Escape'&&H.back){ H.close(H.lastTab); }
 });
-setInterval(function(){ if(H.isOpen){ var f=H.focus; H.render(); H.setFocus(f);} },30000);
+setInterval(H.tickLive,1000); setInterval(H.tickData,4000);
+setInterval(function(){ if(H.isOpen&&!document.querySelector('#fk-hub .hub-tile:hover')){ var f=H.focus; H.render(); H.setFocus(f);} },60000);
 
 /* entrada: #endurance/<tela> vai direto; sem # abre o menu */
 function boot(){
@@ -6295,13 +6356,37 @@ if(_aui)FK.applyAuthUI=function(){
 
 var css=document.createElement('style');
 css.textContent=[
-'#fk-hub{position:fixed;inset:0;z-index:9000;display:none;flex-direction:column;color:#fff;font-family:inherit;overflow:auto;',
-' background:radial-gradient(1200px 500px at 85% -10%,rgba(215,38,61,.22),transparent 60%),radial-gradient(900px 600px at -10% 110%,rgba(40,90,180,.18),transparent 60%),linear-gradient(180deg,#0b0f18,#121826 55%,#0a0d14)}',
+'@property --hacc{syntax:"<color>";inherits:true;initial-value:#d7263d}',
+'#fk-hub{--bg:#080A0E;--panel:#101318;--panel2:#171B22;--line:rgba(255,255,255,.08);--hacc:#d7263d;transition:--hacc .45s ease;',
+' position:fixed;inset:0;z-index:9000;display:none;flex-direction:column;color:#fff;font-family:inherit;overflow:auto;',
+' background:radial-gradient(1100px 520px at 82% -8%,color-mix(in srgb,var(--hacc) 26%,transparent),transparent 62%),radial-gradient(900px 600px at -10% 110%,rgba(40,90,180,.12),transparent 60%),var(--bg)}',
+'.hub-bgfx{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:0}',
+'.hub-track{position:absolute;right:-4%;top:6%;width:72%;height:92%;opacity:.16}',
+'.hub-track .tr-base{fill:none;stroke:#fff;stroke-width:3;stroke-linejoin:round;opacity:.35}',
+'.hub-track .tr-run{fill:none;stroke:var(--hacc);stroke-width:4;stroke-linecap:round;stroke-dasharray:90 910;animation:trRun 9s linear infinite;filter:drop-shadow(0 0 6px var(--hacc))}',
+'@keyframes trRun{to{stroke-dashoffset:-1000}}',
+'.hub-track .tr-kart{fill:var(--hacc);filter:drop-shadow(0 0 8px var(--hacc))}',
+'.hub-top,.hub-grid,.hub-bottom{position:relative;z-index:1}',
+'.hub-status{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;font-size:11px;letter-spacing:1.5px;font-weight:800;color:#c9d1e0}',
+'.hs-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border:1px solid var(--line);background:rgba(16,19,24,.7)}',
+'.hs-chip i{width:7px;height:7px;border-radius:50%;background:#7f8aa0}.hs-chip.ok i{background:#2fbf71;box-shadow:0 0 8px #2fbf71}.hs-chip.off i{background:#ff6b6b}',
+'.hs-chip.live{color:#fff;border-color:rgba(215,38,61,.6)}.hs-chip.live i{background:#ff3b4e;animation:hubPulse 1.6s infinite}',
+'.hs-clock{font-variant-numeric:tabular-nums;color:#fff;font-weight:700;letter-spacing:1px}',
+'.hs-user{display:inline-flex;align-items:center;gap:8px;padding-left:10px;border-left:1px solid var(--line)}.hs-user img{width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,.3)}',
+'.hs-user span{display:flex;flex-direction:column;line-height:1.1}.hs-user b{font-size:12px;letter-spacing:.5px;color:#fff}.hs-user small{font-size:9px;letter-spacing:2px;color:var(--hacc);filter:brightness(1.3)}',
+'.hub-hud{position:relative;z-index:2;display:flex;align-items:center;gap:16px;margin-top:10px;padding:8px 12px;background:rgba(5,6,8,.72);border-left:3px solid #fff;backdrop-filter:blur(4px);opacity:0;transform:translateY(6px);transition:all .35s;font-variant-numeric:tabular-nums}',
+'.hub-hud.on{opacity:1;transform:none}.hub-hud small{display:block;font-size:8.5px;letter-spacing:1.5px;color:#ffb3bd;font-weight:800}.hub-hud b{font-size:16px;font-weight:900}.hub-hud b i{font-style:normal;font-size:11px;color:#c9d1e0}',
+'.hud-k{font-size:20px;font-weight:900;font-style:italic;background:#fff;color:#000;padding:0 8px}.hud-n{margin-left:auto;font-size:10px;color:#c9d1e0}',
+'.hub-career{position:relative;z-index:2;margin-top:auto;margin-bottom:10px}',
+'.hc-bar{position:relative;height:6px;background:rgba(255,255,255,.15);margin:0 4px 6px 0}.hc-bar i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#4fc3f7,#fff);box-shadow:0 0 10px #4fc3f7}',
+'.hc-bar em{position:absolute;top:-4px;width:2px;height:14px;background:rgba(255,255,255,.4);transform:translateX(-1px)}.hc-bar em.on{background:#fff}',
+'.hc-txt{font-size:10px;letter-spacing:1.5px;color:#cfe8ff;font-weight:700}.hc-txt b{color:#fff}',
+'.hub-tag{font-size:11px;letter-spacing:5px;font-weight:900;color:#7f8aa0;font-style:italic;white-space:nowrap}.hub-tag i{font-style:normal;color:var(--hacc)}',
 '#fk-hub.on{display:flex}',
 'body.hub-open{overflow:hidden}',
-'#fk-hub:before{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(115deg,rgba(255,255,255,.018) 0 2px,transparent 2px 14px)}',
+'#fk-hub:before{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;background:repeating-linear-gradient(115deg,rgba(255,255,255,.015) 0 2px,transparent 2px 14px)}',
 '.hub-top{display:flex;align-items:center;justify-content:space-between;padding:22px 5vw 14px;position:relative;background:linear-gradient(180deg,rgba(0,0,0,.55),transparent);border-bottom:1px solid rgba(255,255,255,.06)}',
-'.hub-top:after{content:"";position:absolute;right:5vw;top:18px;width:220px;height:40px;background:radial-gradient(circle,rgba(255,255,255,.18) 1px,transparent 1.5px) 0 0/8px 8px;opacity:.5;pointer-events:none}',
+'.hub-top:after{display:none}',
 '.hub-brand{display:flex;align-items:center;gap:14px}',
 '.hub-brand img{height:44px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.6))}',
 '.hub-name{display:flex;flex-direction:column;line-height:1}',
@@ -6314,20 +6399,27 @@ css.textContent=[
 '.hub-grid{flex:1;display:grid;gap:10px;padding:18px 5vw;min-height:0;',
 ' grid-template-columns:2fr 1.15fr .9fr .9fr;grid-template-rows:repeat(6,minmax(64px,1fr));',
 ' grid-template-areas:"end sor tv fila" "end sor tv fila" "end ana plt est" "qua ana plt est" "qua pil cfg usr" "qua pil cfg usr"}',
-'.hub-tile{position:relative;overflow:hidden;border:0;border-radius:2px;background:#050608;color:#fff;text-align:left;padding:14px 16px;cursor:pointer;',
-' display:flex;flex-direction:column;justify-content:flex-start;box-shadow:0 0 0 1px rgba(255,255,255,.07),0 10px 24px rgba(0,0,0,.35);',
-' transition:transform .16s ease,box-shadow .16s ease,background .16s ease;opacity:0;animation:hubIn .45s ease forwards;animation-delay:var(--d)}',
+'.hub-tile{position:relative;overflow:hidden;border:0;border-radius:2px;background:var(--panel);color:#fff;text-align:left;padding:14px 16px;cursor:pointer;',
+' display:flex;flex-direction:column;justify-content:flex-start;box-shadow:0 0 0 1px var(--line),0 10px 24px rgba(0,0,0,.35);',
+' transition:transform .22s cubic-bezier(.2,.9,.3,1.2),box-shadow .22s ease,background .22s ease}',
+'#fk-hub.enter .hub-tile{opacity:0;animation:hubIn .5s cubic-bezier(.2,.9,.3,1) forwards;animation-delay:var(--d)}',
+'#fk-hub.enter .hub-top{animation:hubTop .5s ease both}#fk-hub.enter .hub-bottom{animation:hubTop .5s ease .9s both}',
+'@keyframes hubTop{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}',
+'.hub-tile:after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;z-index:4;background:linear-gradient(90deg,transparent,var(--acc),transparent);background-size:50% 100%;background-repeat:no-repeat;opacity:0;transition:opacity .2s}',
+'.hub-tile.focus:after{opacity:1;animation:hubLine 1.6s linear infinite}',
+'@keyframes hubLine{from{background-position:-50% 0}to{background-position:150% 0}}',
 '@keyframes hubIn{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}',
 '.hub-tile .hub-t{font-size:15px;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;position:relative;z-index:2}',
 '.hub-tile .hub-s{font-size:11px;color:#aeb6c6;margin-top:4px;position:relative;z-index:2;max-width:95%}',
 '.hub-ic{flex:1;display:flex;align-items:center;justify-content:center;color:#fff;min-height:0}',
 '.hub-ic svg{width:clamp(34px,4.2vw,64px);height:auto;max-height:70%;transition:transform .2s}',
 '.hub-tile.big .hub-ic svg{width:clamp(48px,6vw,92px)}',
-'.hub-tile.focus,.hub-tile.soon.focus:not(.hero){background:#d7263d;box-shadow:0 0 0 2px #fff,0 16px 36px rgba(215,38,61,.45);transform:scale(1.025);z-index:3}',
-'.hub-tile.focus .hub-s{color:#ffe1e5}',
-'.hub-tile.focus .hub-ic svg{transform:scale(1.08)}',
+'.hub-tile.focus,.hub-tile.soon.focus:not(.hero){background:var(--panel2);box-shadow:0 0 0 1px color-mix(in srgb,var(--acc) 70%,transparent),inset 3px 0 0 var(--acc),0 18px 40px color-mix(in srgb,var(--acc) 28%,transparent);transform:scale(1.015);z-index:3}',
+'.hub-tile.focus .hub-s{color:#e6ebf3}',
+'.hub-tile .hub-ic{color:#e8ecf3;transition:color .2s}.hub-tile.focus .hub-ic{color:var(--acc)}',
+'.hub-tile.focus .hub-ic svg{transform:scale(1.08);filter:drop-shadow(0 0 12px color-mix(in srgb,var(--acc) 60%,transparent))}',
 '.hub-tile.hero{padding:16px 20px;justify-content:space-between}',
-'.hub-tile.hero.focus{background:#050608;box-shadow:0 0 0 3px #d7263d,0 18px 40px rgba(215,38,61,.35)}',
+'.hub-tile.hero.focus{background:var(--panel);box-shadow:0 0 0 2px var(--acc),0 18px 44px color-mix(in srgb,var(--acc) 35%,transparent)}',
 '.hub-art{position:absolute;inset:0;z-index:1;transition:transform .5s ease}',
 '.hub-tile.hero.focus .hub-art{transform:scale(1.04)}',
 '.art-end{background:linear-gradient(100deg,rgba(0,0,0,.85) 0%,rgba(0,0,0,.35) 45%,rgba(0,0,0,.1)),linear-gradient(135deg,#6b0f1a,#d7263d 55%,#ff7043)}',
@@ -6350,14 +6442,15 @@ css.textContent=[
 '.hub-badge{position:absolute;top:12px;right:12px;z-index:3;font-size:9px;font-weight:900;letter-spacing:1px;background:#1565c0;color:#fff;padding:3px 6px;border-radius:2px}',
 '.hub-bottom{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 5vw 16px;position:relative}',
 '.hub-news{background:linear-gradient(90deg,#1565c0,#1e88e5);font-size:11px;font-weight:800;letter-spacing:1px;padding:7px 14px;min-width:min(420px,50vw);clip-path:polygon(0 0,100% 0,96% 100%,0 100%)}',
-'.hub-keys{display:flex;gap:18px;font-size:11px;color:#c9d1e0;letter-spacing:1px}',
+'.hub-keys{display:flex;gap:18px;font-size:11px;color:#c9d1e0;letter-spacing:1px;margin-right:clamp(0px,9vw,150px)}',
 '.hub-keys i{font-style:normal;display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 5px;margin-right:6px;border-radius:10px;background:#fff;color:#000;font-size:10px;font-weight:900}',
 '.hub-toast{position:fixed;left:50%;bottom:70px;transform:translate(-50%,20px);background:#fff;color:#000;font-weight:800;font-size:13px;padding:10px 16px;border-radius:3px;opacity:0;transition:all .25s;pointer-events:none;z-index:9001}',
 '.hub-toast.on{opacity:1;transform:translate(-50%,0)}',
 '.tab.tab-hub .tab-ic{background:#1565c0!important;color:#fff}',
 '@media(max-width:900px){.hub-grid{flex:none;grid-template-columns:1fr 1fr;grid-template-rows:180px 180px 150px 130px 116px 116px 116px;',
 ' grid-template-areas:"end end" "qua qua" "sor pil" "ana ana" "tv fila" "plt est" "cfg usr"}.hub-tile.hero{min-height:170px}.hub-tile.big{min-height:130px}',
-' .hub-badge{top:auto;bottom:10px}.hub-keys{display:none}.hub-news{min-width:0;flex:1}.hub-top:after{display:none}.hub-name b{font-size:22px}.hub-season{font-size:26px}.hub-user span{display:none}}'
+' .hub-badge{top:auto;bottom:10px}.hub-keys{display:none}.hub-news{min-width:0;flex:1}.hub-top:after{display:none}.hub-name b{font-size:22px}.hub-season{font-size:26px}',
+' .hub-top{flex-wrap:wrap;gap:8px}.hub-status{justify-content:flex-start;gap:6px}.hs-clock,.hub-tag{display:none}.hs-user span small{display:none}.hub-track{width:140%;right:-30%;opacity:.1}.hub-hud{gap:10px}.hub-hud b{font-size:14px}}'
 ].join('\n');
 document.head.appendChild(css);
 })();
@@ -8406,7 +8499,7 @@ var A=FK.audio={
 var box=document.createElement('div'); box.id='fk-audio'; document.body.appendChild(box);
 var css=document.createElement('style');
 css.textContent=[
-'#fk-audio{position:fixed;right:14px;bottom:58px;z-index:9100;display:none;align-items:center;gap:6px;background:rgba(6,8,13,.82);border:1px solid rgba(255,255,255,.14);padding:5px 7px;border-radius:3px;backdrop-filter:blur(6px)}',
+'#fk-audio{position:fixed;right:14px;bottom:12px;z-index:9100;display:none;align-items:center;gap:6px;background:rgba(6,8,13,.82);border:1px solid rgba(255,255,255,.14);padding:5px 7px;border-radius:3px;backdrop-filter:blur(6px)}',
 '#fk-audio .fa-b{background:transparent;border:1px solid rgba(255,255,255,.2);color:#7f8aa0;width:30px;height:28px;font-size:14px;cursor:pointer;border-radius:2px;padding:0}',
 '#fk-audio .fa-b.on{color:#fff;border-color:#d7263d;box-shadow:inset 0 -2px 0 #d7263d}',
 '#fk-audio .fa-v{width:80px;accent-color:#d7263d}',
