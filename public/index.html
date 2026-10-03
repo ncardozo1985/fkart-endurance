@@ -8316,6 +8316,98 @@ css.textContent=[
 document.head.appendChild(css);
 })();
 </script>
+<script>
+/* =====================================================================================
+   AUDIO (03/10/2026) -- trilha estilo game (gerada no Suno) + efeitos de interface.
+   Trilhas (arquivos na pasta public/audio do site; se o arquivo nao existir, fica mudo):
+     audio/menu.mp3     -> menu principal
+     audio/sistema.mp3  -> modulos (Sorteio, Treino de Qualy, Analise pos-corrida)
+     audio/podio.mp3    -> vinheta curta no fim das revelacoes (opcional)
+   No Endurance (dia de corrida) a musica para sozinha.
+   Efeitos (tick ao passar pelos cards, clique, voltar) sao sintetizados no navegador.
+   Preferencias (musica, volume, efeitos) ficam salvas no aparelho.
+   ===================================================================================== */
+(function(){
+if(typeof FK==='undefined')return;
+var TR={menu:'audio/menu.mp3',sistema:'audio/sistema.mp3',podio:'audio/podio.mp3'};
+function lsG(k,d){ try{ var v=localStorage.getItem(k); return v==null?d:JSON.parse(v); }catch(e){ return d; } }
+function lsS(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+var A=FK.audio={
+  ok:{}, el:{}, cur:null, ctx:null, unlocked:false,
+  musicOn:function(){ return lsG('fk_mus_on',true)!==false; },
+  sfxOn:function(){ return lsG('fk_sfx_on',true)!==false; },
+  vol:function(){ var v=lsG('fk_mus_vol',0.35); return v>=0&&v<=1?v:0.35; },
+  /* descobre quais trilhas existem no site */
+  probe:function(){
+    Object.keys(TR).forEach(function(k){
+      fetch(TR[k],{method:'HEAD',cache:'no-store'}).then(function(r){ var ct=r.headers.get('content-type')||''; A.ok[k]=r.ok&&/audio|mpeg|octet/.test(ct); A.ui(); }).catch(function(){ A.ok[k]=false; });
+    });
+  },
+  get:function(k){ if(!A.el[k]){ var a=new Audio(TR[k]); a.loop=k!=='podio'; a.preload='auto'; a.volume=0; A.el[k]=a; } return A.el[k]; },
+  fade:function(a,to,ms,done){ clearInterval(a._f); a._fading=true; var from=a.volume, t0=Date.now(); a._f=setInterval(function(){ var p=Math.min(1,(Date.now()-t0)/ms); a.volume=Math.max(0,Math.min(1,from+(to-from)*p)); if(p>=1){ clearInterval(a._f); a._fading=false; if(done)done(); } },40); },
+  target:function(){ var duck=document.getElementById('st-rv')||document.getElementById('q-rv'); return A.vol()*(duck?0.25:1); },
+  /* qual trilha combina com a tela atual */
+  context:function(){
+    if(['fk-sorteio','fk-qualy','fk-post'].some(function(id){ var e=document.getElementById(id); return e&&e.classList.contains('on'); }))return 'sistema';
+    var h=document.getElementById('fk-hub'); if(h&&h.classList.contains('on'))return 'menu';
+    return null; /* Endurance / dia de corrida: silencio */
+  },
+  tick:function(){
+    var want=A.musicOn()&&A.unlocked?A.context():null;
+    if(want&&!A.ok[want])want=null;
+    if(want!==A.cur){
+      var old=A.cur&&A.el[A.cur]; if(old)A.fade(old,0,900,function(){ old.pause(); });
+      A.cur=want;
+      if(want){ var a=A.get(want); var p=a.play(); if(p&&p.catch)p.catch(function(){ A.cur=null; }); A.fade(a,A.target(),1200); }
+    }else if(want){ var a2=A.el[want]; if(a2&&!a2._fading&&Math.abs(a2.volume-A.target())>0.02)A.fade(a2,A.target(),500); }
+    var show=!!A.context(); var box=document.getElementById('fk-audio'); if(box)box.style.display=show?'flex':'none';
+  },
+  unlock:function(){ if(A.unlocked)return; A.unlocked=true; try{ A.ctx=A.ctx||new (window.AudioContext||window.webkitAudioContext)(); if(A.ctx.state==='suspended')A.ctx.resume(); }catch(e){} A.tick(); },
+  podio:function(){ if(!A.musicOn()||!A.ok.podio)return; var a=A.get('podio'); a.currentTime=0; a.volume=Math.min(1,A.vol()*1.4); var p=a.play(); if(p&&p.catch)p.catch(function(){}); },
+  /* ---- efeitos sintetizados ---- */
+  blip:function(f1,f2,d,v,type){
+    if(!A.sfxOn()||!A.unlocked)return;
+    try{ var c=A.ctx||(A.ctx=new (window.AudioContext||window.webkitAudioContext)()), t=c.currentTime, o=c.createOscillator(), g=c.createGain();
+      o.type=type||'sine'; o.frequency.setValueAtTime(f1,t); if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+d);
+      g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(v||0.05,t+0.008); g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+      o.connect(g); g.connect(c.destination); o.start(t); o.stop(t+d+0.02); }catch(e){}
+  },
+  hover:function(){ var n=Date.now(); if(n-(A._h||0)<70)return; A._h=n; A.blip(1800,2400,0.035,0.018,'triangle'); },
+  click:function(){ A.blip(520,880,0.09,0.05,'triangle'); setTimeout(function(){ A.blip(1320,null,0.06,0.025,'sine'); },45); },
+  back:function(){ A.blip(700,300,0.12,0.045,'triangle'); },
+  /* ---- controle na tela ---- */
+  toggleMusic:function(){ lsS('fk_mus_on',!A.musicOn()); A.unlock(); A.ui(); A.tick(); },
+  toggleSfx:function(){ lsS('fk_sfx_on',!A.sfxOn()); A.ui(); if(A.sfxOn()){ A.unlock(); A.click(); } },
+  setVol:function(v){ lsS('fk_mus_vol',Math.max(0,Math.min(1,v))); var a=A.cur&&A.el[A.cur]; if(a){ clearInterval(a._f); a._fading=false; a.volume=A.target(); } },
+  ui:function(){
+    var box=document.getElementById('fk-audio'); if(!box)return;
+    var anyMusic=A.ok.menu||A.ok.sistema;
+    box.innerHTML=(anyMusic?'<button class="fa-b'+(A.musicOn()?' on':'')+'" title="Música" onclick="FK.audio.toggleMusic()">♫</button>'+
+      '<input class="fa-v" type="range" min="0" max="100" value="'+Math.round(A.vol()*100)+'" title="Volume da música" oninput="FK.audio.setVol(this.value/100)"'+(A.musicOn()?'':' disabled')+'>':'')+
+      '<button class="fa-b'+(A.sfxOn()?' on':'')+'" title="Efeitos sonoros" onclick="FK.audio.toggleSfx()">'+(A.sfxOn()?'🔊':'🔇')+'</button>';
+  }
+};
+var box=document.createElement('div'); box.id='fk-audio'; document.body.appendChild(box);
+var css=document.createElement('style');
+css.textContent=[
+'#fk-audio{position:fixed;right:14px;bottom:58px;z-index:9100;display:none;align-items:center;gap:6px;background:rgba(6,8,13,.82);border:1px solid rgba(255,255,255,.14);padding:5px 7px;border-radius:3px;backdrop-filter:blur(6px)}',
+'#fk-audio .fa-b{background:transparent;border:1px solid rgba(255,255,255,.2);color:#7f8aa0;width:30px;height:28px;font-size:14px;cursor:pointer;border-radius:2px;padding:0}',
+'#fk-audio .fa-b.on{color:#fff;border-color:#d7263d;box-shadow:inset 0 -2px 0 #d7263d}',
+'#fk-audio .fa-v{width:80px;accent-color:#d7263d}',
+'@media(max-width:600px){#fk-audio{right:8px;bottom:8px}#fk-audio .fa-v{width:56px}}'
+].join('\n');
+document.head.appendChild(css);
+/* desbloqueia o audio no primeiro toque/tecla (regra dos navegadores) */
+['pointerdown','keydown','touchstart'].forEach(function(ev){ document.addEventListener(ev,function(){ A.unlock(); },{once:true,passive:true}); });
+/* efeitos nos elementos da interface */
+document.addEventListener('mouseover',function(e){ var t=e.target.closest&&e.target.closest('#fk-hub .hub-tile'); if(t&&t!==A._lt){ A._lt=t; A.hover(); } else if(!t)A._lt=null; },true);
+document.addEventListener('click',function(e){ var t=e.target.closest&&e.target.closest('button,.hub-tile,label.q-file'); if(!t||t.closest('#fk-audio'))return;
+  if(t.matches('.q-back,.st-back,.hub-back'))A.back(); else if(t.closest('#fk-hub,#fk-sorteio,#fk-qualy,#fk-post'))A.click(); },true);
+/* vinheta no fim das revelacoes (Sorteio/Qualy), se existir audio/podio.mp3 */
+['sorteio','qualy'].forEach(function(m){ var M=FK[m]; if(!M)return; var fn=m==='sorteio'?'finish':'revealEnd'; var o=M[fn]; if(typeof o==='function')M[fn]=function(){ var r=o.apply(M,arguments); try{ A.podio(); }catch(e){} return r; }; });
+A.probe(); A.ui(); setInterval(A.tick,700);
+})();
+</script>
 
 </body>
 </html>
