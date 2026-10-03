@@ -6974,29 +6974,35 @@ var P=FK.post={
   analyze:function(raw){
     var cfg=FK.cfg||{}, minS=(cfg.minPitDurationSec>0?cfg.minPitDurationSec:300)*1000, longS=(cfg.longPitDurationSec>0?cfg.longPitDurationSec:0)*1000;
     var comps=(raw.competitors||[]).map(function(c){
-      var L=(c.L||[]).filter(function(x){return x[1]>0;}).sort(function(a,b){return a[0]-b[0];}).map(function(x){return {lap:x[0],ms:x[1],tot:x[2]||null};});
+      var seen={}, L=(c.L||[]).filter(function(x){ if(!(x[1]>0)||seen[x[0]])return false; seen[x[0]]=1; return true; }).sort(function(a,b){return a[0]-b[0];}).map(function(x){return {lap:x[0],ms:x[1],tot:x[2]||null};});
       var t=0; L.forEach(function(x){ if(x.tot==null){t+=x.ms;x.tot=t;} else t=x.tot; });
-      return {k:normK(c.n), name:(c.name||'').trim(), cat:String(c.cat||'').trim().toUpperCase()||'GERAL', L:L};
+      return {k:normK(c.n), name:P.cleanName(c.name), cat:String(c.cat||'').trim().toUpperCase()||'GERAL', L:L};
     }).filter(function(c){return c.L.length;});
     comps.forEach(function(c){
       var base=med(c.L.map(function(x){return x.ms;}));
       c.base=base;
-      c.L.forEach(function(x,i){ x.pit=x.ms>=minS*0.9||x.ms>base*2.5; x.out=i>0&&c.L[i-1].pit; });
+      c.L.forEach(function(x,i){
+        x.pit=x.ms>=minS*0.9||x.ms>base*2.5;
+        /* buraco entre sessoes (voltas faltando): se o tempo do trecho nao cabe em voltas normais, houve parada ali dentro */
+        var prev=c.L[i-1], g=prev?x.lap-prev.lap:1;
+        if(g>1&&prev.tot!=null&&x.tot!=null){ var span=x.tot-prev.tot, extra=span-g*base; x.gap=g-1; if(extra>=minS*0.8){ x.pit=true; x.gapPit=extra+base; } }
+        x.out=i>0&&(c.L[i-1].pit)||!!x.gap&&!x.pit;
+      });
       c.L.forEach(function(x){ x.clean=!x.pit&&!x.out&&x.ms<base*1.10; });
     });
     /* passagem pelo pitlane (volta de box - parada minima), mediana do pelotao */
-    var ovs=[]; comps.forEach(function(c){ c.L.forEach(function(x){ if(x.pit&&x.ms>=minS*0.9){ var d=(longS&&x.ms>=longS*0.95)?longS:minS, o=x.ms-d; if(o>-30000&&o<60000)ovs.push(o);} }); });
+    var ovs=[]; comps.forEach(function(c){ c.L.forEach(function(x){ if(x.pit&&!x.gapPit&&x.ms>=minS*0.9){ var d=(longS&&x.ms>=longS*0.95)?longS:minS, o=x.ms-d; if(o>-30000&&o<60000)ovs.push(o);} }); });
     var ov=med(ovs); if(ov==null)ov=0;
     comps.forEach(function(c){
       var clean=c.L.filter(function(x){return x.clean;}).map(function(x){return x.ms;});
       var last=c.L[c.L.length-1];
-      c.laps=c.L.length; c.total=last.tot; c.best=clean.length?Math.min.apply(null,clean):Math.min.apply(null,c.L.map(function(x){return x.ms;}));
+      c.laps=last.lap; c.total=last.tot; c.missing=c.L.reduce(function(n,x){return n+(x.gap||0);},0); c.best=clean.length?Math.min.apply(null,clean):Math.min.apply(null,c.L.map(function(x){return x.ms;}));
       c.pace=med(clean); c.cons=sd(clean.filter(function(x){return x<(c.pace||x)*1.04;}));
       c.pits=[]; c.stints=[]; var st={from:0};
       c.L.forEach(function(x,i){
         if(x.pit){
-          var isLong=!!(longS&&x.ms>=longS*0.95), isMand=x.ms>=minS*0.9, min=isLong?longS:(isMand?minS:0);
-          c.pits.push({lap:x.lap,ms:x.ms,at:x.tot-x.ms,long:isLong,mand:isMand,excess:isMand?x.ms-min-ov:null,lost:x.ms-(c.pace||c.base)});
+          var pm=x.gapPit||x.ms, isLong=!!(longS&&pm>=longS*0.95), isMand=pm>=minS*0.9, min=isLong?longS:(isMand?minS:0);
+          c.pits.push({lap:x.lap,ms:pm,at:x.tot-x.ms,long:isLong,mand:isMand,approx:!!x.gapPit,excess:isMand&&!x.gapPit?pm-min-ov:null,lost:pm-(c.pace||c.base)});
           st.to=i-1; if(st.to>=st.from)c.stints.push(st); st={from:i+1};
         }
       });
@@ -7021,6 +7027,7 @@ var P=FK.post={
     comps.forEach(function(c){ var p=bestPace[c.cat]; c.paceRank=c.pace?p.indexOf(c.pace)+1:null; });
     return {comps:comps,byCat:byCat,ov:ov,minS:minS,longS:longS,info:raw.session||{},race:raw.race||{},src:raw._src||{}};
   },
+  cleanName:function(n){ return String(n||'').replace(/\(\s*\w?\s*\)/g,'').replace(/\b\d+M\[[^\]]*\](\/\d+M\[[^\]]*\])*/g,'').replace(/\s+/g,' ').trim(); },
   mine:function(){ var my=((FK.cfg&&FK.cfg.myKarts)||[]).map(normK); return P.data?P.data.comps.filter(function(c){return my.indexOf(c.k)>=0;}):[]; },
   comp:function(k){ return P.data.comps.filter(function(c){return c.k===k;})[0]; },
   defaults:function(){
@@ -7057,18 +7064,36 @@ var P=FK.post={
     fetch('/api/live?import=1&list=1&raceId='+rid+'&t='+Date.now()).then(function(r){return r.json();}).then(function(j){
       var ss=(j.sessions||[]).slice().sort(function(a,b){return (b.startEpoch||0)-(a.startEpoch||0);});
       if(!ss.length){ box.innerHTML='<span class="q-bad">Nenhuma sessão'+(j.Message?': '+esc(j.Message):'')+'</span>'; return; }
-      box.innerHTML='<select id="pa-ssel">'+ss.map(function(s){return '<option value="'+s.id+'">'+esc((s.date||'')+' '+(s.time||'')+' — '+(s.name||('Sessão '+s.id)))+'</option>';}).join('')+'</select><button class="q-btn pri" onclick="FK.post.importSel('+rid+')">Analisar</button>';
+      P._ss=ss;
+      box.innerHTML='<select id="pa-ssel">'+ss.map(function(s){return '<option value="'+s.id+'">'+esc((s.date||'')+' '+(s.time||'')+' — '+(s.name||('Sessão '+s.id))+' (#'+s.id+')')+'</option>';}).join('')+'</select>'+
+        '<label class="q-chk" style="font-size:12px"><input type="checkbox" id="pa-merge" checked> juntar todas as sessões com o mesmo nome (prova publicada em pedaços)</label>'+
+        '<button class="q-btn pri" onclick="FK.post.importSel('+rid+')">Analisar</button>';
     }).catch(function(e){ box.innerHTML='<span class="q-bad">Erro: '+esc(e.message)+'</span>'; });
   },
   importSel:function(rid){
     var sel=document.getElementById('pa-ssel'); if(!sel)return;
-    var sid=sel.value, sname=sel.options[sel.selectedIndex].text;
-    var box=document.getElementById('pa-sess'); box.insertAdjacentHTML('beforeend','<span class="q-mut"> baixando a prova inteira…</span>');
-    fetch('/api/live?import=1&raceId='+rid+'&sessionId='+sid+'&t='+Date.now()).then(function(r){return r.json();}).then(function(j){
-      if(!(j.competitors||[]).length){ alert('A sessão não trouxe voltas.'); return; }
-      j._src={raceId:rid,sessionId:sid,name:sname,at:Date.now()};
-      P.load(j,true);
-    }).catch(function(e){ alert('Erro ao importar: '+e.message); });
+    var sid=sel.value, sname=sel.options[sel.selectedIndex].text, merge=(document.getElementById('pa-merge')||{}).checked;
+    var key=function(n){return String(n||'').toUpperCase().replace(/\s+/g,' ').trim().slice(0,16);};
+    var me=(P._ss||[]).filter(function(s){return String(s.id)===String(sid);})[0]||{};
+    var ids=merge?(P._ss||[]).filter(function(s){return key(s.name)===key(me.name);}).map(function(s){return s.id;}):[sid];
+    if(!ids.length)ids=[sid];
+    var box=document.getElementById('pa-sess'); var prog=document.createElement('span'); prog.className='q-mut'; box.appendChild(prog);
+    var all=[], i=0;
+    var next=function(){
+      if(i>=ids.length){ return done(); }
+      prog.textContent=' baixando '+(i+1)+'/'+ids.length+'…';
+      fetch('/api/live?import=1&raceId='+rid+'&sessionId='+ids[i]+'&t='+Date.now()).then(function(r){return r.json();}).then(function(j){ all.push(j); i++; next(); })
+        .catch(function(e){ prog.textContent=' erro: '+e.message; });
+    };
+    var done=function(){
+      var by={};
+      all.forEach(function(j){ (j.competitors||[]).forEach(function(c){ var k=normK(c.n), o=by[k]||(by[k]={n:c.n,name:c.name,cat:c.cat,L:[]}); o.name=c.name||o.name; o.cat=c.cat||o.cat; o.L=o.L.concat(c.L||[]); }); });
+      var comps=Object.keys(by).map(function(k){return by[k];}).filter(function(c){return c.L.length;});
+      if(!comps.length){ prog.textContent=' nenhuma volta encontrada.'; return; }
+      var raw={competitors:comps, session:(all[all.length-1]||{}).session||{}, _src:{raceId:rid,sessionId:sid,sessions:ids.length,name:sname.replace(/\s*\(#\d+\)$/,'')+(ids.length>1?' · '+ids.length+' sessões juntas':''),at:Date.now()}};
+      P.load(raw,true);
+    };
+    next();
   },
   load:function(raw,save){
     P.raw=raw; P.data=P.analyze(raw); P.cat=null; P.defaults();
@@ -7137,14 +7162,14 @@ var P=FK.post={
       return '<div class="pa-card" style="--c:'+P.color(c.k)+'"><div class="pa-ch"><span class="pa-num">#'+esc(c.k)+'</span><span class="pa-nm">'+esc(c.name)+'</span><span class="pa-pos">P'+c.catPos+' <small>'+c.pos+'º geral</small></span></div>'+
         '<div class="pa-kv"><div><small>VOLTAS</small><b>'+c.laps+(c.lapsDown?' <i>-'+c.lapsDown+'</i>':'')+'</b></div><div><small>MELHOR</small><b>'+fmt(c.best)+'</b></div><div><small>RITMO MÉDIO</small><b>'+fmt(c.pace)+'</b></div>'+
         '<div><small>CONSISTÊNCIA</small><b>±'+(c.cons!=null?(c.cons/1000).toFixed(2)+'s':'—')+'</b></div><div><small>PARADAS</small><b>'+c.pits.length+'</b></div><div><small>TEMPO DE BOX</small><b>'+mmss(c.boxTotal)+'</b></div>'+
-        '<div><small>ALÉM DO MÍNIMO</small><b class="'+(c.excess>30000?'bad':'')+'">'+mmss(c.excess)+'</b></div><div><small>RANK DE RITMO</small><b>'+(c.paceRank||'—')+'º</b></div></div></div>';
+        (c.missing?'<div style="grid-column:1/-1;font-size:10px;color:#ffb74d">⚠ '+c.missing+' volta(s) sem registro entre os pedaços da prova</div>':'')+'<div><small>ALÉM DO MÍNIMO</small><b class="'+(c.excess>30000?'bad':'')+'">'+mmss(c.excess)+'</b></div><div><small>RANK DE RITMO</small><b>'+(c.paceRank||'—')+'º</b></div></div></div>';
     }).join('')+'</div></section>';
     h+='<section class="q-sec"><h3><i>〰</i>RITMO AO LONGO DA PROVA<span class="q-mut">média móvel de 5 voltas limpas · pontos = paradas</span></h3>'+P.legend()+P.chart(P.paceSeries(),{fy:function(v){return v.toFixed(1)+'s';},invert:true,h:300})+'<div class="q-note">Para cima = mais rápido.</div></section>';
     var lead=cl[0];
     h+='<section class="q-sec"><h3><i>⇄</i>DISTÂNCIA PARA O LÍDER DA CATEGORIA<span class="q-mut">#'+esc(lead?lead.k:'')+' · na mesma volta</span></h3>'+P.legend()+P.chart(P.gapSeries(),{fy:function(v){var a=Math.abs(v);return (v>=0?'+':'-')+(a>=60?Math.floor(a/60)+':'+String(Math.round(a%60)).padStart(2,'0'):Math.round(a)+'s');},zero:0,h:280})+'<div class="q-note">Comparação na mesma volta. Os degraus são paradas (do kart ou do líder); o que importa é a inclinação nos trechos sem parada: subindo = ritmo pior que o do líder. Abaixo de zero = à frente do líder naquele momento.</div></section>';
     h+='<section class="q-sec"><h3><i>▤</i>STINTS</h3><div class="pa-stints">'+cards.map(function(c){
       return '<div class="pa-st"><div class="pa-sth" style="color:'+P.color(c.k)+'">#'+esc(c.k)+' '+esc(c.name)+'</div><div class="q-tw"><table class="q-tb"><thead><tr><th>Stint</th><th>Voltas</th><th>Início</th><th>Duração</th><th>Ritmo</th><th>Melhor</th><th title="Quanto o tempo de volta piora (+) ou melhora (-) a cada 10 voltas no stint">Tendência</th><th>Parada depois</th></tr></thead><tbody>'+
-        c.stints.map(function(s,i){ var p=c.pits[i]; return '<tr><td>'+s.n+'</td><td>'+s.laps+'</td><td>'+hms(s.start)+'</td><td>'+hms(s.end-s.start)+'</td><td class="q-t">'+fmt(s.pace)+'</td><td class="q-t">'+fmt(s.best)+'</td><td class="q-t '+(s.trend>15?'bad':s.trend<-15?'good':'')+'">'+(s.trend!=null?fmtS(s.trend*10,2)+'/10v':'—')+'</td><td class="q-t">'+(p?mmss(p.ms)+(p.long?' (longa)':'')+(p.excess!=null&&p.excess>10000?' <span class="bad">+'+mmss(p.excess)+'</span>':''):'—')+'</td></tr>'; }).join('')+'</tbody></table></div></div>';
+        c.stints.map(function(s,i){ var p=c.pits[i]; return '<tr><td>'+s.n+'</td><td>'+s.laps+'</td><td>'+hms(s.start)+'</td><td>'+hms(s.end-s.start)+'</td><td class="q-t">'+fmt(s.pace)+'</td><td class="q-t">'+fmt(s.best)+'</td><td class="q-t '+(s.trend>15?'bad':s.trend<-15?'good':'')+'">'+(s.trend!=null?fmtS(s.trend*10,2)+'/10v':'—')+'</td><td class="q-t">'+(p?(p.approx?'≈':'')+mmss(p.ms)+(p.long?' (longa)':'')+(p.excess!=null&&p.excess>10000?' <span class="bad">+'+mmss(p.excess)+'</span>':''):'—')+'</td></tr>'; }).join('')+'</tbody></table></div></div>';
     }).join('')+'</div></section>';
     var top=cl.slice(0,6), rows=top.concat(mine.filter(function(c){return c.cat===P.cat&&top.indexOf(c)<0;}));
     h+='<section class="q-sec"><h3><i>⚖</i>COMPARATIVO — TOP 6 + EQUIPE</h3><div class="q-tw"><table class="q-tb"><thead><tr><th>Pos</th><th>Kart</th><th>Equipe</th><th>Voltas</th><th>Melhor</th><th>Ritmo</th><th>Consist.</th><th>Paradas</th><th>Tempo box</th><th>Além do mín.</th></tr></thead><tbody>'+
