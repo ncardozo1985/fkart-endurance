@@ -6144,7 +6144,7 @@ var ICON={
 var TILES=[
   {id:'endurance', cls:'hero hero-end', area:'end', title:'Endurance', sub:'Gestão de prova ao vivo', tab:null, live:true},
   {id:'qualy', cls:'hero hero-qualy', area:'qua', title:'Treino de Qualy', sub:'Academia FKR · rumo às 500 Milhas', module:'qualy'},
-  {id:'sorteio', cls:'big', area:'sor', title:'Sorteio', sub:'Duplas e karts do treino', icon:'dice', module:'sorteio'},
+  {id:'sorteio', cls:'big', area:'sor', title:'Sorteio', sub:'Duplas, karts da prova e histórico', icon:'dice', module:'sorteio'},
   {id:'piloto', cls:'big', area:'pil', title:'Celular do Piloto', sub:'Rádio, posição e chamadas', icon:'wheel', tab:'mobile'},
   {id:'tv', area:'tv', title:'TV do Box', icon:'tv', tab:'tvpilotos'},
   {id:'fila', area:'fila', title:'Fila de Pilotos', icon:'queue', tab:'filapilotos'},
@@ -6364,43 +6364,73 @@ document.head.appendChild(css);
 </script>
 <script>
 /* =====================================================================================
-   SORTEIO -- Treino de Qualy (30/09/2026, pedido do Takuma/Rapha)
-   1) Pilotos presentes: cadastro da equipe (toque para marcar) + 10 campos extras
-   2) Karts disponiveis: mapa 01..99 (toque para marcar) ou colar lista
-   3) Bateria 1: sorteia duplas e depois um kart para cada piloto
-      Bateria 2: duplas NOVAS (nenhuma repete a B1) e kart DIFERENTE do que o piloto usou
-   Numero impar de pilotos: a ultima dupla vira trio.
-   Tudo fica em sync/sorteio (Firestore): qualquer aparelho/TV logado ve o mesmo sorteio.
-   Endereco: #sorteio
+   SORTEIO v2 (03/10/2026)
+   Modos:
+   - TREINO DE QUALY: pilotos presentes -> duplas + kart por piloto, 2 baterias
+       Bateria 2: duplas NOVAS e kart DIFERENTE do usado na Bateria 1 (prioridade maxima)
+   - KARTS DA PROVA: lista de equipes/pilotos -> um kart para cada, em 1 ou mais turnos
+       (cada turno: kart diferente dos turnos anteriores para o mesmo participante)
+   - HISTORICO: todo sorteio fica salvo (sync/sorteio_hist). Regra opcional: evitar repetir
+       duplas e karts dos ultimos N treinos (prioridade menor que a regra da Bateria 2).
+   Animacao estilo game na revelacao (roleta de nomes e karts), com som opcional.
+   A TV (#sorteio/tv) toca a animacao sozinha quando alguem sorteia em outro aparelho.
+   Estado do sorteio atual: sync/sorteio (b1/b2 continuam no mesmo formato -> Treino de Qualy).
+   Endereco: #sorteio  |  #sorteio/tv
    ===================================================================================== */
 (function(){
 if(typeof FK==='undefined')return;
-var LS='fk_sorteio', EXTRA=10;
+var LS='fk_sorteio', LSH='fk_sorteio_hist', EXTRA=10, HMAX=40;
+var W_SESS=1000, W_HIST=10; /* peso: repetir na mesma sessao >> repetir de treinos anteriores */
 function rnd(n){ var a=new Uint32Array(1); (window.crypto||window.msCrypto).getRandomValues(a); return a[0]%n; }
 function shuffle(arr){ var a=arr.slice(); for(var i=a.length-1;i>0;i--){ var j=rnd(i+1), t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function pad(k){ k=parseInt(k,10); return (k<10?'0':'')+k; }
-function key(a,b){ return [a,b].sort().join('|'); }
+function key(a,b){ return [String(a).toLowerCase(),String(b).toLowerCase()].sort().join('|'); }
+function lc(s){ return String(s||'').trim().toLowerCase(); }
 function nowTxt(ts){ var d=new Date(ts||Date.now()); return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
+function dayTxt(ts){ return new Date(ts||Date.now()).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}); }
+function sid(){ return Date.now().toString(36)+rnd(1e6).toString(36); }
+function lsGet(k,d){ try{ var v=localStorage.getItem(k); return v==null?d:JSON.parse(v); }catch(e){ return d; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+function db(){ return firebase.firestore().collection('sync'); }
 
 var S=FK.sorteio={
-  st:null, isOpen:false, tv:false,
-  blank:function(){ return {sel:{}, extras:Array(EXTRA).fill(''), karts:[], b1:null, b2:null, updatedAt:0}; },
-  load:function(){ try{ S.st=JSON.parse(localStorage.getItem(LS)||'null'); }catch(e){} if(!S.st)S.st=S.blank(); if(!S.st.extras||S.st.extras.length<EXTRA){ S.st.extras=(S.st.extras||[]).concat(Array(EXTRA).fill('')).slice(0,EXTRA);} },
+  st:null, hist:[], isOpen:false, tv:false, tab:null, open1:null,
+  blank:function(){ return {mode:'qualy', title:'', sel:{}, extras:Array(EXTRA).fill(''), karts:[], b1:null, b2:null, sid:null,
+    prova:{txt:'', res:[], sid:null, title:''}, rules:{hist:true, histN:3}, updatedAt:0}; },
+  fix:function(){ var b=S.blank(), s=S.st;
+    Object.keys(b).forEach(function(k){ if(s[k]==null)s[k]=b[k]; });
+    if(!s.extras||s.extras.length<EXTRA)s.extras=(s.extras||[]).concat(Array(EXTRA).fill('')).slice(0,EXTRA);
+    if(!s.prova.res)s.prova.res=[]; if(s.prova.txt==null)s.prova.txt='';
+    if(!s.rules)s.rules=b.rules; },
+  load:function(){ S.st=lsGet(LS,null)||S.blank(); S.fix(); S.hist=lsGet(LSH,[])||[]; S.seen=S.lastAt(); },
   save:function(){
     S.st.updatedAt=Date.now(); S.st.by=(FK.state.authUser&&(FK.state.authUser.displayName||FK.state.authUser.email))||'';
-    try{ localStorage.setItem(LS,JSON.stringify(S.st)); }catch(e){}
-    clearTimeout(S._t); S._t=setTimeout(function(){
-      try{ firebase.firestore().collection('sync').doc('sorteio').set(JSON.parse(JSON.stringify(S.st))).catch(function(e){console.warn('sorteio sync',e);}); }catch(e){}
-    },400);
+    lsSet(LS,S.st);
+    clearTimeout(S._t); S._t=setTimeout(function(){ try{ db().doc('sorteio').set(JSON.parse(JSON.stringify(S.st))).catch(function(e){console.warn('sorteio sync',e);}); }catch(e){} },400);
   },
+  saveHist:function(){
+    S.hist.sort(function(a,b){return b.at-a.at;}); S.hist=S.hist.slice(0,HMAX); lsSet(LSH,S.hist);
+    try{ db().doc('sorteio_hist').set({items:JSON.parse(JSON.stringify(S.hist)),updatedAt:Date.now()}).catch(function(e){console.warn('hist sync',e);}); }catch(e){}
+  },
+  /* horario do sorteio mais recente (para a TV saber quando tocar a animacao) */
+  lastAt:function(s){ s=s||S.st; var a=0; ['b1','b2'].forEach(function(b){ if(s[b]&&s[b].at>a)a=s[b].at; }); ((s.prova&&s.prova.res)||[]).forEach(function(r){ if(r.at>a)a=r.at; }); return a; },
   listen:function(){
     if(S._unsub)return;
     try{
-      S._unsub=firebase.firestore().collection('sync').doc('sorteio').onSnapshot(function(snap){
+      S._unsub=db().doc('sorteio').onSnapshot(function(snap){
         if(!snap.exists)return; var d=snap.data();
-        if(d&&(d.updatedAt||0)>(S.st.updatedAt||0)){ S.st=d; if(!S.st.extras)S.st.extras=Array(EXTRA).fill(''); try{localStorage.setItem(LS,JSON.stringify(S.st));}catch(e){} if(S.isOpen){ var ae=document.activeElement; if(ae&&ae.tagName==='INPUT'&&ae.closest('#fk-sorteio'))S.renderCounts(); else S.render(true);} }
+        if(d&&(d.updatedAt||0)>(S.st.updatedAt||0)){
+          S.st=d; S.fix(); lsSet(LS,S.st);
+          var la=S.lastAt(), play=la>S.seen; S.seen=Math.max(S.seen,la);
+          if(S.isOpen){ var ae=document.activeElement; if(!play&&ae&&/INPUT|TEXTAREA/.test(ae.tagName)&&ae.closest('#fk-sorteio'))S.renderCounts(); else S.render(true); }
+          if(play&&S.isOpen&&S.animOn())S.revealLatest();
+        }
       },function(e){ S._unsub=null; });
+      S._unsubH=db().doc('sorteio_hist').onSnapshot(function(snap){
+        if(!snap.exists)return; var d=snap.data()||{}; S.hist=(d.items||[]).sort(function(a,b){return b.at-a.at;}); lsSet(LSH,S.hist);
+        if(S.isOpen&&S.tab==='hist'&&!S._rv)S.render(true);
+      },function(){ S._unsubH=null; });
     }catch(e){}
   },
   canEdit:function(){ try{ var p=FK.state.authProfile; if(!p)return true; return !!(p.isAdmin||(p.permissions&&p.permissions.config)); }catch(e){ return true; } },
@@ -6415,66 +6445,198 @@ var S=FK.sorteio={
     S.st.extras.forEach(function(n){ n=String(n||'').trim(); if(n&&!seen[n.toLowerCase()]){ seen[n.toLowerCase()]=1; out.push(n); } });
     return out;
   },
-  /* --- sorteio --- */
-  pairs:function(names,avoid){
-    var best=null,bestRep=1e9;
-    for(var t=0;t<4000;t++){
-      var s=shuffle(names), g=[];
-      for(var i=0;i+1<s.length;i+=2)g.push([s[i],s[i+1]]);
-      if(s.length%2)g[g.length-1].push(s[s.length-1]); /* impar: trio */
-      var rep=0;
-      if(avoid)g.forEach(function(d){ for(var a=0;a<d.length;a++)for(var b=a+1;b<d.length;b++)if(avoid[key(d[a],d[b])])rep++; });
-      if(rep<bestRep){bestRep=rep;best=g;} if(!rep)break;
+  parts:function(){ var seen={}, out=[]; String(S.st.prova.txt||'').split(/\n/).forEach(function(l){ l=l.trim(); if(l&&!seen[lc(l)]){seen[lc(l)]=1;out.push(l);} }); return out; },
+  /* sorteios anteriores que entram na regra (mais recentes primeiro, sem o atual) */
+  histFor:function(mode,cur){ if(!S.st.rules.hist)return []; return S.hist.filter(function(h){return h.mode===mode&&h.sid!==cur;}).slice(0,S.st.rules.histN||3); },
+
+  /* ---------- motor (guloso com reinicios aleatorios: minimiza repeticoes ponderadas) ---------- */
+  pairCost:function(av,a,b){ var x=av[key(a,b)]; return x?(x.s?W_SESS:0)+(x.h||0)*W_HIST:0; },
+  pairs:function(names,av){
+    var best=null,bc=1e18;
+    for(var t=0;t<2500&&bc>0;t++){
+      var rem=shuffle(names), g=[], cost=0;
+      while(rem.length>1){ var a=rem.shift(), bi=0, bcst=1e18;
+        for(var i=0;i<rem.length;i++){ var c=S.pairCost(av,a,rem[i]); if(c<bcst){bcst=c;bi=i;} if(!c)break; }
+        g.push([a,rem[bi]]); cost+=bcst; rem.splice(bi,1); }
+      if(rem.length){ /* impar: trio -- entra na dupla onde repete menos */
+        var x=rem[0], gi=0, gc=1e18; g.forEach(function(d,i){ var c=S.pairCost(av,x,d[0])+S.pairCost(av,x,d[1]); if(c<gc){gc=c;gi=i;} }); g[gi].push(x); cost+=gc; }
+      if(cost<bc){bc=cost;best=g;}
     }
-    return {duplas:best,repetidas:bestRep};
+    var rs=0,rh=0; best.forEach(function(d){ for(var a=0;a<d.length;a++)for(var b=a+1;b<d.length;b++){ var x=av[key(d[a],d[b])]; if(x){ if(x.s)rs++; else if(x.h)rh++; } } });
+    return {duplas:best,repSess:rs,repHist:rh};
   },
-  karts:function(names,prev){
-    var ks=S.st.karts.slice(), best=null, bestRep=1e9;
-    for(var t=0;t<4000;t++){
-      var s=shuffle(ks), m={}, rep=0;
-      names.forEach(function(n,i){ m[n]=s[i]; if(prev&&prev[n]===s[i])rep++; });
-      if(rep<bestRep){bestRep=rep;best=m;} if(!rep)break;
+  kartCost:function(kv,n,k){ var x=kv[lc(n)]&&kv[lc(n)][k]; return x?(x.s?W_SESS:0)+(x.h||0)*W_HIST:0; },
+  assign:function(names,ks,kv){
+    var best=null,bc=1e18;
+    for(var t=0;t<1500&&bc>0;t++){
+      var order=shuffle(names), av=shuffle(ks), m={}, cost=0;
+      order.forEach(function(n){ var bi=0,bcst=1e18; for(var i=0;i<av.length;i++){ var c=S.kartCost(kv,n,av[i]); if(c<bcst){bcst=c;bi=i;} if(!c)break; } m[n]=av[bi]; cost+=bcst; av.splice(bi,1); });
+      if(cost<bc){bc=cost;best=m;}
     }
-    return {map:best,repetidos:bestRep};
+    var rs=0,rh=0; names.forEach(function(n){ var x=kv[lc(n)]&&kv[lc(n)][best[n]]; if(x){ if(x.s)rs++; else if(x.h)rh++; } });
+    return {map:best,repSess:rs,repHist:rh};
   },
+  addK:function(kv,n,k,f){ var o=kv[lc(n)]||(kv[lc(n)]={}), x=o[k]||(o[k]={}); if(f==='s')x.s=1; else x.h=(x.h||0)+1; },
+  addP:function(av,a,b,f){ var x=av[key(a,b)]||(av[key(a,b)]={}); if(f==='s')x.s=1; else x.h=(x.h||0)+1; },
+  eachPair:function(d,fn){ for(var a=0;a<d.length;a++)for(var c=a+1;c<d.length;c++)fn(d[a].n,d[c].n); },
+
   draw:function(b){
     if(!S.canEdit())return;
     var names=S.present();
     if(names.length<2){ S.msg('Marque pelo menos 2 pilotos.'); return; }
     if(S.st.karts.length<names.length){ S.msg('Faltam karts: '+names.length+' pilotos e '+S.st.karts.length+' karts marcados.'); return; }
     if(b===2&&!S.st.b1){ S.msg('Sorteie a Bateria 1 primeiro.'); return; }
-    var existing=S.st['b'+b];
-    if(existing&&!confirm('Refazer o sorteio da Bateria '+b+'? O resultado atual será substituído.'))return;
-    var avoid=null, prevK=null;
-    if(b===2){ avoid={}; prevK={}; S.st.b1.duplas.forEach(function(d){ for(var a=0;a<d.length;a++){ prevK[d[a].n]=d[a].k; for(var c=a+1;c<d.length;c++)avoid[key(d[a].n,d[c].n)]=1; } }); }
-    var P=S.pairs(names,avoid), K=S.karts(names,prevK);
-    S.st['b'+b]={at:Date.now(), duplas:P.duplas.map(function(d){ return d.map(function(n){ return {n:n,k:K.map[n]}; }); }), repDuplas:P.repetidas, repKarts:K.repetidos, pilotos:names.length};
-    if(b===1&&S.st.b2&&!confirm('A Bateria 2 foi sorteada com base na Bateria 1 anterior. Apagar a Bateria 2 para sortear de novo?')){} else if(b===1)S.st.b2=null;
-    S.save(); S.anim=b; S.render();
+    if(S.st['b'+b]&&!confirm('Refazer o sorteio da Bateria '+b+'? O resultado atual será substituído.'))return;
+    if(!S.st.sid)S.st.sid=sid();
+    var av={}, kv={};
+    if(b===2)S.st.b1.duplas.forEach(function(d){ S.eachPair(d,function(x,y){S.addP(av,x,y,'s');}); d.forEach(function(p){S.addK(kv,p.n,p.k,'s');}); });
+    var hs=S.histFor('qualy',S.st.sid);
+    hs.forEach(function(h){ ['b1','b2'].forEach(function(bb){ var r=h[bb]; if(!r)return; r.duplas.forEach(function(d){ S.eachPair(d,function(x,y){S.addP(av,x,y,'h');}); d.forEach(function(p){S.addK(kv,p.n,p.k,'h');}); }); }); });
+    var P=S.pairs(names,av), K=S.assign(names,S.st.karts.slice(),kv);
+    S.st['b'+b]={at:Date.now(), duplas:P.duplas.map(function(d){ return d.map(function(n){ return {n:n,k:K.map[n]}; }); }),
+      repDuplas:P.repSess, repKarts:K.repSess, repHistD:P.repHist, repHistK:K.repHist, histN:hs.length, pilotos:names.length};
+    if(b===1&&S.st.b2){ S.st.b2=null; }
+    if(!S.st.title)S.st.title='Treino de Qualy '+dayTxt();
+    S.toHist('qualy'); S.seen=S.lastAt(); S.save(); S.render();
+    if(S.animOn())S.reveal({title:'BATERIA '+b, sub:S.st.title, color:b===1?'#d7263d':'#1565c0', groups:S.st['b'+b].duplas, label:'DUPLA'});
   },
-  reset:function(){ if(!S.canEdit())return; if(!confirm('Limpar os sorteios das duas baterias? (pilotos e karts marcados continuam)'))return; S.st.b1=null; S.st.b2=null; S.save(); S.render(); },
+  drawProva:function(){
+    if(!S.canEdit())return;
+    var names=S.parts(), pr=S.st.prova;
+    if(names.length<1){ S.msg('Escreva as equipes/pilotos, um por linha.'); return; }
+    if(S.st.karts.length<names.length){ S.msg('Faltam karts: '+names.length+' participantes e '+S.st.karts.length+' karts marcados.'); return; }
+    if(!pr.sid)pr.sid=sid();
+    var kv={};
+    pr.res.forEach(function(r){ r.map.forEach(function(x){ S.addK(kv,x.n,x.k,'s'); }); });
+    var hs=S.histFor('prova',pr.sid);
+    hs.forEach(function(h){ (h.res||[]).forEach(function(r){ r.map.forEach(function(x){ S.addK(kv,x.n,x.k,'h'); }); }); });
+    var K=S.assign(names,S.st.karts.slice(),kv);
+    var r={at:Date.now(), map:names.map(function(n){return {n:n,k:K.map[n]};}), repKarts:K.repSess, repHistK:K.repHist, histN:hs.length};
+    pr.res.push(r);
+    if(!pr.title)pr.title='Karts da prova '+dayTxt();
+    S.toHist('prova'); S.seen=S.lastAt(); S.save(); S.render();
+    if(S.animOn())S.reveal(S.provaRv(pr.res.length-1));
+  },
+  provaRv:function(i){ var pr=S.st.prova, r=pr.res[i]; return {title:(pr.res.length>1?'TURNO '+(i+1):'KARTS DA PROVA'), sub:pr.title, color:'#f2a900', groups:r.map.map(function(x){return [x];}), label:'', kartOnly:true}; },
+  undoProva:function(){ if(!S.canEdit())return; var pr=S.st.prova; if(!pr.res.length)return; if(!confirm('Apagar o turno '+pr.res.length+'?'))return; pr.res.pop(); S.toHist('prova'); S.save(); S.render(true); },
+  /* grava/atualiza o sorteio atual no historico */
+  toHist:function(mode){
+    var e, s=S.st, p=s.prova;
+    if(mode==='qualy'){ if(!s.sid)return; if(!s.b1&&!s.b2){ S.hist=S.hist.filter(function(h){return h.sid!==s.sid;}); S.saveHist(); return; }
+      e={sid:s.sid, mode:'qualy', title:s.title, b1:s.b1, b2:s.b2, by:s.by||''}; }
+    else { if(!p.sid)return; if(!p.res.length){ S.hist=S.hist.filter(function(h){return h.sid!==p.sid;}); S.saveHist(); return; }
+      e={sid:p.sid, mode:'prova', title:p.title, res:p.res}; }
+    var old=S.hist.filter(function(h){return h.sid===e.sid;})[0];
+    e.at=Date.now(); e.at0=(old&&(old.at0||old.at))||e.at;
+    S.hist=S.hist.filter(function(h){return h.sid!==e.sid;}); S.hist.unshift(JSON.parse(JSON.stringify(e))); S.saveHist();
+  },
+  novo:function(mode){
+    if(!S.canEdit())return;
+    if(!confirm('Começar um novo sorteio? O atual continua salvo no Histórico.'))return;
+    if(mode==='qualy'){ S.st.b1=null; S.st.b2=null; S.st.sid=null; S.st.title=''; }
+    else { S.st.prova.res=[]; S.st.prova.sid=null; S.st.prova.title=''; }
+    S.save(); S.render();
+  },
+  delHist:function(id){ if(!S.canEdit())return; if(!confirm('Apagar este sorteio do histórico?'))return; S.hist=S.hist.filter(function(h){return h.sid!==id;}); S.saveHist(); S.render(true); },
+  setTitle:function(mode,v){ if(mode==='qualy')S.st.title=v; else S.st.prova.title=v; S.save(); clearTimeout(S._ht); S._ht=setTimeout(function(){ S.toHist(mode); },1500); },
+  setRule:function(k,v){ if(!S.canEdit())return; S.st.rules[k]=v; S.save(); S.render(true); },
   msg:function(t){ var el=document.getElementById('st-toast'); if(!el)return; el.textContent=t; el.classList.add('on'); clearTimeout(S._mt); S._mt=setTimeout(function(){el.classList.remove('on');},3200); },
-  text:function(){
-    var out=['*SORTEIO — TREINO DE QUALY*','_'+nowTxt(S.st.updatedAt)+'_'];
-    [1,2].forEach(function(b){ var r=S.st['b'+b]; if(!r)return; out.push('','*BATERIA '+b+'*');
-      r.duplas.forEach(function(d,i){ out.push('Dupla '+(i+1)+': '+d.map(function(p){return p.n+' (kart '+pad(p.k)+')';}).join(' + ')); }); });
+  textOf:function(h){
+    var out;
+    if(h.mode==='prova'){ out=['*SORTEIO DE KARTS — '+String(h.title||'PROVA').toUpperCase()+'*','_'+nowTxt(h.at)+'_'];
+      (h.res||[]).forEach(function(r,i){ out.push(''); if(h.res.length>1)out.push('*TURNO '+(i+1)+'*'); r.map.forEach(function(x){ out.push('Kart '+pad(x.k)+' — '+x.n); }); });
+    }else{ out=['*SORTEIO — '+String(h.title||'TREINO DE QUALY').toUpperCase()+'*','_'+nowTxt(h.at)+'_'];
+      [1,2].forEach(function(b){ var r=h['b'+b]; if(!r)return; out.push('','*BATERIA '+b+'*');
+        r.duplas.forEach(function(d,i){ out.push('Dupla '+(i+1)+': '+d.map(function(p){return p.n+' (kart '+pad(p.k)+')';}).join(' + ')); }); }); }
     return out.join('\n');
   },
-  copy:function(){
-    var t=S.text();
+  text:function(){ return (S.tab||S.st.mode)==='prova'?S.textOf({mode:'prova',title:S.st.prova.title,at:S.st.updatedAt,res:S.st.prova.res}):S.textOf({mode:'qualy',title:S.st.title,at:S.st.updatedAt,b1:S.st.b1,b2:S.st.b2}); },
+  copyTxt:function(t){
     (navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(t):Promise.reject()).then(function(){S.msg('Copiado! É só colar no WhatsApp.');},function(){
       var ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');S.msg('Copiado! É só colar no WhatsApp.');}catch(e){} ta.remove(); });
   },
-  /* --- tela --- */
+  copy:function(){ S.copyTxt(S.text()); },
+  copyHist:function(id){ var h=S.hist.filter(function(x){return x.sid===id;})[0]; if(h)S.copyTxt(S.textOf(h)); },
+
+  /* ---------- animacao de revelacao ---------- */
+  animOn:function(){ return lsGet('fk_st_anim',true)!==false; },
+  muted:function(){ return lsGet('fk_st_mute',false)===true; },
+  toggleAnim:function(){ lsSet('fk_st_anim',!S.animOn()); S.render(true); },
+  toggleMute:function(){ lsSet('fk_st_mute',!S.muted()); var b=document.getElementById('rv-mute'); if(b)b.textContent=S.muted()?'🔇':'🔊'; },
+  beep:function(f,d,v,type){ if(S.muted())return; try{ var A=S._ac||(S._ac=new (window.AudioContext||window.webkitAudioContext)()); if(A.state==='suspended')A.resume(); var o=A.createOscillator(), g=A.createGain(), t=A.currentTime; o.type=type||'square'; o.frequency.setValueAtTime(f,t); g.gain.setValueAtTime(v||0.03,t); g.gain.exponentialRampToValueAtTime(0.0001,t+(d||0.03)); o.connect(g); g.connect(A.destination); o.start(t); o.stop(t+(d||0.03)+0.02); }catch(e){} },
+  lockSnd:function(){ S.beep(660,0.09,0.06,'triangle'); setTimeout(function(){S.beep(990,0.16,0.06,'triangle');},70); },
+  qualyRv:function(b){ var s=S.st; return {title:'BATERIA '+b, sub:s.title, color:b===1?'#d7263d':'#1565c0', groups:s['b'+b].duplas, label:'DUPLA'}; },
+  revealLatest:function(){
+    var s=S.st, c=[];
+    [1,2].forEach(function(b){ if(s['b'+b])c.push({at:s['b'+b].at, o:S.qualyRv(b)}); });
+    (s.prova.res||[]).forEach(function(r,i){ c.push({at:r.at, o:S.provaRv(i)}); });
+    c.sort(function(a,b){return b.at-a.at;}); if(c[0])S.reveal(c[0].o);
+  },
+  replay:function(kind,i){ if(kind==='q'){ if(S.st['b'+i])S.reveal(S.qualyRv(i)); } else if(S.st.prova.res[i])S.reveal(S.provaRv(i)); },
+  reveal:function(o){
+    var host=document.getElementById('fk-sorteio'); if(!host)return;
+    S.stopReveal();
+    var tok=S._rv={o:o, i:0, speed:lsGet('fk_st_speed',1)||1, done:false, timers:[], ints:[]};
+    var namePool=[]; o.groups.forEach(function(g){ g.forEach(function(p){ namePool.push(p.n); }); });
+    tok.namePool=namePool; tok.kartPool=(S.st.karts&&S.st.karts.length?S.st.karts:o.groups.reduce(function(a,g){ return a.concat(g.map(function(p){return p.k;})); },[]));
+    var el=document.createElement('div'); el.id='st-rv'; el.style.setProperty('--rc',o.color||'#d7263d');
+    el.innerHTML='<div class="rv-bg"></div><div class="rv-top"><div class="rv-t"><b>'+esc(o.title)+'</b><span>'+esc(o.sub||'SORTEIO')+'</span></div><div class="rv-prog" id="rv-prog"></div>'+
+      '<div class="rv-ctl"><button id="rv-mute" onclick="FK.sorteio.toggleMute()">'+(S.muted()?'🔇':'🔊')+'</button><button id="rv-spd" onclick="FK.sorteio.speed()">'+(tok.speed>1?'2×':'1×')+'</button><button onclick="FK.sorteio.skip()">PULAR ▶▶</button><button onclick="FK.sorteio.stopReveal()">✕</button></div></div>'+
+      '<div class="rv-stage" id="rv-stage"></div><div class="rv-grid'+(o.kartOnly?' ko':'')+'" id="rv-grid"></div>';
+    host.appendChild(el);
+    requestAnimationFrame(function(){ el.classList.add('on'); });
+    S.later(tok,function(){ S.nextGroup(tok); },700);
+  },
+  later:function(tok,fn,ms){ var t=setTimeout(function(){ if(S._rv===tok)fn(); },ms/(tok.speed||1)); tok.timers.push(t); },
+  speed:function(){ var t=S._rv; if(!t)return; t.speed=t.speed>1?1:2; lsSet('fk_st_speed',t.speed); var b=document.getElementById('rv-spd'); if(b)b.textContent=t.speed>1?'2×':'1×'; },
+  stopReveal:function(){ var t=S._rv; if(t){ t.timers.forEach(clearTimeout); t.ints.forEach(clearInterval); } S._rv=null; var el=document.getElementById('st-rv'); if(el)el.remove(); },
+  skip:function(){ var t=S._rv; if(!t)return; t.timers.forEach(clearTimeout); t.ints.forEach(clearInterval); t.timers=[]; t.ints=[];
+    var g=document.getElementById('rv-grid'); if(g){ g.innerHTML=''; t.o.groups.forEach(function(gr,i){ g.appendChild(S.miniCard(t.o,gr,i,false)); }); }
+    S.finish(t); },
+  miniCard:function(o,gr,i,anim){
+    var d=document.createElement('div'); d.className='rv-mini'+(anim?' in':'');
+    d.innerHTML=(o.kartOnly?'':'<i>'+(i+1)+'</i>')+'<div>'+gr.map(function(p){ return '<p>'+(o.kartOnly?'<em>'+pad(p.k)+'</em><span>'+esc(p.n)+'</span>':'<span>'+esc(p.n)+'</span><em>'+pad(p.k)+'</em>')+'</p>'; }).join('')+'</div>';
+    return d;
+  },
+  finish:function(t){ t.done=true; var p=document.getElementById('rv-prog'); if(p)p.innerHTML='<b class="rv-ok">SORTEIO CONCLUÍDO</b>';
+    var st=document.getElementById('rv-stage'); if(st)st.innerHTML='<button class="rv-close" onclick="FK.sorteio.stopReveal()">FECHAR</button>';
+    S.beep(523,0.12,0.05,'triangle'); setTimeout(function(){S.beep(659,0.12,0.05,'triangle');},120); setTimeout(function(){S.beep(784,0.25,0.06,'triangle');},240); },
+  nextGroup:function(t){
+    var o=t.o, i=t.i; if(i>=o.groups.length){ S.finish(t); return; }
+    var gr=o.groups[i], st=document.getElementById('rv-stage'), pg=document.getElementById('rv-prog'); if(!st)return;
+    if(pg)pg.innerHTML=(o.label?o.label+' ':'')+'<b>'+(i+1)+'</b> / '+o.groups.length;
+    st.innerHTML='<div class="rv-card'+(o.kartOnly?' ko':'')+'">'+(o.label?'<div class="rv-n">'+esc(o.label)+' '+(i+1)+'</div>':'')+gr.map(function(p,j){
+      return '<div class="rv-row"><div class="rv-name" id="rvn'+j+'">'+(o.kartOnly?esc(p.n):'???')+'</div><div class="rv-kart" id="rvk'+j+'"><small>KART</small><b>??</b></div></div>'; }).join('')+'</div>';
+    var steps=[]; gr.forEach(function(p,j){ if(!o.kartOnly)steps.push({el:'rvn'+j, v:esc(p.n), pool:t.namePool, name:true}); steps.push({el:'rvk'+j, v:pad(p.k), pool:t.kartPool, name:false}); });
+    var run=function(si){
+      if(si>=steps.length){ S.later(t,function(){ var g=document.getElementById('rv-grid'); if(g){ g.appendChild(S.miniCard(o,gr,i,true)); g.scrollTop=g.scrollHeight; } t.i++; S.nextGroup(t); },700); return; }
+      var s=steps[si], node=document.getElementById(s.el); if(!node)return;
+      var tgt=s.name?node:node.querySelector('b'); node.classList.add('spin');
+      var dur=(s.name?850:(o.kartOnly?1500:950)), t0=Date.now(), last=0, iv;
+      var tick=function(){ if(S._rv!==t){clearInterval(iv);return;}
+        var el=(Date.now()-t0)*(t.speed||1), pgr=el/dur, gap=40+Math.pow(pgr,2.2)*260;
+        if(el>=dur){ clearInterval(iv); tgt.innerHTML=s.v; node.classList.remove('spin'); node.classList.add('lock'); S.lockSnd(); S.later(t,function(){ run(si+1); },s.name?250:380); return; }
+        if(Date.now()-last>=gap/(t.speed||1)){ last=Date.now(); var v=s.pool[rnd(s.pool.length)]; tgt.innerHTML=s.name?esc(v):pad(v); S.beep(s.name?1400:900,0.015,0.02); }
+      };
+      iv=setInterval(tick,16); t.ints.push(iv);
+    };
+    run(0);
+  },
+
+  /* ---------- tela ---------- */
   open:function(tv){
     var el=document.getElementById('fk-sorteio'); if(!el)return;
-    S.isOpen=true; S.tv=!!tv; el.classList.add('on'); document.body.classList.add('hub-open'); S.render();
+    S.isOpen=true; S.tv=!!tv; if(!S.tab)S.tab=S.st.mode||'qualy'; el.classList.add('on'); document.body.classList.add('hub-open'); S.render();
     try{ history.replaceState(null,'',location.pathname+location.search+'#sorteio'+(tv?'/tv':'')); }catch(e){}
   },
-  close:function(){ var el=document.getElementById('fk-sorteio'); if(el)el.classList.remove('on'); S.isOpen=false; document.body.classList.remove('hub-open'); if(FK.hub)FK.hub.open(); },
+  close:function(){ S.stopReveal(); var el=document.getElementById('fk-sorteio'); if(el)el.classList.remove('on'); S.isOpen=false; document.body.classList.remove('hub-open'); if(FK.hub)FK.hub.open(); },
+  setTab:function(t){ S.tab=t; if(t!=='hist'&&S.canEdit()&&S.st.mode!==t){ S.st.mode=t; S.save(); } S.render(); },
   toggleP:function(n){ if(!S.canEdit())return; S.st.sel[n]=!S.st.sel[n]; S.save(); S.render(true); },
   allP:function(v){ if(!S.canEdit())return; S.cadastro().forEach(function(n){S.st.sel[n]=v;}); S.save(); S.render(true); },
   setExtra:function(i,v){ S.st.extras[i]=v; S.save(); S.renderCounts(); },
+  setParts:function(v){ S.st.prova.txt=v; S.save(); S.renderCounts(); },
+  partsFromCad:function(){ if(!S.canEdit())return; var cur=S.parts(), seen={}; cur.forEach(function(n){seen[lc(n)]=1;}); var add=S.cadastro().filter(function(n){return !seen[lc(n)];});
+    S.st.prova.txt=cur.concat(add).join('\n'); S.save(); S.render(true); },
   toggleK:function(k){ if(!S.canEdit())return; var i=S.st.karts.indexOf(k); if(i>=0)S.st.karts.splice(i,1); else S.st.karts.push(k); S.st.karts.sort(function(a,b){return a-b;}); S.save(); S.render(true); },
   pasteK:function(){
     var t=prompt('Números dos karts disponíveis (separados por espaço, vírgula ou traço para faixa, ex: 1-12, 15, 20):',S.st.karts.join(', ')); if(t==null)return;
@@ -6483,59 +6645,111 @@ var S=FK.sorteio={
   },
   clearK:function(){ if(!S.canEdit())return; S.st.karts=[]; S.save(); S.render(true); },
   renderCounts:function(){
-    var n=S.present().length, k=S.st.karts.length, el=document.getElementById('st-counts'); if(!el)return;
-    var ok=n>=2&&k>=n;
-    el.innerHTML='<span><b>'+n+'</b> pilotos</span><span><b>'+Math.floor(n/2)+'</b> duplas'+(n%2?' (1 trio)':'')+'</span><span class="'+(k>=n?'ok':'bad')+'"><b>'+k+'</b> karts'+(k<n?' — faltam '+(n-k):'')+'</span>';
+    var el=document.getElementById('st-counts'), pc=document.getElementById('st-pcount'); if(pc)pc.textContent=S.parts().length+' participante(s)';
+    if(!el)return; var k=S.st.karts.length, ok;
+    if(S.tab==='prova'){ var n=S.parts().length; ok=n>=1&&k>=n;
+      el.innerHTML='<span><b>'+n+'</b> participantes</span><span class="'+(k>=n?'ok':'bad')+'"><b>'+k+'</b> karts'+(k<n?' — faltam '+(n-k):'')+'</span>'+(S.st.prova.res.length?'<span><b>'+S.st.prova.res.length+'</b> turno(s) sorteado(s)</span>':'');
+    }else{ var n2=S.present().length; ok=n2>=2&&k>=n2;
+      el.innerHTML='<span><b>'+n2+'</b> pilotos</span><span><b>'+Math.floor(n2/2)+'</b> duplas'+(n2%2?' (1 trio)':'')+'</span><span class="'+(k>=n2?'ok':'bad')+'"><b>'+k+'</b> karts'+(k<n2?' — faltam '+(n2-k):'')+'</span>'; }
     document.querySelectorAll('.st-draw').forEach(function(b){ b.disabled=!ok; });
   },
+  warnHTML:function(r,prova){
+    var w='';
+    if(r.repDuplas)w+='<div class="st-warn">⚠ '+r.repDuplas+' dupla(s) repetida(s) da Bateria 1 (não havia combinação sem repetir)</div>';
+    if(r.repKarts)w+='<div class="st-warn">⚠ '+r.repKarts+' repetiram kart '+(prova?'de turno anterior':'da Bateria 1')+' (poucos karts disponíveis)</div>';
+    var hn=r.histN||0;
+    if(hn){ var hd=r.repHistD||0, hk=r.repHistK||0;
+      w+='<div class="st-hinfo">'+(hd||hk?'↺ '+[hd?hd+' dupla(s)':'',hk?hk+' kart(s)':''].filter(Boolean).join(' e ')+' já usado(s) nos últimos '+hn+' sorteio(s) — sem combinação melhor':'✓ Nenhuma '+(prova?'repetição de kart':'dupla ou kart repetido')+' dos últimos '+hn+' sorteio(s)')+'</div>'; }
+    return w;
+  },
+  duplasHTML:function(r,cls){ return '<div class="st-duplas">'+r.duplas.map(function(d,i){
+      return '<div class="st-dupla '+(cls||'')+'"><div class="st-dn">'+(i+1)+'</div><div class="st-ps">'+d.map(function(p){
+        return '<div class="st-p"><span class="st-pn">'+esc(p.n)+'</span><span class="st-k">'+pad(p.k)+'</span></div>'; }).join('')+'</div></div>';
+    }).join('')+'</div>'; },
+  mapHTML:function(r){ return '<div class="st-pmap">'+r.map.slice().sort(function(a,b){return a.k-b.k;}).map(function(x){ return '<div class="st-pm"><span class="st-k">'+pad(x.k)+'</span><span class="st-pn">'+esc(x.n)+'</span></div>'; }).join('')+'</div>'; },
   resultHTML:function(b){
     var r=S.st['b'+b];
     if(!r)return '<div class="st-empty">Bateria '+b+' ainda não sorteada</div>';
-    var warn='';
-    if(r.repDuplas)warn+='<div class="st-warn">⚠ '+r.repDuplas+' dupla(s) repetida(s) da Bateria 1 (não havia combinação sem repetir)</div>';
-    if(r.repKarts)warn+='<div class="st-warn">⚠ '+r.repKarts+' piloto(s) repetiram kart (poucos karts disponíveis)</div>';
-    return warn+'<div class="st-duplas">'+r.duplas.map(function(d,i){
-      return '<div class="st-dupla'+(S.anim===b?' anim':'')+'" style="--d:'+(i*110)+'ms"><div class="st-dn">'+(i+1)+'</div><div class="st-ps">'+d.map(function(p){
-        return '<div class="st-p"><span class="st-pn">'+esc(p.n)+'</span><span class="st-k">'+pad(p.k)+'</span></div>'; }).join('')+'</div></div>';
-    }).join('')+'</div><div class="st-at">sorteado '+nowTxt(r.at)+'</div>';
+    return S.warnHTML(r)+S.duplasHTML(r,b===2?'b2':'')+'<div class="st-at">sorteado '+nowTxt(r.at)+' · <a onclick="FK.sorteio.replay(\'q\','+b+')">▶ rever animação</a></div>';
   },
+  provaRes:function(){
+    var res=S.st.prova.res;
+    if(!res.length)return '<div class="st-empty">Nenhum turno sorteado ainda</div>';
+    return '<div class="st-turnos">'+res.map(function(r,i){ return '<div class="st-col"><h4>'+(res.length>1?'TURNO '+(i+1):'RESULTADO')+'</h4>'+S.warnHTML(r,true)+S.mapHTML(r)+'<div class="st-at">sorteado '+nowTxt(r.at)+' · <a onclick="FK.sorteio.replay(\'p\','+i+')">▶ rever animação</a></div></div>'; }).join('')+'</div>';
+  },
+  kartsSec:function(ed,n){
+    return '<section class="st-sec"><h3><i>'+n+'</i>KARTS DISPONÍVEIS'+(ed?'<span class="st-mini"><button onclick="FK.sorteio.pasteK()">digitar lista</button><button onclick="FK.sorteio.clearK()">limpar</button></span>':'')+'</h3>'+
+      '<div class="st-kgrid">'+Array.apply(null,Array(99)).map(function(_,i){ var k=i+1, on=S.st.karts.indexOf(k)>=0; return '<button class="st-kb'+(on?' on':'')+'" '+(ed?'':'disabled')+' onclick="FK.sorteio.toggleK('+k+')">'+pad(k)+'</button>'; }).join('')+'</div></section>';
+  },
+  rulesHTML:function(ed){ var r=S.st.rules;
+    return '<div class="st-rules"><label><input type="checkbox" '+(r.hist?'checked':'')+' '+(ed?'':'disabled')+' onchange="FK.sorteio.setRule(\'hist\',this.checked)"> Evitar repetir duplas e karts dos últimos</label> <select '+(ed?'':'disabled')+' onchange="FK.sorteio.setRule(\'histN\',+this.value)">'+[1,2,3,4,5,6,8,10].map(function(n){return '<option'+(n===r.histN?' selected':'')+'>'+n+'</option>';}).join('')+'</select> sorteios do histórico <small>(a regra da Bateria 2 e dos turnos tem prioridade)</small></div>'; },
+  histHTML:function(ed){
+    if(!S.hist.length)return '<div class="st-empty">Nenhum sorteio salvo ainda. Todo sorteio feito aqui entra automaticamente no histórico.</div>';
+    return '<div class="st-hlist">'+S.hist.map(function(h){
+      var op=S.open1===h.sid, cur=(h.sid===S.st.sid||h.sid===S.st.prova.sid);
+      var sum=h.mode==='prova'?((h.res||[]).length+' turno(s) · '+(((h.res||[])[0]||{}).map||[]).length+' participantes'):([h.b1?'B1':'',h.b2?'B2':''].filter(Boolean).join(' + ')+' · '+(((h.b1||h.b2||{}).pilotos)||'?')+' pilotos');
+      var body='';
+      if(op){ if(h.mode==='prova')body=(h.res||[]).map(function(r,i){return '<h4>'+((h.res.length>1)?'TURNO '+(i+1):'RESULTADO')+'</h4>'+S.mapHTML(r);}).join('');
+        else body=[1,2].map(function(b){ var r=h['b'+b]; return r?'<h4>BATERIA '+b+'</h4>'+S.duplasHTML(r,b===2?'b2':''):''; }).join(''); }
+      return '<div class="st-h'+(op?' op':'')+'"><div class="st-hh" onclick="FK.sorteio.toggleH(\''+h.sid+'\')">'+
+        '<span class="st-tag '+h.mode+'">'+(h.mode==='prova'?'KARTS DA PROVA':'TREINO DE QUALY')+'</span><b>'+esc(h.title||'Sorteio')+'</b>'+(cur?'<span class="st-cur">atual</span>':'')+'<span class="st-hs">'+sum+'</span><span class="st-hd">'+nowTxt(h.at0||h.at)+'</span><span class="st-chev">'+(op?'▴':'▾')+'</span></div>'+
+        (op?'<div class="st-hb"><div class="st-hbtn"><button onclick="FK.sorteio.copyHist(\''+h.sid+'\')">Copiar p/ WhatsApp</button>'+(ed?'<button class="dang" onclick="FK.sorteio.delHist(\''+h.sid+'\')">apagar</button>':'')+'</div>'+body+'</div>':'')+'</div>';
+    }).join('')+'</div>';
+  },
+  toggleH:function(id){ S.open1=S.open1===id?null:id; S.render(true); },
   render:function(keepScroll){
     var el=document.getElementById('fk-sorteio'); if(!el)return;
+    var rv=document.getElementById('st-rv'); if(rv)rv.parentNode.removeChild(rv);
     var body=el.querySelector('.st-body'), sc=body?body.scrollTop:0;
-    var ed=S.canEdit(), cad=S.cadastro();
-    var head='<div class="st-top"><button class="st-back" onclick="FK.sorteio.close()">‹ MENU</button><div class="st-title"><b>SORTEIO</b><span>TREINO DE QUALY · DUPLAS E KARTS</span></div>'+
-      '<div class="st-actions"><button onclick="FK.sorteio.copy()">Copiar p/ WhatsApp</button><button onclick="FK.sorteio.open('+(!S.tv)+')">'+(S.tv?'Sair do modo TV':'Modo TV')+'</button></div></div>';
+    var ed=S.canEdit(), cad=S.cadastro(), tab=S.tab||'qualy';
+    var subs={qualy:'TREINO DE QUALY · DUPLAS E KARTS', prova:'KARTS DA PROVA · UM KART POR EQUIPE/PILOTO', hist:'HISTÓRICO DE SORTEIOS'};
+    var head='<div class="st-top"><button class="st-back" onclick="FK.sorteio.close()">‹ MENU</button><div class="st-title"><b>SORTEIO</b><span>'+(S.tv?'MODO TV':subs[tab])+'</span></div>'+
+      '<div class="st-actions">'+(tab!=='hist'||S.tv?'<button onclick="FK.sorteio.copy()">Copiar p/ WhatsApp</button>':'')+'<button onclick="FK.sorteio.toggleAnim()" title="Animação de revelação">'+(S.animOn()?'✦ Animação ligada':'✧ Animação desligada')+'</button><button onclick="FK.sorteio.open('+(!S.tv)+')">'+(S.tv?'Sair do modo TV':'Modo TV')+'</button></div></div>';
+    var tabs='<div class="st-tabs">'+[['qualy','TREINO DE QUALY'],['prova','KARTS DA PROVA'],['hist','HISTÓRICO']].map(function(t){ return '<button class="'+(tab===t[0]?'on':'')+'" onclick="FK.sorteio.setTab(\''+t[0]+'\')">'+t[1]+(t[0]==='hist'&&S.hist.length?' <small>'+S.hist.length+'</small>':'')+'</button>'; }).join('')+'</div>';
     var html;
     if(S.tv){
-      html=head+'<div class="st-body tv"><div class="st-col"><h3>BATERIA 1</h3>'+S.resultHTML(1)+'</div><div class="st-col"><h3>BATERIA 2</h3>'+S.resultHTML(2)+'</div></div>';
+      var tvb;
+      if(S.st.mode==='prova')tvb='<div class="st-col"><h3>'+esc(String(S.st.prova.title||'KARTS DA PROVA').toUpperCase())+'</h3>'+S.provaRes()+'</div>';
+      else tvb='<div class="st-col"><h3>BATERIA 1</h3>'+S.resultHTML(1)+'</div><div class="st-col"><h3>BATERIA 2</h3>'+S.resultHTML(2)+'</div>';
+      html=head+'<div class="st-body tv'+(S.st.mode==='prova'?' tvp':'')+'">'+tvb+'<div class="st-tvwait">A animação toca aqui sozinha quando alguém sortear em outro aparelho.</div></div>';
+    }else if(tab==='hist'){
+      html=head+tabs+'<div class="st-body one"><section class="st-sec st-res"><h3><i>↺</i>REGRA ENTRE SORTEIOS</h3>'+S.rulesHTML(ed)+'</section><section class="st-sec st-res"><h3><i>☰</i>SORTEIOS ANTERIORES</h3>'+S.histHTML(ed)+'</section></div>';
+    }else if(tab==='prova'){
+      var pr=S.st.prova;
+      html=head+tabs+'<div class="st-body">'+
+        '<section class="st-sec"><h3><i>1</i>EQUIPES / PILOTOS'+(ed?'<span class="st-mini"><button onclick="FK.sorteio.partsFromCad()">puxar cadastro</button></span>':'')+'</h3>'+
+          '<textarea class="st-parts" rows="12" placeholder="Um por linha, ex.:&#10;FKART Azul&#10;FKART Vermelha&#10;Equipe Convidada" '+(ed?'':'disabled')+' oninput="FK.sorteio.setParts(this.value)">'+esc(pr.txt)+'</textarea><div class="st-at" id="st-pcount"></div>'+
+        '</section>'+S.kartsSec(ed,2)+
+        '<section class="st-sec st-res"><h3><i>3</i>SORTEIO</h3><div class="st-trow"><label>NOME</label><input type="text" class="st-ttl" value="'+esc(pr.title)+'" placeholder="Karts da prova '+dayTxt()+'" '+(ed?'':'disabled')+' oninput="FK.sorteio.setTitle(\'prova\',this.value)"></div>'+
+          '<div class="st-counts" id="st-counts"></div>'+(ed?S.rulesHTML(ed):'')+
+          (ed?'<div class="st-btns"><button class="st-draw b3" onclick="FK.sorteio.drawProva()">🎲 Sortear '+(pr.res.length?'turno '+(pr.res.length+1)+' <small>(kart diferente do anterior)</small>':'karts')+'</button>'+(pr.res.length?'<button class="st-clear" onclick="FK.sorteio.undoProva()">apagar último turno</button><button class="st-clear" onclick="FK.sorteio.novo(\'prova\')">novo sorteio</button>':'')+'</div>':'<div class="st-empty">Só quem configura a prova pode sortear. Você está vendo o resultado ao vivo.</div>')+
+          S.provaRes()+
+        '</section></div>';
     }else{
-      html=head+'<div class="st-body">'+
+      html=head+tabs+'<div class="st-body">'+
         '<section class="st-sec"><h3><i>1</i>PILOTOS PRESENTES'+(ed?'<span class="st-mini"><button onclick="FK.sorteio.allP(true)">todos</button><button onclick="FK.sorteio.allP(false)">nenhum</button></span>':'')+'</h3>'+
           (cad.length?'<div class="st-chips">'+cad.map(function(n){ return '<button class="st-chip'+(S.st.sel[n]?' on':'')+'" '+(ed?'':'disabled')+' onclick="FK.sorteio.toggleP(this.dataset.n)" data-n="'+esc(n)+'">'+esc(n)+'</button>'; }).join('')+'</div>':'<div class="st-empty">Nenhum piloto no cadastro da equipe — use os campos abaixo.</div>')+
           '<div class="st-extras-t">Pilotos extras (convidados / fora do cadastro)</div><div class="st-extras">'+S.st.extras.map(function(v,i){ return '<input type="text" placeholder="Nome '+(i+1)+'" value="'+esc(v)+'" '+(ed?'':'disabled')+' oninput="FK.sorteio.setExtra('+i+',this.value)">'; }).join('')+'</div>'+
-        '</section>'+
-        '<section class="st-sec"><h3><i>2</i>KARTS DISPONÍVEIS'+(ed?'<span class="st-mini"><button onclick="FK.sorteio.pasteK()">digitar lista</button><button onclick="FK.sorteio.clearK()">limpar</button></span>':'')+'</h3>'+
-          '<div class="st-kgrid">'+Array.apply(null,Array(99)).map(function(_,i){ var k=i+1, on=S.st.karts.indexOf(k)>=0; return '<button class="st-kb'+(on?' on':'')+'" '+(ed?'':'disabled')+' onclick="FK.sorteio.toggleK('+k+')">'+pad(k)+'</button>'; }).join('')+'</div>'+
-        '</section>'+
-        '<section class="st-sec st-res"><h3><i>3</i>SORTEIO</h3><div class="st-counts" id="st-counts"></div>'+
-          (ed?'<div class="st-btns"><button class="st-draw b1" onclick="FK.sorteio.draw(1)">🎲 '+(S.st.b1?'Refazer':'Sortear')+' Bateria 1</button><button class="st-draw b2" onclick="FK.sorteio.draw(2)">🎲 '+(S.st.b2?'Refazer':'Sortear')+' Bateria 2</button>'+((S.st.b1||S.st.b2)?'<button class="st-clear" onclick="FK.sorteio.reset()">limpar sorteios</button>':'')+'</div>':'<div class="st-empty">Só quem configura a prova pode sortear. Você está vendo o resultado ao vivo.</div>')+
+        '</section>'+S.kartsSec(ed,2)+
+        '<section class="st-sec st-res"><h3><i>3</i>SORTEIO</h3><div class="st-trow"><label>NOME</label><input type="text" class="st-ttl" value="'+esc(S.st.title)+'" placeholder="Treino de Qualy '+dayTxt()+'" '+(ed?'':'disabled')+' oninput="FK.sorteio.setTitle(\'qualy\',this.value)"></div>'+
+          '<div class="st-counts" id="st-counts"></div>'+(ed?S.rulesHTML(ed):'')+
+          (ed?'<div class="st-btns"><button class="st-draw b1" onclick="FK.sorteio.draw(1)">🎲 '+(S.st.b1?'Refazer':'Sortear')+' Bateria 1</button><button class="st-draw b2" onclick="FK.sorteio.draw(2)">🎲 '+(S.st.b2?'Refazer':'Sortear')+' Bateria 2</button>'+((S.st.b1||S.st.b2)?'<button class="st-clear" onclick="FK.sorteio.novo(\'qualy\')">novo sorteio</button>':'')+'</div>':'<div class="st-empty">Só quem configura a prova pode sortear. Você está vendo o resultado ao vivo.</div>')+
           '<div class="st-bats"><div class="st-col"><h4>BATERIA 1</h4>'+S.resultHTML(1)+'</div><div class="st-col"><h4>BATERIA 2 <small>duplas novas · kart diferente</small></h4>'+S.resultHTML(2)+'</div></div>'+
         '</section></div>';
     }
     el.innerHTML=html+'<div class="hub-toast" id="st-toast"></div>';
+    if(rv&&S._rv)el.appendChild(rv);
     S.renderCounts();
     if(keepScroll){ var nb=el.querySelector('.st-body'); if(nb)nb.scrollTop=sc; }
-    else if(S.anim){ var sec=el.querySelector('.st-res'); if(sec)sec.scrollIntoView({behavior:'smooth',block:'start'}); }
-    S.anim=null;
   }
 };
 
 S.load();
 var box=document.createElement('div'); box.id='fk-sorteio'; document.body.appendChild(box);
-/* sincroniza quando o login/aprovacao chegar */
 var _aui=FK.applyAuthUI;
-if(_aui)FK.applyAuthUI=function(){ var r=_aui.apply(FK,arguments); try{ if(FK.state.authProfile&&FK.state.authProfile.approved)S.listen(); if(S.isOpen)S.render(true); }catch(e){} return r; };
-document.addEventListener('keydown',function(e){ if(S.isOpen&&e.key==='Escape'&&!/INPUT|TEXTAREA/.test((e.target&&e.target.tagName)||''))S.close(); });
+if(_aui)FK.applyAuthUI=function(){ var r=_aui.apply(FK,arguments); try{ if(FK.state.authProfile&&FK.state.authProfile.approved)S.listen(); if(S.isOpen&&!S._rv)S.render(true); }catch(e){} return r; };
+document.addEventListener('keydown',function(e){ if(!S.isOpen)return; if(/INPUT|TEXTAREA|SELECT/.test((e.target&&e.target.tagName)||''))return;
+  if(e.key==='Escape'){ if(S._rv)S.stopReveal(); else S.close(); } else if(S._rv&&(e.key===' '||e.key==='Enter')){ e.preventDefault(); if(S._rv.done)S.stopReveal(); else S.skip(); } });
 
 var css=document.createElement('style');
 css.textContent=[
@@ -6547,9 +6761,14 @@ css.textContent=[
 '.st-title b{font-size:24px;font-style:italic;letter-spacing:3px}',
 '.st-title span{font-size:10px;letter-spacing:2.5px;color:#9aa4b8}',
 '.st-actions{display:flex;gap:8px;flex-wrap:wrap}',
-'.st-actions button,.st-mini button,.st-clear{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.3);padding:7px 12px;border-radius:2px;font-weight:700;font-size:12px;cursor:pointer}',
+'.st-actions button,.st-mini button,.st-clear,.st-hbtn button{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.3);padding:7px 12px;border-radius:2px;font-weight:700;font-size:12px;cursor:pointer}',
+'.st-hbtn button.dang{border-color:rgba(255,107,107,.5);color:#ff8a8a}',
+'.st-tabs{display:flex;padding:0 3vw;background:rgba(0,0,0,.25);border-bottom:1px solid rgba(255,255,255,.08);overflow-x:auto;flex-shrink:0}',
+'.st-tabs button{background:transparent;border:0;color:#8f9ab0;font-weight:900;letter-spacing:1.5px;font-size:12px;padding:12px 16px;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;font-style:italic}',
+'.st-tabs button.on{color:#fff;border-bottom-color:#d7263d}.st-tabs small{background:#1565c0;color:#fff;font-style:normal;padding:1px 6px;border-radius:8px;margin-left:4px;font-size:10px}',
 '.st-body{flex:1;overflow:auto;padding:16px 3vw 60px;display:grid;grid-template-columns:1fr 1fr;gap:16px;align-content:start}',
-'.st-sec{background:rgba(5,6,8,.75);box-shadow:0 0 0 1px rgba(255,255,255,.07);padding:14px 16px;border-radius:2px}',
+'.st-body.one{grid-template-columns:1fr}',
+'.st-sec{background:rgba(5,6,8,.75);box-shadow:0 0 0 1px rgba(255,255,255,.07);padding:14px 16px;border-radius:2px;min-width:0}',
 '.st-res{grid-column:1/-1}',
 '.st-sec h3{margin:0 0 10px;font-size:14px;letter-spacing:1.5px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}',
 '.st-sec h3{color:#fff!important}.st-sec h3 i{font-style:normal;color:#fff;background:#d7263d;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:13px}',
@@ -6559,34 +6778,77 @@ css.textContent=[
 '.st-chip.on{background:#2fbf71;color:#04160c;border-color:#2fbf71}',
 '.st-extras-t{font-size:11px;color:#9aa4b8;margin:12px 0 6px;letter-spacing:1px}',
 '.st-extras{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}',
-'.st-extras input{background:#0f1420;border:1px solid rgba(255,255,255,.15);color:#fff;padding:8px 10px;border-radius:2px;font-size:13px}',
+'.st-extras input,.st-ttl,.st-parts,.st-rules select{background:#0f1420;border:1px solid rgba(255,255,255,.15);color:#fff;padding:8px 10px;border-radius:2px;font-size:13px;font-family:inherit}',
+'.st-parts{width:100%;box-sizing:border-box;resize:vertical;line-height:1.5}',
+'.st-trow{display:flex;align-items:center;gap:10px;margin-bottom:10px}.st-trow label{font-size:11px;letter-spacing:1px;color:#9aa4b8;font-weight:800}.st-ttl{flex:1;max-width:380px;min-width:0}',
+'.st-rules{font-size:12px;color:#c9d1e0;margin:0 0 12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}.st-rules small{color:#7f8aa0}.st-rules select{padding:3px 6px}',
 '.st-kgrid{display:grid;grid-template-columns:repeat(10,1fr);gap:4px}',
 '.st-kb{background:#1a2030;color:#7f8aa0;border:1px solid rgba(255,255,255,.08);padding:7px 0;font-weight:800;font-size:13px;border-radius:2px;cursor:pointer;font-variant-numeric:tabular-nums}',
 '.st-kb.on{background:#fff;color:#000}',
 '.st-counts{display:flex;gap:18px;font-size:13px;color:#c9d1e0;margin-bottom:10px;flex-wrap:wrap}.st-counts b{font-size:18px;color:#fff;margin-right:3px}.st-counts .bad,.st-counts .bad b{color:#ff6b6b}',
-'.st-btns{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}',
-'.st-draw{border:0;color:#fff;font-weight:900;letter-spacing:1px;padding:12px 18px;font-size:14px;border-radius:2px;cursor:pointer}',
-'.st-draw.b1{background:#d7263d}.st-draw.b2{background:#1565c0}.st-draw:disabled{opacity:.35;cursor:not-allowed}',
-'.st-bats{display:grid;grid-template-columns:1fr 1fr;gap:16px}',
-'.st-col h3,.st-col h4{margin:0 0 8px;letter-spacing:2px;font-size:14px}.st-col h4 small{font-size:10px;color:#9aa4b8;letter-spacing:1px;margin-left:6px}',
+'.st-btns{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center}',
+'.st-draw{border:0;color:#fff;font-weight:900;letter-spacing:1px;padding:12px 18px;font-size:14px;border-radius:2px;cursor:pointer}.st-draw small{font-weight:600;letter-spacing:0;opacity:.85}',
+'.st-draw.b1{background:#d7263d}.st-draw.b2{background:#1565c0}.st-draw.b3{background:#f2a900;color:#1a1200}.st-draw:disabled{opacity:.35;cursor:not-allowed}',
+'.st-bats,.st-turnos{display:grid;grid-template-columns:1fr 1fr;gap:16px}',
+'.st-turnos:has(> :only-child){grid-template-columns:1fr}',
+'.st-col{min-width:0}.st-col h3,.st-col h4,.st-hb h4{margin:0 0 8px;letter-spacing:2px;font-size:14px}.st-col h4 small{font-size:10px;color:#9aa4b8;letter-spacing:1px;margin-left:6px}.st-hb h4{margin-top:12px}',
 '.st-duplas{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:6px}',
 '.st-dupla{display:flex;background:#0f1420;box-shadow:0 0 0 1px rgba(255,255,255,.08)}',
-'.st-dupla.anim{opacity:0;animation:stIn .5s ease forwards;animation-delay:var(--d)}',
-'@keyframes stIn{from{opacity:0;transform:translateX(-14px) scale(.97);background:#d7263d}to{opacity:1;transform:none;background:#0f1420}}',
 '.st-dn{width:34px;display:flex;align-items:center;justify-content:center;background:#d7263d;font-weight:900;font-size:16px;flex-shrink:0}',
-'.st-col:nth-child(2) .st-dn{background:#1565c0}',
+'.st-dupla.b2 .st-dn{background:#1565c0}',
 '.st-ps{flex:1;min-width:0}',
 '.st-p{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px}.st-p+.st-p{border-top:1px solid rgba(255,255,255,.07)}',
 '.st-pn{font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
 '.st-k{background:#fff;color:#000;font-weight:900;font-size:15px;padding:2px 8px;border-radius:2px;font-variant-numeric:tabular-nums;flex-shrink:0}',
-'.st-at{font-size:10px;color:#7f8aa0;margin-top:6px}',
+'.st-pmap{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px}',
+'.st-pm{display:flex;align-items:center;gap:10px;background:#0f1420;box-shadow:inset 3px 0 0 #f2a900,0 0 0 1px rgba(255,255,255,.08);padding:7px 10px;min-width:0}',
+'.st-at{font-size:10px;color:#7f8aa0;margin-top:6px}.st-at a{color:#9fc4ff;cursor:pointer;text-decoration:underline}',
 '.st-empty{color:#7f8aa0;font-size:13px;padding:10px 0}',
 '.st-warn{background:rgba(255,167,38,.15);color:#ffb74d;font-size:12px;padding:6px 10px;margin-bottom:6px}',
+'.st-hinfo{background:rgba(47,191,113,.1);color:#8fe0b2;font-size:12px;padding:6px 10px;margin-bottom:6px}',
+'.st-hlist{display:flex;flex-direction:column;gap:6px}',
+'.st-h{background:#0f1420;box-shadow:0 0 0 1px rgba(255,255,255,.08)}.st-h.op{box-shadow:0 0 0 1px rgba(255,255,255,.25)}',
+'.st-hh{display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;flex-wrap:wrap}.st-hh b{font-size:14px}',
+'.st-tag{font-size:9px;font-weight:900;letter-spacing:1px;padding:3px 7px;background:#d7263d}.st-tag.prova{background:#f2a900;color:#1a1200}',
+'.st-cur{font-size:9px;font-weight:900;letter-spacing:1px;padding:2px 6px;border:1px solid #2fbf71;color:#2fbf71}',
+'.st-hs{color:#9aa4b8;font-size:12px}.st-hd{margin-left:auto;color:#7f8aa0;font-size:11px}.st-chev{color:#7f8aa0}',
+'.st-hb{padding:0 12px 12px}.st-hbtn{display:flex;gap:8px;margin-bottom:4px}',
 '.st-body.tv{grid-template-columns:1fr 1fr;gap:24px}.st-body.tv .st-col h3{font-size:22px;color:#fff}.st-body.tv .st-duplas{grid-template-columns:1fr 1fr}',
+'.st-body.tv.tvp{grid-template-columns:1fr}.st-body.tv .st-pmap{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}',
 '.st-body.tv .st-pn{font-size:clamp(14px,1.35vw,22px)}.st-body.tv .st-k{font-size:clamp(14px,1.35vw,22px)}.st-body.tv .st-dn{width:40px;font-size:20px}',
-'#fk-sorteio .hub-toast{position:fixed;left:50%;bottom:30px;transform:translate(-50%,20px);background:#fff;color:#000;font-weight:800;font-size:13px;padding:10px 16px;border-radius:3px;opacity:0;transition:all .25s;pointer-events:none}',
+'.st-tvwait{grid-column:1/-1;font-size:11px;color:#59627a;text-align:center}',
+'#fk-sorteio .hub-toast{position:fixed;left:50%;bottom:30px;transform:translate(-50%,20px);background:#fff;color:#000;font-weight:800;font-size:13px;padding:10px 16px;border-radius:3px;opacity:0;transition:all .25s;pointer-events:none;z-index:5}',
 '#fk-sorteio .hub-toast.on{opacity:1;transform:translate(-50%,0)}',
-'@media(max-width:900px){.st-body,.st-bats,.st-body.tv{grid-template-columns:1fr}.st-body.tv .st-duplas{grid-template-columns:1fr}.st-kgrid{grid-template-columns:repeat(8,1fr)}.st-title b{font-size:20px}}'
+/* ---- revelacao ---- */
+'#st-rv{position:absolute;inset:0;z-index:4;display:flex;flex-direction:column;opacity:0;transition:opacity .35s;overflow:hidden}#st-rv.on{opacity:1}',
+'.rv-bg{position:absolute;inset:0;background:radial-gradient(1100px 600px at 50% 40%,color-mix(in srgb,var(--rc) 35%,transparent),transparent 65%),repeating-linear-gradient(115deg,rgba(255,255,255,.025) 0 2px,transparent 2px 22px),#06080d;z-index:-1}',
+'.rv-top{display:flex;align-items:center;gap:16px;padding:16px 3vw;flex-wrap:wrap}',
+'.rv-t{display:flex;flex-direction:column;line-height:1;flex:1;min-width:200px}.rv-t b{font-size:clamp(26px,3.4vw,52px);font-style:italic;font-weight:900;letter-spacing:3px;text-shadow:0 0 30px var(--rc)}.rv-t span{font-size:11px;letter-spacing:3px;color:#9aa4b8;margin-top:6px;text-transform:uppercase}',
+'.rv-prog{font-size:14px;letter-spacing:2px;color:#c9d1e0;font-weight:700}.rv-prog b{font-size:28px;color:#fff}.rv-ok{color:#2fbf71!important;font-size:18px!important;letter-spacing:3px}',
+'.rv-ctl{display:flex;gap:6px}.rv-ctl button{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.25);color:#fff;font-weight:900;padding:8px 12px;cursor:pointer;border-radius:2px;font-size:12px;letter-spacing:1px}',
+'.rv-stage{display:flex;align-items:center;justify-content:center;min-height:clamp(170px,30vh,330px);padding:0 3vw;flex-shrink:0}',
+'.rv-card{background:linear-gradient(180deg,rgba(20,24,36,.96),rgba(8,10,16,.96));box-shadow:0 0 0 2px var(--rc),0 20px 60px rgba(0,0,0,.6),0 0 80px color-mix(in srgb,var(--rc) 40%,transparent);padding:14px 22px 18px;width:min(760px,92vw);box-sizing:border-box;transform:skewX(-6deg);animation:rvIn .35s cubic-bezier(.2,1.4,.4,1)}',
+'.rv-card>*{transform:skewX(6deg)}',
+'@keyframes rvIn{from{opacity:0;transform:skewX(-6deg) translateX(-60px) scale(.9)}to{opacity:1;transform:skewX(-6deg)}}',
+'.rv-n{font-size:12px;font-weight:900;letter-spacing:4px;color:var(--rc);margin-bottom:6px;filter:brightness(1.4)}',
+'.rv-row{display:flex;align-items:center;gap:18px;padding:8px 0}.rv-row+.rv-row{border-top:1px solid rgba(255,255,255,.1)}',
+'.rv-name{flex:1;font-size:clamp(24px,3.6vw,58px);font-weight:900;font-style:italic;letter-spacing:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
+'.rv-kart{display:flex;flex-direction:column;align-items:center;background:#fff;color:#000;padding:4px 14px 6px;min-width:clamp(80px,8vw,130px);flex-shrink:0}.rv-kart small{font-size:10px;font-weight:900;letter-spacing:2px}.rv-kart b{font-size:clamp(34px,4.4vw,72px);font-weight:900;line-height:1;font-variant-numeric:tabular-nums}',
+'.rv-card.ko .rv-kart b{font-size:clamp(44px,6vw,96px)}',
+'.spin.rv-name{color:#8f9ab0;filter:blur(.6px)}.spin.rv-kart{background:#2a3144;color:#c9d1e0}.spin.rv-kart small{color:#8f9ab0}',
+'.lock.rv-name{animation:rvLock .45s ease}.lock.rv-kart{animation:rvLockK .5s ease}',
+'@keyframes rvLock{0%{color:#fff;text-shadow:0 0 0 var(--rc)}30%{color:#fff;text-shadow:0 0 30px var(--rc);transform:scale(1.06)}100%{transform:none}}',
+'@keyframes rvLockK{0%{background:var(--rc);color:#fff;transform:scale(1.25)}100%{background:#fff;color:#000;transform:none}}',
+'.rv-close{background:var(--rc);border:0;color:#fff;font-weight:900;letter-spacing:3px;font-size:18px;padding:16px 40px;cursor:pointer;transform:skewX(-8deg)}',
+'.rv-grid{flex:1;overflow:auto;padding:10px 3vw 30px;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:6px;align-content:start}',
+'.rv-grid.ko{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}',
+'.rv-mini{display:flex;background:rgba(15,20,32,.92);box-shadow:0 0 0 1px rgba(255,255,255,.1);min-width:0}.rv-mini.in{animation:rvMini .4s ease}',
+'@keyframes rvMini{from{opacity:0;transform:translateY(-20px) scale(1.05);box-shadow:0 0 0 2px var(--rc)}to{opacity:1;transform:none}}',
+'.rv-mini i{font-style:normal;width:32px;display:flex;align-items:center;justify-content:center;background:var(--rc);font-weight:900;flex-shrink:0}.rv-mini div{flex:1;min-width:0}',
+'.rv-mini p{margin:0;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 10px;font-weight:800;font-size:14px}.rv-mini p+p{border-top:1px solid rgba(255,255,255,.07)}',
+'.rv-mini span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rv-mini em{font-style:normal;background:#fff;color:#000;font-weight:900;padding:1px 7px;font-variant-numeric:tabular-nums;flex-shrink:0}',
+'.rv-grid.ko .rv-mini p{justify-content:flex-start}',
+'@media(max-width:900px){.st-body,.st-bats,.st-turnos,.st-body.tv{grid-template-columns:1fr}.st-body.tv .st-duplas{grid-template-columns:1fr}.st-kgrid{grid-template-columns:repeat(8,1fr)}.st-title b{font-size:20px}.rv-card{padding:10px 14px 12px;width:84vw}.rv-row{gap:10px}.rv-ctl{width:100%}}'
 ].join('\n');
 document.head.appendChild(css);
 })();
