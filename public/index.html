@@ -6277,7 +6277,7 @@ function boot(){
     H.want=t; /* o login pode chegar depois: applyAuthUI aplica a tela pedida quando as permissoes carregarem */
     if(allowed(t)){ if(curTab()!==t)FK.tab(t); H.want=null; } setHash('endurance/'+t); }
   else if(/^#analise/.test(location.hash||'')&&FK.post){ H.open(); H.hideOnly(); FK.post.open(); }
-  else if(/^#qualy/.test(location.hash||'')&&FK.qualy){ H.open(); H.hideOnly(); var qm=/^#qualy\/([\w]+)/.exec(location.hash); FK.qualy.isOpen=false; if(qm&&FK.qualy.ev(qm[1])){FK.qualy.view='ev';FK.qualy.evId=qm[1];} FK.qualy.open(); }
+  else if(/^#qualy/.test(location.hash||'')&&FK.qualy){ H.open(); H.hideOnly(); var qm=/^#qualy\/([\w]+)/.exec(location.hash); FK.qualy.isOpen=false; if(qm&&qm[1]==='tv'&&FK.qualy.openTV){ FK.qualy.openTV(); } else { if(qm&&FK.qualy.ev(qm[1])){FK.qualy.view='ev';FK.qualy.evId=qm[1];} FK.qualy.open(); } }
   else if(/^#sorteio/.test(location.hash||'')&&FK.sorteio){ H.open(); H.hideOnly(); FK.sorteio.open(/\/tv/.test(location.hash)); }
   else H.open();
 }
@@ -6892,7 +6892,8 @@ var Q=FK.qualy={
     try{ Q._unsub=firebase.firestore().collection('sync').doc('qualy').onSnapshot(function(snap){
       if(!snap.exists)return; var d=snap.data();
       if(d&&(d.updatedAt||0)>(Q.st.updatedAt||0)){ Q.st=d; Q.st.cfg=Object.assign({},Q.DEF,d.cfg||{}); try{localStorage.setItem(LS,JSON.stringify(Q.st));}catch(e){}
-        if(Q.isOpen){ var ae=document.activeElement; if(!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)&&ae.closest('#fk-qualy')))Q.render(true); } }
+        try{ Q.afterSync(); }catch(e){ console.warn(e); }
+        if(Q.isOpen&&!Q._rv){ var ae=document.activeElement; if(!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)&&ae.closest('#fk-qualy')))Q.render(true); } }
     },function(){ Q._unsub=null; }); }catch(e){}
   },
   canEdit:function(){ try{ var p=FK.state.authProfile; if(!p)return true; return !!(p.isAdmin||(p.permissions&&p.permissions.config)); }catch(e){ return true; } },
@@ -7054,8 +7055,8 @@ var Q=FK.qualy={
   toast:function(t){ var el=document.getElementById('q-toast'); if(!el)return; el.textContent=t; el.classList.add('on'); clearTimeout(Q._tt); Q._tt=setTimeout(function(){el.classList.remove('on');},3200); },
 
   /* ---------- tela ---------- */
-  open:function(){ var el=document.getElementById('fk-qualy'); if(!el)return; Q.isOpen=true; el.classList.add('on'); document.body.classList.add('hub-open'); Q.go(Q.view||'home',Q.evId); },
-  close:function(){ var el=document.getElementById('fk-qualy'); if(el)el.classList.remove('on'); Q.isOpen=false; document.body.classList.remove('hub-open'); if(FK.hub)FK.hub.open(); },
+  open:function(){ var el=document.getElementById('fk-qualy'); if(!el)return; Q.isOpen=true; el.classList.add('on'); document.body.classList.add('hub-open'); Q.go(Q.view||'home',Q.evId); try{ Q.afterSync(); }catch(e){} },
+  close:function(){ Q.tv=false; if(Q.stopReveal)Q.stopReveal(); var el=document.getElementById('fk-qualy'); if(el)el.classList.remove('on'); Q.isOpen=false; document.body.classList.remove('hub-open'); if(FK.hub)FK.hub.open(); },
   go:function(v,id){ Q.view=v; Q.evId=id||null; try{ history.replaceState(null,'',location.pathname+location.search+'#qualy'+(v==='ev'&&id?'/'+id:'')); }catch(e){} Q.render(); var b=document.querySelector('#fk-qualy .q-body'); if(b)b.scrollTop=0; },
   render:function(keep){
     var el=document.getElementById('fk-qualy'); if(!el)return;
@@ -7063,16 +7064,16 @@ var Q=FK.qualy={
     var ev=Q.view==='ev'?Q.ev():null; if(Q.view==='ev'&&!ev)Q.view='home';
     var head='<div class="q-top"><button class="q-back" onclick="'+(ev?'FK.qualy.go(\'home\')':'FK.qualy.close()')+'">‹ '+(ev?'VOLTAR':'MENU')+'</button>'+
       '<div class="q-title"><b>'+(ev?esc(ev.nome):'TREINO DE QUALY')+'</b><span>'+(ev?(ev.tipo==='duplas'?'TREINO EM DUPLAS · ':'CLASSIFICAÇÃO INDIVIDUAL · ')+dtxt(ev.data):'ACADEMIA FKR · RUMO ÀS 500 MILHAS')+'</span></div>'+
-      '<div class="q-actions">'+(ev?'<button onclick="FK.qualy.copyEv()">Copiar p/ WhatsApp</button>':'<button onclick="FK.qualy.copy()">Copiar ranking</button>')+'</div></div>';
+      '<div class="q-actions">'+(ev?'<button onclick="FK.qualy.copyEv()">Copiar p/ WhatsApp</button><button onclick="FK.qualy.openTV(\''+ev.id+'\')">Modo TV</button>':'<button onclick="FK.qualy.copy()">Copiar ranking</button>'+(Q.ranking().length?'<button onclick="FK.qualy.reveal(\'rank\')">▶ Revelar ranking</button>':'')+'<button onclick="FK.qualy.openTV()">Modo TV</button>')+'</div></div>';
     el.innerHTML=head+'<div class="q-body">'+(ev?Q.htmlEv(ev):Q.htmlHome())+'</div><div class="hub-toast" id="q-toast"></div>';
     if(keep){ var nb=el.querySelector('.q-body'); if(nb)nb.scrollTop=sc; }
   },
   htmlHome:function(){
     var ed=Q.canEdit(), c=Q.st.cfg, R=Q.ranking(), evs=(Q.st.events||[]).slice().sort(function(a,b){return String(a.data).localeCompare(String(b.data));});
-    var h='<section class="q-sec q-rank"><h3><i>🏆</i>RANKING GERAL<span class="q-mut">'+evs.length+' evento(s) · as '+c.vagas+' primeiras vagas ficam destacadas</span></h3>';
+    var h='<section class="q-sec q-rank"><h3><i>🏆</i>RANKING GERAL<span class="q-mut">'+evs.length+' evento(s) · as '+c.vagas+' primeiras vagas ficam destacadas · toque no piloto para ver a ficha</span></h3>';
     if(!R.length)h+='<div class="q-empty">Sem tempos ainda. Crie um evento abaixo e importe os tempos de cada bateria.</div>';
     else h+='<div class="q-rk">'+R.map(function(r,i){
-      return '<div class="q-rr'+(i<c.vagas?' in':'')+'"><div class="q-rp">'+(i+1)+'</div><div class="q-rn"><b>'+esc(r.nome)+'</b><small>'+r.bats+' bateria(s) · '+r.wins+' vitória(s) · melhor '+fmt(r.best)+'</small></div><div class="q-rpts">'+r.pts+'<small>pts</small></div></div>';
+      return '<div class="q-rr'+(i<c.vagas?' in':'')+'" title="Abrir ficha do piloto" data-n="'+esc(r.nome)+'" onclick="FK.qualy.openPil(this.dataset.n)"><div class="q-rp">'+(i+1)+'</div><div class="q-rn"><b>'+esc(r.nome)+'</b><small>'+r.bats+' bateria(s) · '+r.wins+' vitória(s) · melhor '+fmt(r.best)+'</small></div><div class="q-rpts">'+r.pts+'<small>pts</small></div></div>';
     }).join('')+'</div>';
     h+='</section>';
     h+='<section class="q-sec"><h3><i>📅</i>EVENTOS'+(ed?'<span class="q-mini"><button onclick="FK.qualy.newEvent(\'duplas\')">+ Treino em duplas</button><button onclick="FK.qualy.newEvent(\'individual\')">+ Evento FKart (individual)</button></span>':'')+'</h3>';
@@ -7104,18 +7105,22 @@ var Q=FK.qualy={
     ev.baterias.forEach(function(b,bi){
       var has=b.laps&&Object.keys(b.laps).length, km=Q.kartMap(b);
       h+='<section class="q-sec q-bat"><h3><i>'+(bi+1)+'</i>'+esc(b.nome.toUpperCase())+
-        (b.src?'<span class="q-mut">'+(b.src.tipo==='rm'?'Race Monitor · '+esc(b.src.nome||''):'tempos colados')+'</span>':'')+'</h3>';
+        (b.src?'<span class="q-mut">'+(b.src.tipo==='rm'?'Race Monitor · '+esc(b.src.nome||''):b.src.tipo==='live'?'gravado ao vivo · '+esc(b.src.nome||''):'tempos colados')+'</span>':'')+'</h3>';
       if(ed){
         h+='<div class="q-tools">';
         if(ev.tipo==='duplas')h+='<button class="q-btn" onclick="FK.qualy.pullSorteio('+bi+')">Puxar duplas do Sorteio</button>';
         h+='<span class="q-grp">Race Monitor: corrida <input id="q-rid-'+bi+'" type="text" value="'+esc(c.raceId)+'" style="width:80px"><button class="q-btn" onclick="FK.qualy.listSessions('+bi+')">Listar sessões</button><span id="q-sess-'+bi+'" class="q-sess"></span></span>'+
-          '<details class="q-det"><summary>Colar tempos manualmente</summary><textarea id="q-paste-'+bi+'" placeholder="Uma linha por kart:\n12: 1:02.345 1:01.980 1:01.870\n7: 1:03.100 1:02.010 1:01.950"></textarea><button class="q-btn pri" onclick="FK.qualy.pasteLaps('+bi+')">Usar estes tempos</button></details>'+
+          (Q.live&&Q.live.evId===ev.id&&Q.live.bi===bi?'<button class="q-btn live on" onclick="FK.qualy.liveStop()">■ Encerrar ao vivo</button>':'<button class="q-btn live" onclick="FK.qualy.liveStart('+bi+')" title="Classificação em tempo real pelo Race Monitor durante a bateria">● Ao vivo</button>')+
+          '<details class="q-det"><summary>Colar tempos manualmente</summary><textarea id="q-paste-'+bi+'" placeholder="Uma linha por kart:\n12: 1:02.345 1:01.980 1:01.870\n7: 1:03.100 1:02.010 1:01.950\n\nou uma tabela com os números dos karts no cabeçalho e uma volta por linha (RaceFacer / PDF volta a volta)"></textarea><button class="q-btn pri" onclick="FK.qualy.pasteLaps('+bi+')">Usar estes tempos</button></details>'+
           (has?'<button class="q-btn" onclick="FK.qualy.clearLaps('+bi+')">Apagar tempos</button>':'')+'</div>';
         h+='<details class="q-det"'+(ev.tipo!=='duplas'&&!b.mapTxt?' open':'')+'><summary>Mapa kart → piloto'+(ev.tipo==='duplas'?' (só se precisar corrigir o do Sorteio)':'')+'</summary><textarea placeholder="Um por linha:\n12 = Rapha Cardozo\n7 = Marcos Takuma" onchange="FK.qualy.setB('+bi+',\'mapTxt\',this.value);FK.qualy.render(true)">'+esc(b.mapTxt||'')+'</textarea></details>';
       }
       if(ev.tipo==='duplas'&&!b.duplas.length)h+='<div class="q-warn">Sem duplas nesta bateria. Use "Puxar duplas do Sorteio".</div>';
+      h+='<div id="q-live-'+bi+'">'+(Q.live&&Q.live.evId===ev.id&&Q.live.bi===bi?Q.liveHTML(false):'')+'</div>';
+      if(b.src&&b.src.tipo==='live'&&(b.src.miss||b.src.late))h+='<div class="q-warn">Tempos gravados ao vivo: '+(b.src.miss?b.src.miss+' volta(s) não captadas':'')+(b.src.late?(b.src.miss?' · ':'')+b.src.late+' kart(s) começaram a ser gravados depois da 1ª volta (a "volta roubada" pode ter ficado de fora)':'')+'. Se possível, importe pelo Race Monitor.</div>';
       if(!has){ h+='<div class="q-empty">Sem tempos ainda.</div></section>'; return; }
       var R=Q.calc(ev,b), T=R.top;
+      h+='<div class="q-tools"><button class="q-btn pri" onclick="FK.qualy.reveal(\'bat\',\''+ev.id+'\','+bi+')">▶ Revelar resultado (estilo TV)</button></div>';
       h+='<div class="q-tops">'+
         Q.top('Mais rápido',T.rapido&&T.rapido.nome,T.rapido&&fmt(T.rapido.best))+
         Q.top('Melhor média',T.media&&T.media.nome,T.media&&fmt(T.media.avg))+
@@ -7127,7 +7132,7 @@ var Q=FK.qualy={
       '</div>';
       h+='<div class="q-tw"><table class="q-tb"><thead><tr><th>Pos</th><th>Piloto</th><th>Kart</th>'+(ev.tipo==='duplas'?'<th>Dupla</th>':'')+'<th>Melhor</th><th>Dif.</th><th title="Tirando a melhor e a pior">Média*</th><th>Roubada</th><th>Voltas</th><th>Pontos</th></tr></thead><tbody>'+
         R.rows.map(function(r){
-          return '<tr class="'+(r.orphan?'orph':'')+(r.pos===1?' p1':'')+'"><td>'+(r.pos||'—')+'</td><td><b>'+esc(r.nome)+'</b>'+(r.extras.length?'<div class="q-ex">'+r.extras.map(esc).join(' · ')+'</div>':'')+'</td><td><span class="q-k">'+pad(r.kart)+'</span></td>'+
+          return '<tr class="'+(r.orphan?'orph':'')+(r.pos===1?' p1':'')+'"><td>'+(r.pos||'—')+'</td><td><b'+(r.orphan?'':' class="q-pl" data-n="'+esc(r.nome)+'" onclick="FK.qualy.openPil(this.dataset.n)"')+'>'+esc(r.nome)+'</b>'+(r.extras.length?'<div class="q-ex">'+r.extras.map(esc).join(' · ')+'</div>':'')+'</td><td><span class="q-k">'+pad(r.kart)+'</span></td>'+
             (ev.tipo==='duplas'?'<td>'+(r.dupla!=null?r.dupla+1:'—')+'</td>':'')+
             '<td class="q-t">'+fmt(r.best)+'</td><td class="q-t q-mut">'+(r.pos>1?gap(r.gapLead):'')+'</td><td class="q-t">'+fmt(r.avg)+'</td><td class="q-t">'+fmt(r.roub)+'</td><td>'+(r.n||0)+'</td><td class="q-pts">'+(r.orphan?'—':r.pts)+'</td></tr>';
         }).join('')+'</tbody></table></div>';
@@ -7144,6 +7149,366 @@ var Q=FK.qualy={
   dn:function(d){ return d.mem.map(function(m){return m.nome;}).join(' + '); },
   top:function(t,n,v){ return '<div class="q-top1"><small>'+t+'</small><b>'+(n?esc(n):'—')+'</b><span>'+(v||'')+'</span></div>'; }
 };
+
+/* ===================== v2 (03/10/2026) =====================================================
+   - Importacao robusta do Race Monitor: junta as sessoes com o mesmo nome (o KGV quebra a
+     sessao em pedacos) e tira passagens repetidas pelo horario da passagem.
+   - Colar tabela (colunas = karts), como vem do RaceFacer / PDF volta a volta.
+   - AO VIVO: classificacao da bateria em tempo real (Race Monitor), com duplas e pontos
+     projetados; grava a volta a volta e salva na bateria no fim (plano B se a importacao falhar).
+   - MODO TV (#qualy/tv): resultado com revelacao estilo game (ate o podio) e ranking geral;
+     segue o ao vivo sozinho e toca a revelacao quando os tempos de uma bateria chegam.
+   - FICHA DO PILOTO: evolucao em todos os treinos (posicao, pontos, distancia % para o mais
+     rapido, consistencia) com grafico.
+   ========================================================================================= */
+function up(s){ return String(s||'').trim().toUpperCase(); }
+function med(a){ if(!a.length)return null; var b=a.slice().sort(function(x,y){return x-y;}), m=b.length>>1; return b.length%2?b[m]:(b[m-1]+b[m])/2; }
+function sdv(a){ if(a.length<2)return null; var m=a.reduce(function(s,x){return s+x;},0)/a.length; return Math.sqrt(a.reduce(function(s,x){return s+(x-m)*(x-m);},0)/(a.length-1)); }
+function lsG(k,d){ try{ var v=localStorage.getItem(k); return v==null?d:JSON.parse(v); }catch(e){ return d; } }
+function lsS(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+
+var _render=Q.render;
+Object.assign(Q,{
+  tv:false, pil:null, live:null, tvSel:null,
+  /* ---------- importacao ---------- */
+  listSessions:function(bi){
+    var rid=String((document.getElementById('q-rid-'+bi)||{}).value||Q.st.cfg.raceId).replace(/\D/g,'');
+    if(!rid){ alert('Informe o número da corrida no Race Monitor (raceId).'); return; }
+    Q.st.cfg.raceId=rid; Q.save();
+    var box=document.getElementById('q-sess-'+bi); if(box)box.innerHTML='<span class="q-mut">buscando sessões…</span>';
+    fetch('/api/live?import=1&list=1&raceId='+rid+'&t='+Date.now()).then(function(r){return r.json();}).then(function(j){
+      var ss=(j.sessions||[]).slice().sort(function(a,b){return (b.startEpoch||0)-(a.startEpoch||0);});
+      Q._ss=ss;
+      if(!ss.length){ box.innerHTML='<span class="q-bad">Nenhuma sessão encontrada'+(j.Message?': '+esc(j.Message):'')+'</span>'; return; }
+      var cnt={}; ss.forEach(function(s){ cnt[up(s.name)]=(cnt[up(s.name)]||0)+1; });
+      var seen={}, opts=ss.filter(function(s){ var k=up(s.name); if(seen[k])return false; seen[k]=1; return true; }).slice(0,40);
+      box.innerHTML='<select id="q-ssel-'+bi+'">'+opts.map(function(s){ var n=cnt[up(s.name)]; return '<option value="'+s.id+'">'+esc(((s.date||s.time)?(s.date||'')+' '+(s.time||'')+' — ':'')+(s.name||('Sessão '+s.id))+(n>1?' ('+n+' pedaços)':''))+'</option>'; }).join('')+'</select>'+
+        '<label class="q-mg"><input type="checkbox" id="q-merge-'+bi+'" checked> juntar pedaços com o mesmo nome</label><button class="q-btn pri" onclick="FK.qualy.importSession('+bi+')">Importar tempos</button><span id="q-prog-'+bi+'" class="q-mut"></span>';
+    }).catch(function(e){ box.innerHTML='<span class="q-bad">Erro: '+esc(e.message)+'</span>'; });
+  },
+  importSession:function(bi){
+    var sel=document.getElementById('q-ssel-'+bi); if(!sel)return;
+    var sid=String(sel.value), rid=Q.st.cfg.raceId, ss=Q._ss||[], cur=ss.filter(function(s){return String(s.id)===sid;})[0]||{id:sid,name:''};
+    var merge=!!(document.getElementById('q-merge-'+bi)||{}).checked;
+    var ids=merge&&cur.name?ss.filter(function(s){return up(s.name)===up(cur.name);}).map(function(s){return String(s.id);}):[sid];
+    if(ids.indexOf(sid)<0)ids.push(sid);
+    var prog=document.getElementById('q-prog-'+bi), all=[], i=0;
+    var next=function(){
+      if(i>=ids.length)return done();
+      if(prog)prog.textContent=' importando '+(i+1)+'/'+ids.length+'…';
+      fetch('/api/live?import=1&raceId='+rid+'&sessionId='+ids[i]+'&t='+Date.now()).then(function(r){return r.json();}).then(function(j){ all.push(j); i++; next(); })
+        .catch(function(e){ if(prog)prog.textContent=''; alert('Erro ao importar: '+e.message); });
+    };
+    var done=function(){
+      var by={};
+      all.forEach(function(j){ (j.competitors||[]).forEach(function(c){ var k=parseInt(String(c.n||'').replace(/\D/g,''),10); if(isNaN(k))return; by[k]=(by[k]||[]).concat(c.L||[]); }); });
+      var laps={}; Object.keys(by).forEach(function(k){ var L=Q.cleanLaps(by[k]); if(L.length)laps[k]=L; });
+      if(prog)prog.textContent='';
+      if(!Object.keys(laps).length){ alert('A sessão não trouxe voltas.'); return; }
+      var ev=Q.ev(); ev.baterias[bi].laps=laps; ev.baterias[bi].src={tipo:'rm',raceId:rid,sessionId:sid,nome:cur.name+(ids.length>1?' · '+ids.length+' pedaços':''),at:Date.now()}; Q.save(); Q.render(true);
+      var km=Q.kartMap(ev.baterias[bi]), miss=Object.keys(laps).filter(function(k){return !km[k];});
+      Q.toast('Importado: '+Object.keys(laps).length+' karts'+(miss.length?' · '+miss.length+' kart(s) sem piloto no mapa':''));
+    };
+    next();
+  },
+  /* passagens [volta, tempoVolta, tempoTotal]: ordena pelo horario e tira repetidas (pedacos que se sobrepoem) */
+  cleanLaps:function(rows){
+    rows=(rows||[]).filter(function(x){return x&&x[1]>0;});
+    if(rows.length&&rows.every(function(x){return x[2]>0;})){
+      rows.sort(function(a,b){return a[2]-b[2];}); var u=[];
+      rows.forEach(function(x){ var p=u[u.length-1]; if(p&&Math.abs(x[2]-p[2])<1500)return; u.push(x); });
+      return u.map(function(x){return x[1];});
+    }
+    var seen={}; return rows.sort(function(a,b){return a[0]-b[0];}).filter(function(x){ if(seen[x[0]])return false; seen[x[0]]=1; return true; }).map(function(x){return x[1];});
+  },
+  /* tabela com colunas = karts (cabecalho com os numeros) e linhas = voltas */
+  parseGrid:function(txt){
+    var lines=String(txt||'').split(/\n/).filter(function(l){return l.trim();});
+    var split=function(l){ return (/\t/.test(l)?l.split('\t'):l.trim().split(/\s+/)).map(function(t){return t.trim();}); };
+    for(var hi=0;hi<Math.min(lines.length,6);hi++){
+      var H=split(lines[hi]), cols=[];
+      H.forEach(function(t,j){ var m=/^(?:kart\s*)?#?(\d{1,3})$/i.exec(t); if(m)cols.push({j:j,k:parseInt(m[1],10)}); });
+      if(cols.length<2||cols.length<H.filter(Boolean).length*0.6)continue;
+      var laps={};
+      lines.slice(hi+1).forEach(function(l){ var T=split(l), off=0;
+        if(T.length===cols.length+1&&/^\d{1,3}$/.test(T[0]))off=1;
+        cols.forEach(function(c,ci){ var t=T.length===H.length?T[c.j]:T[ci+off]; if(!t||!/[:.,]/.test(t))return; var v=parseT(t); if(v)(laps[c.k]=laps[c.k]||[]).push(v); });
+      });
+      var ok=Object.keys(laps).filter(function(k){return laps[k].length>=2;});
+      if(ok.length>=2)return laps;
+    }
+    return null;
+  },
+  pasteLaps:function(bi){
+    var ta=document.getElementById('q-paste-'+bi); if(!ta)return;
+    var laps=Q.parseGrid(ta.value), bad=0, how='tabela';
+    if(!laps){ how='linhas'; laps={};
+      ta.value.split(/\n/).forEach(function(l){
+        var m=/^\s*#?(\d{1,3})\s*[:;=\-–\t ]\s*(.+)$/.exec(l); if(!m){ if(l.trim())bad++; return; }
+        var ts=m[2].split(/[\s;|\t]+/).map(parseT).filter(function(x){return x;});
+        if(ts.length)laps[parseInt(m[1],10)]=ts; else bad++;
+      }); }
+    if(!Object.keys(laps).length){ alert('Não achei tempos. Formatos aceitos:\n\n1) Uma linha por kart:\n12: 1:02.345 1:01.980 1:01.870\n\n2) Tabela com os números dos karts no cabeçalho e uma volta por linha (como no RaceFacer / PDF volta a volta).'); return; }
+    var ev=Q.ev(); ev.baterias[bi].laps=laps; ev.baterias[bi].src={tipo:'manual',at:Date.now()}; Q.save(); Q.render(true);
+    Q.toast(Object.keys(laps).length+' karts lidos ('+how+')'+(bad?' · '+bad+' linha(s) ignoradas':''));
+  },
+
+  /* ---------- AO VIVO ---------- */
+  liveStart:function(bi){
+    var ev=Q.ev(); if(!ev||!Q.canEdit())return;
+    var rid=String((document.getElementById('q-rid-'+bi)||{}).value||Q.st.cfg.raceId).replace(/\D/g,'');
+    if(!rid){ alert('Informe o número da corrida no Race Monitor (raceId).'); return; }
+    Q.st.cfg.raceId=rid;
+    ev.baterias.forEach(function(b,i){ if(i!==bi&&b.live)b.live.on=false; });
+    ev.baterias[bi].live={on:true,raceId:rid,at:Date.now()}; Q.save();
+    Q.liveRun(ev.id,bi,rid); Q.render(true);
+  },
+  liveRun:function(evId,bi,rid){
+    if(Q.live&&Q.live.evId===evId&&Q.live.bi===bi)return;
+    Q.liveHalt();
+    var L=Q.live={evId:evId,bi:bi,rid:rid,cap:{},comp:{},flash:{},err:null,sess:'',at:0};
+    Q.livePoll(); L.timer=setInterval(Q.livePoll,2500);
+  },
+  liveHalt:function(){ if(Q.live&&Q.live.timer)clearInterval(Q.live.timer); Q.live=null; },
+  livePoll:function(){
+    var L=Q.live; if(!L)return;
+    fetch('/api/live?raceId='+L.rid+'&t='+Date.now()).then(function(r){return r.json();}).then(function(r){
+      if(Q.live!==L)return;
+      if(!(r.Successful&&r.Session)){ L.err=r.Message||'sem sessão ativa nesta corrida'; Q.liveDraw(); return; }
+      var s=r.Session; L.err=null; L.sess=s.SessionName||''; L.ttg=s.TimeToGo||''; L.flag=s.FlagStatus||'';
+      var m=s.Competitors||{};
+      Object.keys(m).forEach(function(id){ var c=m[id], k=parseInt(String(c.Number||id).replace(/\D/g,''),10); if(isNaN(k))return;
+        var laps=parseInt(c.Laps,10)||0, last=parseT(c.LastLapTime), best=parseT(c.BestLapTime), old=L.comp[k];
+        if(old&&best&&(!old.best||best<old.best))L.flash[k]=Date.now();
+        L.comp[k]={laps:laps,last:last,best:best};
+        var cp=L.cap[k]||(L.cap[k]={n:0,L:[]});
+        if(laps<cp.n-1){ cp.n=0; cp.L=[]; } /* sessao nova */
+        if(laps>cp.n&&last)cp.L.push({lap:laps,ms:last,miss:cp.n?Math.max(0,laps-cp.n-1):laps-1});
+        if(laps>cp.n)cp.n=laps;
+      });
+      L.at=Date.now(); Q.liveDraw();
+    }).catch(function(e){ if(Q.live===L){ L.err=e.message; Q.liveDraw(); } });
+  },
+  liveRows:function(){
+    var L=Q.live; if(!L)return null; var ev=Q.ev(L.evId), b=ev&&ev.baterias[L.bi]; if(!b)return null;
+    var km=Q.kartMap(b), dOf=Q.duplaOf(b), noMap=!Object.keys(km).length, rows=[];
+    Object.keys(km).forEach(function(k){ var c=L.comp[k]||{}; rows.push({kart:+k,nome:km[k],dupla:dOf[km[k]],best:c.best||null,last:c.last||null,laps:c.laps||0}); });
+    Object.keys(L.comp).forEach(function(k){ if(km[k])return; var c=L.comp[k]; rows.push({kart:+k,nome:'Kart '+pad(k)+(noMap?'':' (sem piloto)'),orphan:!noMap,best:c.best,last:c.last,laps:c.laps}); });
+    var part=rows.filter(function(r){return !r.orphan;}), N=part.length;
+    var rk=part.filter(function(r){return r.best;}).sort(function(a,b){return a.best-b.best;});
+    rk.forEach(function(r,i){ r.pos=i+1; r.pts=N-i; r.gap=r.best-rk[0].best; });
+    rows.sort(function(a,b){ return ((a.pos||999)-(b.pos||999))||((a.orphan?1:0)-(b.orphan?1:0))||(a.kart-b.kart); });
+    return {rows:rows,N:N,ev:ev,b:b};
+  },
+  liveHTML:function(big){
+    var L=Q.live, D=Q.liveRows(); if(!D)return '';
+    var nCap=0; Object.keys(L.cap).forEach(function(k){ nCap+=L.cap[k].L.length; });
+    var head='<div class="ql-h"><span class="ql-dot'+(L.err?' off':'')+'"></span><b>AO VIVO</b><span>'+esc(L.sess||'aguardando Race Monitor…')+'</span>'+(L.ttg?'<span class="ql-ttg">'+esc(String(L.ttg).replace(/^00:/,''))+'</span>':'')+
+      (L.err?'<span class="q-bad">'+esc(L.err)+'</span>':'<span class="q-mut">'+nCap+' voltas gravadas · pontos projetados (extras entram no resultado final)</span>')+'</div>';
+    var now=Date.now();
+    var tb='<div class="q-tw"><table class="q-tb ql-tb'+(big?' big':'')+'"><thead><tr><th>Pos</th><th>Piloto</th><th>Kart</th>'+(D.ev.tipo==='duplas'?'<th>Dupla</th>':'')+'<th>Melhor</th><th>Dif.</th><th>Última</th><th>Voltas</th><th>Pts</th></tr></thead><tbody>'+
+      D.rows.map(function(r){ var fl=L.flash[r.kart]&&now-L.flash[r.kart]<6000;
+        return '<tr class="'+(r.orphan?'orph':'')+(r.pos===1?' p1':'')+(fl?' fl':'')+'"><td>'+(r.pos||'—')+'</td><td><b>'+esc(r.nome)+'</b></td><td><span class="q-k">'+pad(r.kart)+'</span></td>'+(D.ev.tipo==='duplas'?'<td>'+(r.dupla!=null?r.dupla+1:'—')+'</td>':'')+
+          '<td class="q-t">'+fmt(r.best)+'</td><td class="q-t q-mut">'+(r.pos>1?gap(r.gap):'')+'</td><td class="q-t'+(r.last&&r.last===r.best?' pb':'')+'">'+fmt(r.last)+'</td><td>'+(r.laps||0)+'</td><td class="q-pts">'+(r.pts||'')+'</td></tr>'; }).join('')+'</tbody></table></div>';
+    return '<div class="ql">'+head+tb+'</div>';
+  },
+  liveDraw:function(){
+    var L=Q.live; if(!L)return;
+    var a=document.getElementById('q-live-'+L.bi); if(a&&Q.view==='ev'&&Q.evId===L.evId&&!Q.tv)a.innerHTML=Q.liveHTML(false);
+    var t=document.getElementById('qtv-live'); if(t)t.innerHTML=Q.liveHTML(true);
+  },
+  liveStop:function(){
+    var L=Q.live, ev=L&&Q.ev(L.evId), b=ev&&ev.baterias[L.bi]; if(!b){ Q.liveHalt(); Q.render(true); return; }
+    var ks=Object.keys(L.cap).filter(function(k){return L.cap[k].L.length;});
+    var save=ks.length&&confirm('Salvar a volta a volta gravada ao vivo ('+ks.length+' karts) como tempos desta bateria?'+(b.laps&&Object.keys(b.laps).length?'\n\nOs tempos atuais desta bateria serão substituídos.':'')+'\n\n(Se preferir importar depois pelo Race Monitor, clique em Cancelar.)');
+    if(save){ var laps={}, miss=0, late=0; ks.forEach(function(k){ var c=L.cap[k]; laps[k]=c.L.map(function(x){return x.ms;}); c.L.forEach(function(x){miss+=x.miss;}); if(c.L[0].lap>1)late++; });
+      b.laps=laps; b.src={tipo:'live',raceId:L.rid,nome:L.sess,at:Date.now(),miss:miss,late:late}; }
+    b.live={on:false}; Q.save(); Q.liveHalt(); Q.render(true);
+    if(save)Q.toast('Tempos salvos'+(miss?' · '+miss+' volta(s) não captadas':''));
+  },
+  /* chamado a cada atualizacao vinda do Firestore */
+  afterSync:function(){
+    var on=null; (Q.st.events||[]).forEach(function(ev){ (ev.baterias||[]).forEach(function(b,bi){ if(b.live&&b.live.on)on={ev:ev,bi:bi,rid:b.live.raceId}; }); });
+    if(Q.live&&(!on||on.ev.id!==Q.live.evId||on.bi!==Q.live.bi))Q.liveHalt();
+    if(on&&!Q.live&&Q.isOpen&&(Q.tv||(Q.view==='ev'&&Q.evId===on.ev.id)))Q.liveRun(on.ev.id,on.bi,on.rid);
+    var la=Q.lastSrc(); if(Q.tv&&la.at>(Q.seenAt||0)&&la.ev){ Q.seenAt=la.at; Q.tvSel={evId:la.ev.id,bi:la.bi}; if(!Q.live)setTimeout(function(){ Q.reveal('bat',la.ev.id,la.bi); },400); }
+    Q.seenAt=Math.max(Q.seenAt||0,la.at);
+  },
+  lastSrc:function(){ var o={at:0}; (Q.st.events||[]).forEach(function(ev){ (ev.baterias||[]).forEach(function(b,bi){ if(b.src&&b.src.at>o.at&&b.laps&&Object.keys(b.laps).length)o={at:b.src.at,ev:ev,bi:bi}; }); }); return o; },
+
+  /* ---------- MODO TV ---------- */
+  openTV:function(evId){ Q.tv=true; Q.seenAt=Q.lastSrc().at; var la=Q.lastSrc(); if(evId){ var ev=Q.ev(evId); var bi=0; if(ev)ev.baterias.forEach(function(b,i){ if(b.laps&&Object.keys(b.laps).length)bi=i; }); Q.tvSel={evId:evId,bi:bi}; } else if(la.ev)Q.tvSel={evId:la.ev.id,bi:la.bi};
+    Q.isOpen=false; Q.open(); try{ history.replaceState(null,'',location.pathname+location.search+'#qualy/tv'); }catch(e){} Q.afterSync(); },
+  exitTV:function(){ Q.tv=false; Q.stopReveal(); if(Q.live&&!(Q.view==='ev'&&Q.evId===Q.live.evId))Q.liveHalt(); Q.go(Q.view||'home',Q.evId); },
+  tvPick:function(v){ var p=String(v).split('|'); Q.tvSel={evId:p[0],bi:+p[1]}; Q.render(); },
+  renderTV:function(){
+    var el=document.getElementById('fk-qualy'); if(!el)return;
+    var rv=document.getElementById('q-rv'); if(rv)rv.parentNode.removeChild(rv);
+    var opts=[]; (Q.st.events||[]).slice().sort(function(a,b){return String(b.data).localeCompare(String(a.data));}).forEach(function(ev){ ev.baterias.forEach(function(b,bi){ if(b.laps&&Object.keys(b.laps).length)opts.push({v:ev.id+'|'+bi,t:dtxt(ev.data)+' · '+ev.nome+' · '+b.nome}); }); });
+    var sel=Q.tvSel, ev=sel&&Q.ev(sel.evId), b=ev&&ev.baterias[sel.bi]; if(!(b&&b.laps&&Object.keys(b.laps).length)){ ev=null; b=null; }
+    var c=Q.st.cfg, R=Q.ranking();
+    var h='<div class="q-top"><button class="q-back" onclick="FK.qualy.exitTV()">‹ SAIR DA TV</button><div class="q-title"><b>TREINO DE QUALY</b><span>ACADEMIA FKR · RUMO ÀS 500 MILHAS</span></div><div class="q-actions">'+
+      (opts.length?'<select class="qtv-sel" onchange="FK.qualy.tvPick(this.value)">'+opts.map(function(o){return '<option value="'+o.v+'"'+(sel&&o.v===sel.evId+'|'+sel.bi?' selected':'')+'>'+esc(o.t)+'</option>';}).join('')+'</select>':'')+
+      (b?'<button onclick="FK.qualy.reveal(\'bat\',\''+ev.id+'\','+sel.bi+')">▶ Revelar bateria</button>':'')+(R.length?'<button onclick="FK.qualy.reveal(\'rank\')">▶ Revelar ranking</button>':'')+'</div></div>';
+    h+='<div class="q-body qtv">';
+    if(Q.live)h+='<section class="q-sec qtv-full" id="qtv-live">'+Q.liveHTML(true)+'</section>';
+    else{
+      h+='<div class="qtv-grid"><section class="q-sec"><h3><i>⏱</i>'+(b?esc(ev.nome)+' · '+esc(b.nome).toUpperCase():'RESULTADO')+'</h3>';
+      if(b){ var C=Q.calc(ev,b); h+='<div class="qtv-list">'+C.rows.filter(function(r){return r.pos;}).map(function(r){ return '<div class="qtv-r'+(r.pos<=3?' pod p'+r.pos:'')+'"><span class="qtv-p">'+r.pos+'</span><span class="qtv-n">'+esc(r.nome)+'<small>kart '+pad(r.kart)+(r.dupla!=null?' · dupla '+(r.dupla+1):'')+'</small></span><span class="qtv-t">'+fmt(r.best)+'</span><span class="qtv-pts">'+r.pts+'</span></div>'; }).join('')+'</div>';
+      }else h+='<div class="q-empty">Nenhuma bateria com tempos ainda. Quando alguém importar os tempos ou ligar o AO VIVO, esta tela atualiza sozinha.</div>';
+      h+='</section><section class="q-sec"><h3><i>🏆</i>RANKING GERAL<span class="q-mut">'+c.vagas+' vagas</span></h3><div class="qtv-list">'+R.map(function(r,i){ return (i===c.vagas?'<div class="qtv-cut">LINHA DE CORTE</div>':'')+'<div class="qtv-r'+(i<c.vagas?' in':'')+'"><span class="qtv-p">'+(i+1)+'</span><span class="qtv-n">'+esc(r.nome)+'<small>'+r.bats+' bateria(s) · '+r.wins+' vitória(s)</small></span><span class="qtv-pts">'+r.pts+'</span></div>'; }).join('')+'</div></section></div>';
+    }
+    h+='<div class="st-tvwait">Esta tela segue o AO VIVO e toca a revelação sozinha quando os tempos de uma bateria chegam.</div></div>';
+    el.innerHTML=h+'<div class="hub-toast" id="q-toast"></div>';
+    if(rv&&Q._rv)el.appendChild(rv);
+  },
+
+  /* ---------- revelacao estilo game ---------- */
+  muted:function(){ return lsG('fk_q_mute',false)===true; },
+  toggleMute:function(){ lsS('fk_q_mute',!Q.muted()); var b=document.getElementById('qrv-mute'); if(b)b.textContent=Q.muted()?'🔇':'🔊'; },
+  beep:function(f,d,v,type){ if(Q.muted())return; try{ var A=Q._ac||(Q._ac=new (window.AudioContext||window.webkitAudioContext)()); if(A.state==='suspended')A.resume(); var o=A.createOscillator(), g=A.createGain(), t=A.currentTime; o.type=type||'square'; o.frequency.setValueAtTime(f,t); g.gain.setValueAtTime(v||0.03,t); g.gain.exponentialRampToValueAtTime(0.0001,t+(d||0.03)); o.connect(g); g.connect(A.destination); o.start(t); o.stop(t+(d||0.03)+0.02); }catch(e){} },
+  reveal:function(kind,evId,bi){
+    var host=document.getElementById('fk-qualy'); if(!host)return;
+    var c=Q.st.cfg, items=[], title, sub, hl=[], color;
+    if(kind==='bat'){ var ev=Q.ev(evId), b=ev&&ev.baterias[bi]; if(!b||!b.laps)return; var C=Q.calc(ev,b), T=C.top;
+      title=b.nome.toUpperCase(); sub=ev.nome+' · '+dtxt(ev.data); color='#d7263d';
+      items=C.rows.filter(function(r){return r.pos;}).map(function(r){ return {pos:r.pos,nome:r.nome,sub:'kart '+pad(r.kart)+(r.dupla!=null?' · dupla '+(r.dupla+1):''),val:fmt(r.best),gap:r.pos>1?gap(r.gapLead):'',pts:r.pts,ex:r.extras.join(' · ')}; });
+      hl=[['Melhor média',T.media&&T.media.nome,T.media&&fmt(T.media.avg)],['Volta roubada',T.roubada&&T.roubada.nome,T.roubada&&fmt(T.roubada.roub)]];
+      if(ev.tipo==='duplas')hl=hl.concat([['Melhor média de dupla',T.duplaMedia&&Q.dn(T.duplaMedia),T.duplaMedia&&fmt(T.duplaMedia.avg)],['Dupla mais rápida',T.duplaRapida&&Q.dn(T.duplaRapida),T.duplaRapida&&fmt(T.duplaRapida.meanBest)],['Dupla mais parelha',T.duplaParelha&&Q.dn(T.duplaParelha),T.duplaParelha&&(T.duplaParelha.diff/1000).toFixed(3)+'s']]);
+    }else{ var R=Q.ranking(); if(!R.length)return; title='RANKING GERAL'; sub='Academia FKR · '+c.vagas+' vagas para a classificação das 500 Milhas'; color='#1565c0';
+      items=R.map(function(r,i){ return {pos:i+1,nome:r.nome,sub:r.bats+' bateria(s) · '+r.wins+' vitória(s)',val:'melhor '+fmt(r.best),pts:r.pts,zone:i<c.vagas}; }); }
+    Q.stopReveal();
+    var tok=Q._rv={timers:[],kind:kind,done:false};
+    var el=document.createElement('div'); el.id='q-rv'; el.style.setProperty('--rc',color);
+    var pod=items.slice(0,3), rest=items.slice(3);
+    var slot=function(it){ if(!it)return '<div class="qrv-slot empty"></div>'; return '<div class="qrv-slot p'+it.pos+'" id="qrv-s'+it.pos+'"><div class="qrv-sp">'+it.pos+'º</div><div class="qrv-sn">'+esc(it.nome)+'</div><div class="qrv-sv">'+esc(it.val)+'</div><div class="qrv-spts">'+it.pts+' <small>pts</small></div>'+(it.ex?'<div class="qrv-sx">'+esc(it.ex)+'</div>':'')+'<div class="qrv-base"></div></div>'; };
+    el.innerHTML='<div class="rv-bg"></div><div class="rv-top"><div class="rv-t"><b>'+esc(title)+'</b><span>'+esc(sub)+'</span></div><div class="rv-prog" id="qrv-prog"></div>'+
+      '<div class="rv-ctl"><button id="qrv-mute" onclick="FK.qualy.toggleMute()">'+(Q.muted()?'🔇':'🔊')+'</button><button onclick="FK.qualy.revealSkip()">PULAR ▶▶</button><button onclick="FK.qualy.stopReveal()">✕</button></div></div>'+
+      '<div class="qrv-main"><div class="qrv-pod">'+slot(pod[1])+slot(pod[0])+slot(pod[2])+'</div>'+
+      '<div class="qrv-list">'+rest.map(function(it){ return (kind==='rank'&&it.pos===c.vagas+1?'<div class="qrv-cut" id="qrv-cut">LINHA DE CORTE</div>':'')+'<div class="qrv-r'+(it.zone?' in':'')+'" id="qrv-r'+it.pos+'"><span class="qrv-p">'+it.pos+'</span><span class="qrv-n">'+esc(it.nome)+'<small>'+esc(it.sub)+'</small></span><span class="qrv-v">'+esc(it.val)+(it.gap?' <i>'+esc(it.gap)+'</i>':'')+'</span><span class="qrv-pts">'+it.pts+'</span></div>'; }).join('')+'</div></div>'+
+      (hl.length?'<div class="qrv-hl" id="qrv-hl">'+hl.filter(function(x){return x[1];}).map(function(x){ return '<div><small>'+esc(x[0])+'</small><b>'+esc(x[1])+'</b><span>'+esc(x[2]||'')+'</span></div>'; }).join('')+'</div>':'');
+    host.appendChild(el); requestAnimationFrame(function(){ el.classList.add('on'); });
+    tok.items=items;
+    var at=900, step=Math.max(120,Math.min(320,5200/Math.max(1,rest.length)));
+    var later=function(fn,ms){ tok.timers.push(setTimeout(function(){ if(Q._rv===tok)fn(); },ms)); };
+    var pg=function(t){ var p=document.getElementById('qrv-prog'); if(p)p.innerHTML=t; };
+    rest.slice().reverse().forEach(function(it){ later(function(){ pg('<b>'+it.pos+'º</b>'); var r=document.getElementById('qrv-r'+it.pos); if(r)r.classList.add('on'); Q.beep(700+Math.max(0,30-it.pos)*15,0.03,0.025); if(kind==='rank'&&it.pos===c.vagas+1){ var cut=document.getElementById('qrv-cut'); if(cut)cut.classList.add('on'); } },at); at+=step; });
+    at+=500;
+    [3,2,1].forEach(function(p){ if(!items[p-1])return;
+      later(function(){ pg('<b>'+p+'º</b> LUGAR'); var s=document.getElementById('qrv-s'+p); if(s)s.classList.add('roll'); },at);
+      var roll=p===1?1800:1200; for(var t=0;t<roll;t+=90)(function(t){ later(function(){ Q.beep(180+t/8,0.04,0.03,'triangle'); },at+t); })(t);
+      at+=roll;
+      later(function(){ var s=document.getElementById('qrv-s'+p); if(s){ s.classList.remove('roll'); s.classList.add('on'); }
+        if(p===1){ [523,659,784,1047].forEach(function(f,i){ setTimeout(function(){Q.beep(f,i===3?0.4:0.14,0.06,'triangle');},i*130); }); } else { Q.beep(660,0.1,0.06,'triangle'); setTimeout(function(){Q.beep(880,0.18,0.06,'triangle');},90); } },at);
+      at+=p===1?1200:900; });
+    later(function(){ Q.revealEnd(tok); },at);
+  },
+  revealEnd:function(tok){ tok.done=true; var h=document.getElementById('qrv-hl'); if(h)h.classList.add('on'); var c=document.getElementById('qrv-cut'); if(c)c.classList.add('on'); var p=document.getElementById('qrv-prog'); if(p)p.innerHTML='<b class="rv-ok">RESULTADO FINAL</b>'; },
+  revealSkip:function(){ var t=Q._rv; if(!t)return; t.timers.forEach(clearTimeout); t.timers=[]; document.querySelectorAll('#q-rv .qrv-r,#q-rv .qrv-slot').forEach(function(e){ e.classList.remove('roll'); e.classList.add('on'); }); Q.revealEnd(t); },
+  stopReveal:function(){ var t=Q._rv; if(t)t.timers.forEach(clearTimeout); Q._rv=null; var el=document.getElementById('q-rv'); if(el)el.remove(); },
+
+  /* ---------- FICHA DO PILOTO ---------- */
+  openPil:function(n){ Q.pil=n; Q.go('pil'); },
+  pilotData:function(nome){
+    var out=[];
+    (Q.st.events||[]).slice().sort(function(a,b){return String(a.data).localeCompare(String(b.data));}).forEach(function(ev){ (ev.baterias||[]).forEach(function(b){
+      if(!b.laps||!Object.keys(b.laps).length)return;
+      var C=Q.calc(ev,b), r=C.rows.filter(function(x){return x.nome===nome&&!x.orphan;})[0]; if(!r)return;
+      var d=r.dupla!=null?C.duplas[r.dupla]:null, partner=d?d.mem.filter(function(m){return m.nome!==nome;}).map(function(m){return m.nome;}).join(' + '):'';
+      var trim=(r.valid||[]).slice().sort(function(a,b){return a-b;}).slice(1,-1);
+      out.push({ev:ev,b:b,r:r,N:C.N,partner:partner,gapPct:C.lead&&r.best?(r.best/C.lead.best-1)*100:null,cons:sdv(trim.length>=3?trim:(r.valid||[]))});
+    }); });
+    return out;
+  },
+  renderPil:function(){
+    var el=document.getElementById('fk-qualy'); if(!el)return;
+    var nome=Q.pil, D=Q.pilotData(nome), R=Q.ranking(), ri=-1; R.forEach(function(r,i){ if(r.nome===nome)ri=i; }); var rk=R[ri]||{pts:0,bats:0,wins:0,best:null};
+    var poss=D.filter(function(x){return x.r.pos;}).map(function(x){return x.r.pos;}), gaps=D.filter(function(x){return x.gapPct!=null;}).map(function(x){return x.gapPct;}), cons=D.filter(function(x){return x.cons!=null;}).map(function(x){return x.cons;});
+    var pod=poss.filter(function(p){return p<=3;}).length;
+    var h='<div class="q-top"><button class="q-back" onclick="FK.qualy.go(\'home\')">‹ VOLTAR</button><div class="q-title"><b>'+esc(nome)+'</b><span>FICHA DO PILOTO · TREINO DE QUALY</span></div></div><div class="q-body">';
+    h+='<section class="q-sec"><div class="qp-kpi">'+
+      [['RANKING',ri>=0?(ri+1)+'º':'—',ri>=0&&ri<Q.st.cfg.vagas?'dentro das vagas':''],['PONTOS',rk.pts,''],['BATERIAS',D.length,''],['VITÓRIAS',rk.wins,''],['PÓDIOS',pod,''],['POSIÇÃO MÉDIA',poss.length?(poss.reduce(function(a,b){return a+b;},0)/poss.length).toFixed(1)+'º':'—',''],['MELHOR VOLTA',fmt(rk.best),''],
+       ['DIST. P/ O MAIS RÁPIDO',gaps.length?'+'+(gaps.reduce(function(a,b){return a+b;},0)/gaps.length).toFixed(2)+'%':'—','média'],['CONSISTÊNCIA',cons.length?'±'+(med(cons)/1000).toFixed(2)+'s':'—','desvio das voltas']].map(function(k){ return '<div><small>'+k[0]+'</small><b>'+k[1]+'</b>'+(k[2]?'<span>'+k[2]+'</span>':'')+'</div>'; }).join('')+'</div></section>';
+    if(!D.length){ h+='<section class="q-sec"><div class="q-empty">Esse piloto ainda não tem tempos registrados.</div></section></div>'; el.innerHTML=h+'<div class="hub-toast" id="q-toast"></div>'; return; }
+    h+='<section class="q-sec"><h3><i>〰</i>EVOLUÇÃO<span class="q-mut">distância para o mais rápido de cada bateria (menor = melhor) · posição na bateria</span></h3>'+Q.pilChart(D)+'</section>';
+    h+='<section class="q-sec"><h3><i>▤</i>BATERIA A BATERIA</h3><div class="q-tw"><table class="q-tb"><thead><tr><th>Data</th><th>Evento</th><th>Bateria</th><th>Kart</th><th>Dupla com</th><th>Pos</th><th>Pts</th><th>Melhor</th><th>Dist.</th><th>Média*</th><th>Consist.</th><th>Roubada</th><th>Voltas</th></tr></thead><tbody>'+
+      D.map(function(x){ var r=x.r; return '<tr class="'+(r.pos===1?'p1':'')+'"><td>'+dtxt(x.ev.data)+'</td><td>'+esc(x.ev.nome)+'</td><td>'+esc(x.b.nome)+'</td><td><span class="q-k">'+pad(r.kart)+'</span></td><td>'+esc(x.partner||'—')+'</td><td><b>'+(r.pos||'—')+'</b><small class="q-mut">/'+x.N+'</small></td><td class="q-pts">'+r.pts+'</td><td class="q-t">'+fmt(r.best)+'</td><td class="q-t">'+(x.gapPct!=null?(x.gapPct?'+'+x.gapPct.toFixed(2)+'%':'—'):'—')+'</td><td class="q-t">'+fmt(r.avg)+'</td><td class="q-t">'+(x.cons!=null?'±'+(x.cons/1000).toFixed(2)+'s':'—')+'</td><td class="q-t">'+fmt(r.roub)+'</td><td>'+(r.n||0)+'</td></tr>'; }).join('')+
+      '</tbody></table></div><div class="q-note">Dist. = quanto a melhor volta ficou acima da melhor volta da bateria (em %, para comparar treinos com pista e karts diferentes). Consistência = desvio padrão das voltas válidas, tirando a melhor e a pior.</div></section>';
+    h+='</div>';
+    el.innerHTML=h+'<div class="hub-toast" id="q-toast"></div>';
+  },
+  pilChart:function(D){
+    var W=900,H=260,pl=46,pr=46,pt=16,pb=40, n=D.length, xs=function(i){ return pl+(n<2?(W-pl-pr)/2:i*(W-pl-pr)/(n-1)); };
+    var g=D.map(function(x){return x.gapPct;}), gm=Math.max(0.5,Math.max.apply(null,g.filter(function(v){return v!=null;}).concat([0])))*1.15;
+    var Nmax=Math.max.apply(null,D.map(function(x){return x.N;}).concat([2]));
+    var yg=function(v){ return pt+(v/gm)*(H-pt-pb); }, yp=function(p){ return pt+((p-1)/(Nmax-1))*(H-pt-pb); };
+    var s='<svg class="qp-svg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">';
+    for(var k=0;k<=4;k++){ var v=gm*k/4, y=yg(v); s+='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y+'" y2="'+y+'" class="pa-grid"/><text x="'+(pl-6)+'" y="'+(y+4)+'" text-anchor="end" class="pa-ax">+'+v.toFixed(gm<2?2:1)+'%</text>'; }
+    [1,Math.ceil(Nmax/2),Nmax].forEach(function(p){ s+='<text x="'+(W-pr+6)+'" y="'+(yp(p)+4)+'" class="pa-ax" fill="#f2c230">'+p+'º</text>'; });
+    var pts=D.map(function(x,i){return x.r.pos?xs(i)+','+yp(x.r.pos):null;}).filter(Boolean);
+    if(pts.length>1)s+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="#f2c230" stroke-width="2" stroke-dasharray="5 4" opacity=".8"/>';
+    var gp=D.map(function(x,i){return x.gapPct!=null?xs(i)+','+yg(x.gapPct):null;}).filter(Boolean);
+    if(gp.length>1)s+='<polyline points="'+gp.join(' ')+'" fill="none" stroke="#4fc3f7" stroke-width="3"/>';
+    D.forEach(function(x,i){ if(x.gapPct!=null)s+='<circle cx="'+xs(i)+'" cy="'+yg(x.gapPct)+'" r="5" fill="#4fc3f7"/>'; if(x.r.pos)s+='<circle cx="'+xs(i)+'" cy="'+yp(x.r.pos)+'" r="4" fill="#f2c230"/>';
+      s+='<text x="'+xs(i)+'" y="'+(H-pb+16)+'" text-anchor="middle" class="pa-ax">'+dtxt(x.ev.data)+'</text><text x="'+xs(i)+'" y="'+(H-pb+30)+'" text-anchor="middle" class="pa-ax" opacity=".7">'+esc(x.b.nome.replace('Bateria ','B').replace('Classificação','Class.'))+'</text>'; });
+    s+='</svg><div class="pa-leg"><span><i style="background:#4fc3f7"></i>distância para o mais rápido (%)</span><span><i style="background:#f2c230"></i>posição na bateria</span></div>';
+    return s;
+  }
+});
+Q.render=function(keep){ if(Q.tv)return Q.renderTV(); if(Q.view==='pil'&&Q.pil)return Q.renderPil(); return _render.apply(Q,arguments); };
+
+var css2=document.createElement('style');
+css2.textContent=[
+'.q-mg{display:inline-flex;gap:5px;align-items:center;font-size:11px;color:#c9d1e0}',
+'.q-btn.live{border-color:#ff3b4e;color:#ff6b6b}.q-btn.live.on{background:#ff3b4e;color:#fff}',
+'.q-rr{cursor:pointer}.q-rr:hover{box-shadow:0 0 0 1px #8fd3ff}.q-pl{cursor:pointer}.q-pl:hover{text-decoration:underline}',
+'.ql{margin:8px 0 12px;background:#0a0e16;box-shadow:0 0 0 1px rgba(255,59,78,.4);padding:10px 12px}',
+'.ql-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}.ql-h b{letter-spacing:2px;color:#ff6b6b}.ql-h>span{font-size:12px;color:#c9d1e0}',
+'.ql-dot{width:10px;height:10px;border-radius:50%;background:#ff3b4e;box-shadow:0 0 10px #ff3b4e;animation:qlP 1.2s infinite}.ql-dot.off{background:#7f8aa0;box-shadow:none;animation:none}',
+'@keyframes qlP{50%{opacity:.35}}.ql-ttg{font-weight:900;font-variant-numeric:tabular-nums;color:#fff!important;font-size:15px!important}',
+'.ql-tb tr.fl td{animation:qlF 1.5s ease 2}@keyframes qlF{30%{background:rgba(171,71,188,.35)}}.ql-tb td.pb{color:#ce93d8;font-weight:800}',
+'.ql-tb.big{font-size:clamp(14px,1.5vw,24px)}.ql-tb.big td{padding:clamp(5px,.7vw,10px) 10px}.ql-tb.big .q-pts{font-size:clamp(16px,1.7vw,28px)}',
+'.qtv-sel{background:#0f1420;border:1px solid rgba(255,255,255,.3);color:#fff;padding:7px 8px;font-size:12px;max-width:320px}',
+'.qtv-grid{display:grid;grid-template-columns:1.25fr 1fr;gap:16px}',
+'.qtv-list{display:flex;flex-direction:column;gap:4px}',
+'.qtv-r{display:flex;align-items:center;gap:12px;background:#0f1420;box-shadow:0 0 0 1px rgba(255,255,255,.06);padding:clamp(4px,.55vw,9px) 10px;font-size:clamp(13px,1.3vw,22px)}',
+'.qtv-r.in{box-shadow:0 0 0 1px #2fbf71;background:linear-gradient(90deg,rgba(47,191,113,.18),#0f1420 60%)}',
+'.qtv-r.pod.p1{background:linear-gradient(90deg,rgba(242,194,48,.28),#0f1420 70%)}.qtv-r.pod.p2{background:linear-gradient(90deg,rgba(200,210,225,.2),#0f1420 70%)}.qtv-r.pod.p3{background:linear-gradient(90deg,rgba(205,127,50,.25),#0f1420 70%)}',
+'.qtv-p{width:2.2em;text-align:center;font-weight:900}.qtv-n{flex:1;min-width:0;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.qtv-n small{display:block;font-size:.55em;color:#8f9ab0;font-weight:600}',
+'.qtv-t{font-variant-numeric:tabular-nums;color:#8fd3ff}.qtv-pts{font-weight:900;min-width:2.2em;text-align:right;font-variant-numeric:tabular-nums}',
+'.qtv-cut{font-size:10px;letter-spacing:3px;color:#ff6b6b;text-align:center;border-top:1px dashed #ff6b6b;padding-top:3px;margin:4px 0}',
+/* revelacao */
+'#q-rv{position:absolute;inset:0;z-index:4;display:flex;flex-direction:column;opacity:0;transition:opacity .35s;overflow:hidden}#q-rv.on{opacity:1}',
+'#q-rv .rv-bg{position:absolute;inset:0;background:radial-gradient(1100px 600px at 50% 30%,color-mix(in srgb,var(--rc) 32%,transparent),transparent 65%),repeating-linear-gradient(115deg,rgba(255,255,255,.025) 0 2px,transparent 2px 22px),#06080d;z-index:-1}',
+'#q-rv .rv-top{display:flex;align-items:center;gap:16px;padding:14px 3vw;flex-wrap:wrap}',
+'#q-rv .rv-t{display:flex;flex-direction:column;line-height:1;flex:1;min-width:200px}#q-rv .rv-t b{font-size:clamp(24px,3vw,48px);font-style:italic;font-weight:900;letter-spacing:3px;text-shadow:0 0 30px var(--rc)}#q-rv .rv-t span{font-size:11px;letter-spacing:3px;color:#9aa4b8;margin-top:6px;text-transform:uppercase}',
+'#q-rv .rv-prog{font-size:14px;letter-spacing:2px;color:#c9d1e0;font-weight:700}#q-rv .rv-prog b{font-size:26px;color:#fff}#q-rv .rv-ok{color:#2fbf71!important;font-size:18px!important;letter-spacing:3px}',
+'#q-rv .rv-ctl{display:flex;gap:6px}#q-rv .rv-ctl button{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.25);color:#fff;font-weight:900;padding:8px 12px;cursor:pointer;border-radius:2px;font-size:12px;letter-spacing:1px}',
+'.qrv-main{flex:1;min-height:0;display:grid;grid-template-columns:1.1fr 1fr;gap:3vw;padding:0 3vw 10px;align-items:stretch}',
+'.qrv-pod{display:grid;grid-template-columns:1fr 1.15fr 1fr;align-items:end;gap:12px;padding-bottom:10px}',
+'.qrv-slot{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;opacity:.12;transform:translateY(30px);transition:all .5s cubic-bezier(.2,1.4,.4,1);padding:0 4px}',
+'.qrv-slot.roll{opacity:.5;transform:translateY(10px);animation:qrvShake .18s infinite}@keyframes qrvShake{50%{transform:translateY(10px) translateX(2px)}}',
+'.qrv-slot.on{opacity:1;transform:none}',
+'.qrv-sp{font-size:clamp(28px,4vw,64px);font-weight:900;font-style:italic;line-height:1}.p1 .qrv-sp{color:#f2c230;text-shadow:0 0 30px rgba(242,194,48,.6)}.p2 .qrv-sp{color:#cfd8e3}.p3 .qrv-sp{color:#d9904a}',
+'.qrv-sn{font-size:clamp(16px,1.9vw,32px);font-weight:900;margin-top:6px;line-height:1.1;word-break:break-word}.qrv-sv{font-size:clamp(13px,1.3vw,22px);color:#8fd3ff;font-variant-numeric:tabular-nums;margin-top:4px}',
+'.qrv-spts{font-size:clamp(14px,1.4vw,24px);font-weight:900;margin-top:2px}.qrv-spts small{font-size:.55em;color:#9aa4b8}.qrv-sx{font-size:10px;color:#2fbf71;margin-top:3px}',
+'.qrv-base{width:100%;margin-top:10px;background:linear-gradient(180deg,var(--pc),rgba(0,0,0,.4));box-shadow:0 0 30px color-mix(in srgb,var(--pc) 40%,transparent)}',
+'.qrv-slot.p1{--pc:#f2c230}.qrv-slot.p1 .qrv-base{height:clamp(90px,17vh,190px)}.qrv-slot.p2{--pc:#aab6c6}.qrv-slot.p2 .qrv-base{height:clamp(60px,11vh,130px)}.qrv-slot.p3{--pc:#b5743a}.qrv-slot.p3 .qrv-base{height:clamp(40px,7vh,90px)}',
+'.qrv-list{overflow:auto;display:flex;flex-direction:column;gap:3px;align-content:start;padding:4px}',
+'.qrv-r{display:flex;align-items:center;gap:10px;background:rgba(15,20,32,.92);box-shadow:0 0 0 1px rgba(255,255,255,.08);padding:clamp(3px,.45vw,7px) 10px;font-size:clamp(12px,1.15vw,19px);opacity:0;transform:translateX(40px);transition:all .3s ease}',
+'.qrv-r.on{opacity:1;transform:none}.qrv-r.in{box-shadow:0 0 0 1px #2fbf71}',
+'.qrv-p{width:2em;text-align:center;font-weight:900;color:#9aa4b8}.qrv-n{flex:1;min-width:0;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.qrv-n small{display:block;font-size:.6em;color:#7f8aa0;font-weight:600}',
+'.qrv-v{font-variant-numeric:tabular-nums;color:#8fd3ff;white-space:nowrap}.qrv-v i{font-style:normal;color:#7f8aa0;font-size:.8em}.qrv-pts{font-weight:900;min-width:2em;text-align:right}',
+'.qrv-cut{font-size:10px;letter-spacing:3px;color:#ff6b6b;text-align:center;border-top:1px dashed #ff6b6b;padding-top:3px;opacity:0;transition:opacity .4s}.qrv-cut.on{opacity:1}',
+'.qrv-hl{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;padding:6px 3vw 16px;opacity:0;transform:translateY(20px);transition:all .5s}.qrv-hl.on{opacity:1;transform:none}',
+'.qrv-hl div{background:rgba(15,20,32,.92);box-shadow:inset 3px 0 0 var(--rc);padding:7px 12px;min-width:150px}.qrv-hl small{display:block;font-size:9px;letter-spacing:1.5px;color:#9aa4b8;font-weight:800;text-transform:uppercase}.qrv-hl b{display:block;font-size:14px}.qrv-hl span{font-size:12px;color:#8fd3ff}',
+/* ficha */
+'.qp-kpi{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}.qp-kpi div{background:#0f1420;padding:10px 12px;box-shadow:inset 3px 0 0 #1565c0}.qp-kpi small{display:block;font-size:9px;letter-spacing:1.5px;color:#8f9ab0;font-weight:800}.qp-kpi b{font-size:22px;font-variant-numeric:tabular-nums}.qp-kpi span{display:block;font-size:10px;color:#2fbf71}',
+'.qp-svg{width:100%;height:260px;display:block;background:#0a0e16}.pa-grid{stroke:rgba(255,255,255,.07)}.pa-ax{fill:#7f8aa0;font-size:11px}.pa-leg{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;margin-top:6px}.pa-leg i{display:inline-block;width:14px;height:3px;margin-right:5px;vertical-align:middle}',
+'.st-tvwait{font-size:11px;color:#59627a;text-align:center}',
+'@media(max-width:900px){.qtv-grid,.qrv-main{grid-template-columns:1fr}.qrv-main{overflow:auto}.qrv-list{overflow:visible}}'
+].join('\n');
+document.head.appendChild(css2);
 
 Q.load();
 var box=document.createElement('div'); box.id='fk-qualy'; document.body.appendChild(box);
