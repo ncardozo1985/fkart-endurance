@@ -8204,22 +8204,25 @@ var P=FK.post={
   cleanName:function(n){ return String(n||'').replace(/\(\s*\w?\s*\)/g,'').replace(/\b\d+M\[[^\]]*\](\/\d+M\[[^\]]*\])*/g,'').replace(/\s+/g,' ').trim(); },
   mine:function(){ var my=((FK.cfg&&FK.cfg.myKarts)||[]).map(normK); return P.data?P.data.comps.filter(function(c){return my.indexOf(c.k)>=0;}):[]; },
   comp:function(k){ return P.data.comps.filter(function(c){return c.k===k;})[0]; },
+  all:function(){ return P.cat==='*'; },
+  cl:function(){ return P.all()?P.data.comps:(P.data.byCat[P.cat]||[]); },
+  posIn:function(c){ return P.all()?c.pos:c.catPos; },
   defaults:function(){
     var mine=P.mine(), cat=P.cat;
     if(!cat){ cat=mine.length?mine[0].cat:(P.data.comps[0]||{}).cat; P.cat=cat; }
-    var top=(P.data.byCat[cat]||[]).slice(0,3).map(function(c){return c.k;});
-    var s=mine.filter(function(c){return c.cat===cat;}).map(function(c){return c.k;});
+    var top=P.cl().slice(0,3).map(function(c){return c.k;});
+    var s=mine.filter(function(c){return cat==='*'||c.cat===cat;}).map(function(c){return c.k;});
     top.forEach(function(k){ if(s.indexOf(k)<0)s.push(k); });
     P.sel=s.slice(0,6);
   },
   insights:function(){
-    var D=P.data, out=[], cat=P.cat, cl=D.byCat[cat]||[], top6=cl.slice(0,6);
+    var D=P.data, out=[], cat=P.cat, cl=P.cl(), top6=cl.slice(0,6), ALL=P.all(), scope=ALL?'da geral':'da categoria';
     if(!cl.length)return out;
     var win=cl[0], tPace=med(top6.map(function(c){return c.pace;}).filter(Boolean)), tBox=med(top6.map(function(c){return c.boxTotal;})), tStops=med(top6.map(function(c){return c.pits.length;}));
-    out.push('🏆 Vencedor da categoria: <b>#'+esc(win.k)+' '+esc(win.name)+'</b> — '+win.laps+' voltas, ritmo médio '+fmt(win.pace)+', '+win.pits.length+' paradas.');
-    P.mine().filter(function(c){return c.cat===cat;}).forEach(function(c){
+    out.push('🏆 Vencedor '+scope+': <b>#'+esc(win.k)+' '+esc(win.name)+'</b> — '+win.laps+' voltas, ritmo médio '+fmt(win.pace)+', '+win.pits.length+' paradas.');
+    P.mine().filter(function(c){return ALL||c.cat===cat;}).forEach(function(c){
       var bits=[];
-      if(c.pace&&tPace){ var d=c.pace-tPace, lh=3600000/c.pace-3600000/tPace; bits.push('ritmo '+fmtS(d)+'/volta vs. a média do top 6 (≈ '+Math.abs(lh).toFixed(1)+' volta(s) por hora '+(lh<0?'a menos':'a mais')+')'); }
+      if(c.pace&&tPace){ var d=c.pace-tPace, lh=3600000/c.pace-3600000/tPace; bits.push('ritmo '+fmtS(d)+'/volta vs. a média do top 6 '+(ALL?'geral':'')+' (≈ '+Math.abs(lh).toFixed(1)+' volta(s) por hora '+(lh<0?'a menos':'a mais')+')'); }
       if(tBox!=null){ var b=c.boxTotal-tBox; if(Math.abs(b)>5000)bits.push('tempo total de box '+fmtS(b,0)+' vs. top 6 ('+mmss(c.boxTotal)+' contra '+mmss(tBox)+')'); }
       if(c.excess>15000)bits.push('<b>'+mmss(c.excess)+'</b> parados além do mínimo obrigatório somando todas as paradas');
       if(tStops!=null&&c.pits.length!==tStops)bits.push(c.pits.length+' paradas (top 6: '+tStops+')');
@@ -8228,7 +8231,7 @@ var P=FK.post={
       out.push('📊 <b>#'+esc(c.k)+'</b> terminou P'+c.catPos+' na categoria ('+c.pos+'º geral)'+(c.lapsDown>0?', '+c.lapsDown+' volta(s) atrás do líder':'')+': '+(bits.join('; ')||'sem destaques')+'.');
     });
     var fastest=cl.filter(function(c){return c.pace;}).sort(function(a,b){return a.pace-b.pace;})[0];
-    if(fastest&&fastest!==win)out.push('⚡ Melhor ritmo médio da categoria foi do <b>#'+esc(fastest.k)+'</b> ('+fmt(fastest.pace)+'), que terminou P'+fastest.catPos+' — '+(fastest.boxTotal>win.boxTotal?'perdeu no box ('+mmss(fastest.boxTotal)+' contra '+mmss(win.boxTotal)+' do vencedor)':'a diferença veio de voltas/tráfego')+'.');
+    if(fastest&&fastest!==win)out.push('⚡ Melhor ritmo médio '+scope+' foi do <b>#'+esc(fastest.k)+'</b> ('+fmt(fastest.pace)+(ALL?', '+esc(fastest.cat):'')+'), que terminou P'+P.posIn(fastest)+(ALL?' na geral':'')+' — '+(fastest.boxTotal>win.boxTotal?'perdeu no box ('+mmss(fastest.boxTotal)+' contra '+mmss(win.boxTotal)+' do vencedor)':'a diferença veio de voltas/tráfego')+'.');
     return out;
   },
   /* ---------- importacao ---------- */
@@ -8278,7 +8281,7 @@ var P=FK.post={
     if(!(a>0)){alert('Informe a parada mínima em minutos.');return;}
     P.raw._rule={min:Math.round(a*60), long:b>0?Math.round(b*60):0}; var keep=P.sel.slice(), cat=P.cat;
     P.data=P.analyze(P.raw); try{ localStorage.setItem(LS,JSON.stringify(P.raw)); }catch(e){}
-    if(cat&&P.data.byCat[cat]){P.cat=cat; P.sel=keep.filter(function(k){return !!P.comp(k);});} else {P.cat=null;P.defaults();} P.render(true); },
+    if(cat&&(cat==='*'||P.data.byCat[cat])){P.cat=cat; P.sel=keep.filter(function(k){return !!P.comp(k);});} else {P.cat=null;P.defaults();} P.render(true); },
   importPdf:function(files){
     if(!files||!files.length||!FK.pdfLaps)return; files=[].slice.call(files);
     var st=document.getElementById('pa-pdf'); if(st)st.textContent=' lendo…';
@@ -8298,7 +8301,7 @@ var P=FK.post={
     if(save){ try{ localStorage.setItem(LS,JSON.stringify(raw)); }catch(e){} }
     P.render();
   },
-  pickCat:function(c){ P.cat=c; P.defaults(); P.render(); },
+  pickCat:function(c){ var keep=P.sel.slice(); P.cat=c; if(c==='*'&&keep.length)P.sel=keep; else P.defaults(); P.render(); },
   toggle:function(k){ var i=P.sel.indexOf(k); if(i>=0)P.sel.splice(i,1); else { if(P.sel.length>=8){alert('Máximo de 8 karts no gráfico.');return;} P.sel.push(k);} P.render(true); },
   /* ---------- graficos SVG ---------- */
   COLORS:['#ff3b4e','#ffa726','#4fc3f7','#66bb6a','#ab47bc','#f2c230','#26c6da','#ec407a'],
@@ -8329,7 +8332,7 @@ var P=FK.post={
     }).filter(Boolean);
   },
   gapSeries:function(){
-    var lead=(P.data.byCat[P.cat]||[])[0]; if(!lead)return [];
+    var lead=P.cl()[0]; if(!lead)return [];
     return P.sel.map(function(k){ var c=P.comp(k); if(!c)return null; var pts=[];
       c.L.forEach(function(x,i){ var l=lead.L[i]; if(l)pts.push([x.tot,(x.tot-l.tot)/1000]); });
       return {k:k,color:P.color(k),mine:P.isMine(k),pts:pts};
@@ -8352,28 +8355,28 @@ var P=FK.post={
       (function(){ var R=P.rule(P.raw); return '<div class="q-tools" style="margin-top:8px"><span class="q-grp">Regra de paradas desta prova: mínima <input id="pa-min" type="number" min="0" step="0.5" value="'+(R.min/60)+'" style="width:60px"> min · longa <input id="pa-long" type="number" min="0" step="0.5" value="'+(R.long/60)+'" style="width:60px"> min <small style="color:#8f9ab0">(0 = sem longa)</small>'+(P.raw?'<button class="q-btn" onclick="FK.post.setRule()">Recalcular</button>':'')+'</span></div>'+
       '<div class="q-note">Use a sessão da corrida (ex.: "PROVA"). '+(R.own?'Regra salva com esta prova.':'Por padrão usa a regra da Config; ajuste aqui se a prova importada tinha outra regra.')+'</div>'; })()+'</section>';
     if(!D){ h+='</div>'; el.innerHTML=h; return; }
-    var cats=Object.keys(D.byCat), cl=D.byCat[P.cat]||[], mine=P.mine();
-    h+='<section class="q-sec"><h3><i>⚑</i>CATEGORIA E KARTS</h3><div class="pa-cats">'+cats.map(function(c){return '<button class="st-chip'+(c===P.cat?' on':'')+'" onclick="FK.post.pickCat(\''+esc(c)+'\')">'+esc(c)+' ('+D.byCat[c].length+')</button>';}).join('')+'</div>'+
-      '<div class="q-note" style="margin:8px 0 4px">Karts no gráfico (toque para incluir/tirar; os da equipe têm borda vermelha):</div><div class="pa-ks">'+cl.map(function(c){ var on=P.sel.indexOf(c.k)>=0; return '<button class="pa-k'+(on?' on':'')+(P.isMine(c.k)?' my':'')+'" style="'+(on?'background:'+P.color(c.k)+';border-color:'+P.color(c.k):'')+'" onclick="FK.post.toggle(\''+c.k+'\')"><b>P'+c.catPos+'</b> #'+esc(c.k)+'</button>'; }).join('')+'</div></section>';
+    var cats=Object.keys(D.byCat), cl=P.cl(), mine=P.mine(), ALL=P.all();
+    h+='<section class="q-sec"><h3><i>⚑</i>CATEGORIA E KARTS</h3><div class="pa-cats"><button class="st-chip'+(ALL?' on':'')+'" onclick="FK.post.pickCat(\'*\')" title="Todos os karts, de todas as categorias">GERAL · TODAS ('+D.comps.length+')</button>'+cats.map(function(c){return '<button class="st-chip'+(c===P.cat?' on':'')+'" onclick="FK.post.pickCat(\''+esc(c)+'\')">'+esc(c)+' ('+D.byCat[c].length+')</button>';}).join('')+'</div>'+
+      '<div class="q-note" style="margin:8px 0 4px">Karts no gráfico (toque para incluir/tirar; os da equipe têm borda vermelha)'+(ALL?' — modo GERAL: compare karts de categorias diferentes':' — para comparar categorias diferentes, use GERAL')+':</div><div class="pa-ks">'+cl.map(function(c){ var on=P.sel.indexOf(c.k)>=0; return '<button class="pa-k'+(on?' on':'')+(P.isMine(c.k)?' my':'')+'" style="'+(on?'background:'+P.color(c.k)+';border-color:'+P.color(c.k):'')+'" onclick="FK.post.toggle(\''+c.k+'\')"><b>P'+P.posIn(c)+'</b> #'+esc(c.k)+(ALL&&cats.length>1?' <small style="opacity:.7">'+esc(c.cat)+'</small>':'')+'</button>'; }).join('')+'</div></section>';
     var ins=P.insights();
     h+='<section class="q-sec"><h3><i>💡</i>LEITURA RÁPIDA</h3><ul class="pa-ins">'+ins.map(function(s){return '<li>'+s+'</li>';}).join('')+'</ul>'+(mine.length?'':'<div class="q-warn">Nenhum kart da equipe encontrado nesta sessão (karts configurados: '+esc(((FK.cfg&&FK.cfg.myKarts)||[]).join(', '))+').</div>')+'</section>';
     var cards=P.sel.map(P.comp).filter(Boolean);
     h+='<section class="q-sec"><h3><i>◉</i>RESUMO</h3><div class="pa-cards">'+cards.map(function(c){
-      return '<div class="pa-card" style="--c:'+P.color(c.k)+'"><div class="pa-ch"><span class="pa-num">#'+esc(c.k)+'</span><span class="pa-nm">'+esc(c.name)+'</span><span class="pa-pos">P'+c.catPos+' <small>'+c.pos+'º geral</small></span></div>'+
+      return '<div class="pa-card" style="--c:'+P.color(c.k)+'"><div class="pa-ch"><span class="pa-num">#'+esc(c.k)+'</span><span class="pa-nm">'+esc(c.name)+'</span><span class="pa-pos">P'+c.catPos+' <small>'+esc(c.cat)+' · '+c.pos+'º geral</small></span></div>'+
         '<div class="pa-kv"><div><small>VOLTAS</small><b>'+c.laps+(c.lapsDown?' <i>-'+c.lapsDown+'</i>':'')+'</b></div><div><small>MELHOR</small><b>'+fmt(c.best)+'</b></div><div><small>RITMO MÉDIO</small><b>'+fmt(c.pace)+'</b></div>'+
         '<div><small>CONSISTÊNCIA</small><b>±'+(c.cons!=null?(c.cons/1000).toFixed(2)+'s':'—')+'</b></div><div><small>PARADAS</small><b>'+c.pits.length+'</b></div><div><small>TEMPO DE BOX</small><b>'+mmss(c.boxTotal)+'</b></div>'+
         (c.missing?'<div style="grid-column:1/-1;font-size:10px;color:#ffb74d">⚠ '+c.missing+' volta(s) sem registro entre os pedaços da prova</div>':'')+'<div><small>ALÉM DO MÍNIMO</small><b class="'+(c.excess>30000?'bad':'')+'">'+mmss(c.excess)+'</b></div><div><small>RANK DE RITMO</small><b>'+(c.paceRank||'—')+'º</b></div></div></div>';
     }).join('')+'</div></section>';
     h+='<section class="q-sec"><h3><i>〰</i>RITMO AO LONGO DA PROVA<span class="q-mut">média móvel de 5 voltas limpas · pontos = paradas</span></h3>'+P.legend()+P.chart(P.paceSeries(),{fy:function(v){return v.toFixed(1)+'s';},invert:true,h:300})+'<div class="q-note">Para cima = mais rápido.</div></section>';
     var lead=cl[0];
-    h+='<section class="q-sec"><h3><i>⇄</i>DISTÂNCIA PARA O LÍDER DA CATEGORIA<span class="q-mut">#'+esc(lead?lead.k:'')+' · na mesma volta</span></h3>'+P.legend()+P.chart(P.gapSeries(),{fy:function(v){var a=Math.abs(v);return (v>=0?'+':'-')+(a>=60?Math.floor(a/60)+':'+String(Math.round(a%60)).padStart(2,'0'):Math.round(a)+'s');},zero:0,h:280})+'<div class="q-note">Comparação na mesma volta. Os degraus são paradas (do kart ou do líder); o que importa é a inclinação nos trechos sem parada: subindo = ritmo pior que o do líder. Abaixo de zero = à frente do líder naquele momento.</div></section>';
+    h+='<section class="q-sec"><h3><i>⇄</i>DISTÂNCIA PARA O LÍDER '+(ALL?'DA GERAL':'DA CATEGORIA')+'<span class="q-mut">#'+esc(lead?lead.k:'')+' · na mesma volta</span></h3>'+P.legend()+P.chart(P.gapSeries(),{fy:function(v){var a=Math.abs(v);return (v>=0?'+':'-')+(a>=60?Math.floor(a/60)+':'+String(Math.round(a%60)).padStart(2,'0'):Math.round(a)+'s');},zero:0,h:280})+'<div class="q-note">Comparação na mesma volta. Os degraus são paradas (do kart ou do líder); o que importa é a inclinação nos trechos sem parada: subindo = ritmo pior que o do líder. Abaixo de zero = à frente do líder naquele momento.</div></section>';
     h+='<section class="q-sec"><h3><i>▤</i>STINTS</h3><div class="pa-stints">'+cards.map(function(c){
       return '<div class="pa-st"><div class="pa-sth" style="color:'+P.color(c.k)+'">#'+esc(c.k)+' '+esc(c.name)+'</div><div class="q-tw"><table class="q-tb"><thead><tr><th>Stint</th><th>Voltas</th><th>Início</th><th>Duração</th><th>Ritmo</th><th>Melhor</th><th title="Quanto o tempo de volta piora (+) ou melhora (-) a cada 10 voltas no stint">Tendência</th><th>Parada depois</th></tr></thead><tbody>'+
         c.stints.map(function(s,i){ var p=c.pits[i]; return '<tr><td>'+s.n+'</td><td>'+s.laps+'</td><td>'+hms(s.start)+'</td><td>'+hms(s.end-s.start)+'</td><td class="q-t">'+fmt(s.pace)+'</td><td class="q-t">'+fmt(s.best)+'</td><td class="q-t '+(s.trend>15?'bad':s.trend<-15?'good':'')+'">'+(s.trend!=null?fmtS(s.trend*10,2)+'/10v':'—')+'</td><td class="q-t">'+(p?(p.approx?'≈':'')+mmss(p.ms)+(p.long?' (longa)':'')+(p.excess!=null&&p.excess>10000?' <span class="bad">+'+mmss(p.excess)+'</span>':''):'—')+'</td></tr>'; }).join('')+'</tbody></table></div></div>';
     }).join('')+'</div></section>';
-    var top=cl.slice(0,6), rows=top.concat(mine.filter(function(c){return c.cat===P.cat&&top.indexOf(c)<0;}));
-    h+='<section class="q-sec"><h3><i>⚖</i>COMPARATIVO — TOP 6 + EQUIPE</h3><div class="q-tw"><table class="q-tb"><thead><tr><th>Pos</th><th>Kart</th><th>Equipe</th><th>Voltas</th><th>Melhor</th><th>Ritmo</th><th>Consist.</th><th>Paradas</th><th>Tempo box</th><th>Além do mín.</th></tr></thead><tbody>'+
-      rows.map(function(c){ return '<tr class="'+(P.isMine(c.k)?'p1':'')+'"><td>P'+c.catPos+'</td><td><span class="q-k">'+esc(c.k)+'</span></td><td>'+esc(c.name)+'</td><td>'+c.laps+'</td><td class="q-t">'+fmt(c.best)+'</td><td class="q-t">'+fmt(c.pace)+'</td><td class="q-t">±'+(c.cons!=null?(c.cons/1000).toFixed(2):'—')+'</td><td>'+c.pits.length+'</td><td class="q-t">'+mmss(c.boxTotal)+'</td><td class="q-t '+(c.excess>30000?'bad':'')+'">'+mmss(c.excess)+'</td></tr>'; }).join('')+'</tbody></table></div>'+
+    var top=cl.slice(0,6), rows=top.concat(mine.filter(function(c){return (ALL||c.cat===P.cat)&&top.indexOf(c)<0;})); P.sel.map(P.comp).forEach(function(c){ if(c&&rows.indexOf(c)<0)rows.push(c); });
+    h+='<section class="q-sec"><h3><i>⚖</i>COMPARATIVO — TOP 6 '+(ALL?'GERAL':'')+' + EQUIPE + SELECIONADOS</h3><div class="q-tw"><table class="q-tb"><thead><tr><th>Pos</th><th>Kart</th><th>Equipe</th>'+(ALL?'<th>Categoria</th>':'')+'<th>Voltas</th><th>Melhor</th><th>Ritmo</th><th>Consist.</th><th>Paradas</th><th>Tempo box</th><th>Além do mín.</th></tr></thead><tbody>'+
+      rows.map(function(c){ return '<tr class="'+(P.isMine(c.k)?'p1':'')+'"><td>P'+P.posIn(c)+'</td><td><span class="q-k">'+esc(c.k)+'</span></td><td>'+esc(c.name)+'</td>'+(ALL?'<td>'+esc(c.cat)+' · P'+c.catPos+'</td>':'')+'<td>'+c.laps+'</td><td class="q-t">'+fmt(c.best)+'</td><td class="q-t">'+fmt(c.pace)+'</td><td class="q-t">±'+(c.cons!=null?(c.cons/1000).toFixed(2):'—')+'</td><td>'+c.pits.length+'</td><td class="q-t">'+mmss(c.boxTotal)+'</td><td class="q-t '+(c.excess>30000?'bad':'')+'">'+mmss(c.excess)+'</td></tr>'; }).join('')+'</tbody></table></div>'+
       '<div class="q-note">Ritmo = mediana das voltas limpas. Consistência = desvio padrão das voltas limpas. "Além do mínimo" = soma do tempo parado acima da parada obrigatória (já descontada a passagem pelo pitlane, '+(D.ov/1000).toFixed(0)+'s).</div></section>';
     h+='</div>';
     el.innerHTML=h;
