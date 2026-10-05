@@ -6151,7 +6151,7 @@ var TILES=[
   {id:'tv', area:'tv', title:'TV do Box', icon:'tv', tab:'tvpilotos'},
   {id:'fila', area:'fila', title:'Fila de Pilotos', icon:'queue', tab:'filapilotos'},
   {id:'analise', cls:'big', area:'ana', title:'Análise Pós-corrida', sub:'Raio-X da prova inteira', icon:'search', module:'post'},
-  {id:'pilotos', area:'plt', title:'Pilotos', icon:'helmet', tab:'pilotos'},
+  {id:'pilotos', area:'plt', title:'Pilotos', icon:'helmet', tab:'pilotos', module:'pil'},
   {id:'estrategia', area:'est', title:'Estratégia', icon:'chart', tab:'estrategia'},
   {id:'config', area:'cfg', title:'Configurar', icon:'gear', tab:'config'},
   {id:'users', area:'usr', title:'Usuários', icon:'users', tab:'users'}
@@ -6339,6 +6339,7 @@ function boot(){
     if(allowed(t)){ if(curTab()!==t)FK.tab(t); H.want=null; } setHash('endurance/'+t); }
   else if(/^#analise/.test(location.hash||'')&&FK.post){ H.open(); H.hideOnly(); FK.post.open(); }
   else if(/^#qualy/.test(location.hash||'')&&FK.qualy){ H.open(); H.hideOnly(); var qm=/^#qualy\/([\w]+)/.exec(location.hash); FK.qualy.isOpen=false; if(qm&&qm[1]==='tv'&&FK.qualy.openTV){ FK.qualy.openTV(); } else { if(qm&&FK.qualy.ev(qm[1])){FK.qualy.view='ev';FK.qualy.evId=qm[1];} FK.qualy.open(); } }
+  else if(/^#pilotos/.test(location.hash||'')&&FK.pil){ H.open(); H.hideOnly(); var pm=/^#pilotos\/([\w]+)/.exec(location.hash); FK.pil.open(pm&&pm[1]); }
   else if(/^#sorteio/.test(location.hash||'')&&FK.sorteio){ H.open(); H.hideOnly(); FK.sorteio.open(/\/tv/.test(location.hash)); }
   else H.open();
 }
@@ -8414,18 +8415,373 @@ document.head.appendChild(css);
 </script>
 <script>
 /* =====================================================================================
+   PILOTOS -- "garagem" de pilotos estilo game (05/10/2026, pedido do Rapha)
+   Ficha/carta por piloto (overall + atributos calculados do Treino de Qualy + nota do chefe),
+   perfil com estatisticas e cadastro completo (foto, numero, peso, contato, grupo, status).
+   Cadastro continua em fk_pilotos / sync/pilotos (mesma lista usada por Endurance, Qualy e
+   Sorteio). Fotos ficam em docs proprios sync/pf_<id> (para nao pesar a lista).
+   Endereco: #pilotos
+   ===================================================================================== */
+(function(){
+if(typeof FK==='undefined')return;
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function lcn(s){ return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
+function uid(){ return 'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function fmt(ms){ if(ms==null||!isFinite(ms))return '—'; var s=ms/1000, m=Math.floor(s/60), r=s-m*60; return (m?m+':'+(r<10?'0':''):'')+r.toFixed(3); }
+function med(a){ if(!a.length)return null; var s=a.slice().sort(function(x,y){return x-y;}), m=s.length>>1; return s.length%2?s[m]:(s[m-1]+s[m])/2; }
+function avg(a){ return a.length?a.reduce(function(x,y){return x+y;},0)/a.length:null; }
+function dtxt(s){ if(!s)return ''; var p=String(s).split('-'); return p.length===3?p[2]+'/'+p[1]:s; }
+function initials(n){ var w=String(n||'?').trim().split(/\s+/); return ((w[0]||'?')[0]+(w.length>1?w[w.length-1][0]:'')).toUpperCase(); }
+function hue(s){ var h=0; s=String(s||''); for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))%360; return h; }
+
+var ATTRS=[
+  {k:'vel', lb:'VEL', nm:'Velocidade', d:'Pontos de Qualify (melhor volta) por bateria, em relação ao total de pilotos'},
+  {k:'sai', lb:'SAÍ', nm:'Saída de box', d:'Pontos da volta de saída (S2+S3 da 1ª volta) por bateria'},
+  {k:'dup', lb:'DUP', nm:'Dupla', d:'Pontos de GAP da dupla: quão sincronizado anda com o parceiro'},
+  {k:'reg', lb:'REG', nm:'Regularidade', d:'Pontos de regularidade: variação das voltas ao longo da bateria'},
+  {k:'exp', lb:'EXP', nm:'Experiência', d:'Baterias disputadas nos treinos da temporada'},
+  {k:'chf', lb:'CHF', nm:'Nota do chefe', d:'Nota de 0 a 10 dada pelo chefe de equipe'}
+];
+var W={vel:.30,sai:.12,dup:.13,reg:.20,exp:.10,chf:.15};
+var TIERS=[
+  {min:88,id:'lenda',nm:'LENDA',c:'#b06cff'},
+  {min:80,id:'ouro',nm:'OURO',c:'#f2c230'},
+  {min:70,id:'prata',nm:'PRATA',c:'#cfd8e3'},
+  {min:0, id:'bronze',nm:'BRONZE',c:'#d08a52'}
+];
+var TAGS=['Experiente','Agressivo','Suave','Consistente','Rápido em chuva','Bom em tráfego','Bom de largada','Leve'];
+
+var P=FK.pil={
+  isOpen:false, view:'home', id:null, filter:'todos', sort:'ovr', q:'', photos:{}, _conf:null,
+  /* ---------- dados ---------- */
+  list:function(){
+    var arr=FK.getPilotos?FK.getPilotos():[], ch=false;
+    arr.forEach(function(p){ if(!p.id){ p.id=uid(); ch=true; } });
+    if(ch&&FK.savePilotosLS)FK.savePilotosLS(arr);
+    return arr;
+  },
+  get:function(id){ return P.list().filter(function(p){return p.id===id;})[0]; },
+  key:function(p){ return String((p&&(p.apelido||p.nome))||'').trim(); },
+  canEdit:function(){ try{ var a=FK.state.authProfile; if(!a)return true; return !!(a.isAdmin||(a.permissions&&(a.permissions.pilotos||a.permissions.config))); }catch(e){ return true; } },
+  update:function(id,fn,quiet){
+    if(!P.canEdit()){ P.toast('Sem permissão para editar pilotos'); return; }
+    var arr=P.list(), p=arr.filter(function(x){return x.id===id;})[0]; if(!p)return;
+    fn(p); p.updatedAt=Date.now(); FK.savePilotosLS(arr);
+    try{ FK.syncPilotoKartToConfig&&FK.syncPilotoKartToConfig(); }catch(e){}
+    try{ FK.rPilotos&&FK.rPilotos(); }catch(e){}
+    if(!quiet)P.render(true);
+  },
+  isGuest:function(p){ try{ return !!(FK.qualy&&FK.qualy.st&&FK.qualy.isGuest(P.key(p))); }catch(e){ return !!p.convidado; } },
+  setGuest:function(id,on){
+    var p=P.get(id); if(!p)return; var Q=FK.qualy, n=P.key(p);
+    if(Q&&Q.st){ var g=(Q.st.cfg.guests||[]).slice(), i=g.map(lcn).indexOf(lcn(n)); if(on&&i<0)g.push(n); if(!on&&i>=0)g.splice(i,1); Q.st.cfg.guests=g; Q.save(); }
+    P.update(id,function(x){ x.convidado=!!on; });
+  },
+  /* atributos 0-99 a partir do Treino de Qualy */
+  stats:function(p){
+    var Q=FK.qualy, n=P.key(p), D=[], out={D:D,n:0,att:{},ovr:null,rank:null,pts:0,wins:0,best:null,pod:0};
+    try{ if(Q&&Q.st&&n)D=out.D=Q.pilotData(n); }catch(e){ D=out.D=[]; }
+    out.n=D.length;
+    var comp={vel:'q',sai:'r',dup:'g',reg:'reg'};
+    Object.keys(comp).forEach(function(a){
+      var v=D.map(function(x){ var c=x.r.c&&x.r.c[comp[a]]; return c&&c.pts!=null&&x.N?c.pts/x.N:null; }).filter(function(v){return v!=null;});
+      out.att[a]=v.length?Math.round(40+59*avg(v)):null;
+    });
+    out.att.exp=D.length?Math.min(99,45+D.length*6):null;
+    var nota=(p.nota===null||p.nota===undefined||p.nota==='')?null:parseFloat(p.nota);
+    out.att.chf=nota==null||isNaN(nota)?null:Math.round(Math.max(0,Math.min(10,nota))*9.9);
+    var sw=0, s=0; Object.keys(W).forEach(function(a){ if(out.att[a]!=null){ s+=out.att[a]*W[a]; sw+=W[a]; } });
+    out.ovr=(sw>=.25)?Math.round(s/sw):null;
+    D.forEach(function(x){ if(x.r.pos&&x.r.pos<=3)out.pod++; if(x.r.pos===1)out.wins++; out.pts+=x.r.pts||0; if(x.r.best!=null&&(out.best==null||x.r.best<out.best))out.best=x.r.best; });
+    try{ if(Q&&Q.st){ out.grp=P.isGuest(p)?'todos':'fkart'; var R=Q.ranking(out.grp); R.forEach(function(r,i){ if(lcn(r.nome)===lcn(n))out.rank=i+1; }); out.vagas=Q.st.cfg.vagas; } }catch(e){}
+    return out;
+  },
+  tier:function(o){ if(o==null)return {id:'novo',nm:'ESTREANTE',c:'#6f7a8f'}; for(var i=0;i<TIERS.length;i++)if(o>=TIERS[i].min)return TIERS[i]; },
+  /* ---------- fotos (sync/pf_<id>) ---------- */
+  photo:function(p){
+    if(!p)return null; if(P.photos[p.id])return P.photos[p.id];
+    try{ var c=JSON.parse(localStorage.getItem('fk_pf_'+p.id)||'null'); if(c&&c.v===p.fotoV){ P.photos[p.id]=c.img; return c.img; } }catch(e){}
+    if(p.fotoV)P.fetchPhoto(p);
+    return null;
+  },
+  fetchPhoto:function(p){
+    if(P._pend&&P._pend[p.id])return; P._pend=P._pend||{}; P._pend[p.id]=1;
+    try{
+      if(typeof firebase==='undefined'||!FK.state.authUser)return;
+      firebase.firestore().collection('sync').doc('pf_'+p.id).get().then(function(s){
+        var d=s.exists&&s.data(); if(d&&d.img){ P.photos[p.id]=d.img; try{ localStorage.setItem('fk_pf_'+p.id,JSON.stringify({v:p.fotoV,img:d.img})); }catch(e){} if(P.isOpen)P.render(true); }
+      }).catch(function(e){ console.warn('foto piloto',e); }).then(function(){ delete P._pend[p.id]; });
+    }catch(e){ delete P._pend[p.id]; }
+  },
+  pickPhoto:function(id){
+    if(!P.canEdit())return P.toast('Sem permissão para editar pilotos');
+    var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*';
+    inp.onchange=function(){ var f=inp.files&&inp.files[0]; if(f)P.setPhoto(id,f); }; inp.click();
+  },
+  setPhoto:function(id,file){
+    var rd=new FileReader();
+    rd.onload=function(){
+      var img=new Image();
+      img.onload=function(){
+        var W2=480,H2=600, r=Math.max(W2/img.width,H2/img.height), w=img.width*r, h=img.height*r;
+        var cv=document.createElement('canvas'); cv.width=W2; cv.height=H2; var cx=cv.getContext('2d');
+        /* enquadra pelo terco de cima (rosto/capacete costuma ficar em cima) */
+        cx.drawImage(img,(W2-w)/2,Math.min(0,(H2-h)*0.3),w,h);
+        var url=cv.toDataURL('image/jpeg',0.8), v=Date.now();
+        P.photos[id]=url; try{ localStorage.setItem('fk_pf_'+id,JSON.stringify({v:v,img:url})); }catch(e){}
+        try{ if(typeof firebase!=='undefined'&&FK.state.authUser)firebase.firestore().collection('sync').doc('pf_'+id).set({img:url,v:v}).catch(function(e){ console.warn('foto',e); P.toast('Foto salva só neste aparelho (sem conexão com a nuvem)'); }); }catch(e){}
+        P.update(id,function(x){ x.fotoV=v; });
+        P.toast('Foto atualizada');
+      };
+      img.onerror=function(){ P.toast('Não consegui ler essa imagem'); };
+      img.src=rd.result;
+    };
+    rd.readAsDataURL(file);
+  },
+  removePhoto:function(id){
+    delete P.photos[id]; try{ localStorage.removeItem('fk_pf_'+id); }catch(e){}
+    try{ if(typeof firebase!=='undefined'&&FK.state.authUser)firebase.firestore().collection('sync').doc('pf_'+id).delete().catch(function(){}); }catch(e){}
+    P.update(id,function(x){ delete x.fotoV; });
+  },
+  /* ---------- acoes ---------- */
+  add:function(){
+    if(!P.canEdit())return P.toast('Sem permissão para editar pilotos');
+    var arr=P.list(), id=uid();
+    arr.push({id:id,nome:'Novo piloto',apelido:'',attrs:[],ordem:arr.length+1,ativo:true,createdAt:Date.now()});
+    FK.savePilotosLS(arr); P.id=id; P.view='perfil'; P.editing=true; P.render();
+    setTimeout(function(){ var e=document.getElementById('pp-nome'); if(e){ e.focus(); e.select(); } },60);
+  },
+  remove:function(id){
+    if(P._conf!==id){ P._conf=id; P.toast('Toque de novo em "Remover piloto" para confirmar'); P.render(true); setTimeout(function(){ if(P._conf===id){P._conf=null; if(P.isOpen)P.render(true);} },4000); return; }
+    P._conf=null; var arr=P.list(), i=-1; arr.forEach(function(p,k){ if(p.id===id)i=k; }); if(i<0)return;
+    if(FK.removePiloto)FK.removePiloto(i); else { arr.splice(i,1); FK.savePilotosLS(arr); }
+    delete P.photos[id]; try{ localStorage.removeItem('fk_pf_'+id); }catch(e){}
+    try{ if(typeof firebase!=='undefined'&&FK.state.authUser)firebase.firestore().collection('sync').doc('pf_'+id).delete().catch(function(){}); }catch(e){}
+    P.view='home'; P.render(); P.toast('Piloto removido');
+  },
+  set:function(id,field,val){
+    var num=['numero','peso','altura','desde','ordem'];
+    if(field==='nota'){ val=String(val).replace(',','.'); val=val===''?null:Math.max(0,Math.min(10,parseFloat(val))); if(val!=null&&isNaN(val))val=null; }
+    else if(num.indexOf(field)>=0){ val=String(val).trim(); val=val===''?'':val; }
+    else val=String(val).trim();
+    var p=P.get(id), oldKey=P.key(p);
+    P.update(id,function(x){ x[field]=val; if(field==='nome'&&!val)x.nome='Sem nome'; },true);
+    var np=P.get(id), newKey=P.key(np);
+    if((field==='nome'||field==='apelido')&&oldKey!==newKey)P.renameQualy(oldKey,newKey);
+    P.render(true);
+  },
+  /* o Treino de Qualy guarda os pilotos pelo nome de exibicao: ao trocar o apelido, leva junto */
+  renameQualy:function(a,b){
+    var Q=FK.qualy; if(!Q||!Q.st||!a||!b)return; var la=lcn(a), n=0;
+    var fix=function(v){ if(typeof v==='string'&&lcn(v)===la){ n++; return b; } return v; };
+    var walk=function(o){ if(Array.isArray(o)){ for(var i=0;i<o.length;i++){ if(typeof o[i]==='string')o[i]=fix(o[i]); else if(o[i]&&typeof o[i]==='object')walk(o[i]); } }
+      else if(o&&typeof o==='object'){ Object.keys(o).forEach(function(k){ var v=o[k]; if(typeof v==='string')o[k]=fix(v); else if(v&&typeof v==='object')walk(v); if(lcn(k)===la&&k!==b){ o[b]=o[k]; delete o[k]; n++; } }); } };
+    walk(Q.st.events); if(Q.st.cfg.guests)walk(Q.st.cfg.guests);
+    if(n){ Q.save(); P.toast('Histórico do Treino de Qualy atualizado para "'+b+'"'); }
+  },
+  toggleTag:function(id,t){ P.update(id,function(x){ var a=(x.attrs||[]).slice(), i=a.indexOf(t); if(i>=0)a.splice(i,1); else a.push(t); x.attrs=a; }); },
+  setKart:function(id,slot,v){ var arr=P.list(), i=-1; arr.forEach(function(p,k){ if(p.id===id)i=k; }); if(i>=0&&FK.setPilotoKart){ FK.setPilotoKart(i,slot,v); P.render(true); } },
+  importText:function(){
+    var t=(document.getElementById('pl-imp')||{}).value||''; if(!t.trim())return;
+    var arr=P.list(), add=0, upd=0;
+    t.split(/\n+/).forEach(function(line){
+      var c=line.split(/[;,\t]/).map(function(s){return s.trim();}); if(!c[0])return;
+      var ex=arr.filter(function(p){ return lcn(p.nome)===lcn(c[0])||(p.apelido&&lcn(p.apelido)===lcn(c[0])); })[0];
+      if(ex){ if(c[1])ex.apelido=c[1]; if(c[2])ex.numero=c[2]; upd++; }
+      else { arr.push({id:uid(),nome:c[0],apelido:c[1]||'',numero:c[2]||'',attrs:[],ordem:arr.length+1,ativo:true,createdAt:Date.now()}); add++; }
+    });
+    FK.savePilotosLS(arr); P.imp=false; P.render(); P.toast(add+' novo(s), '+upd+' atualizado(s)');
+  },
+  /* ---------- navegacao ---------- */
+  open:function(id){
+    var el=document.getElementById('fk-pil'); if(!el)return; P.isOpen=true; el.classList.add('on'); document.body.classList.add('hub-open');
+    if(id){ P.id=id; P.view='perfil'; }
+    P.render(); P.hash();
+  },
+  close:function(){ var el=document.getElementById('fk-pil'); if(el)el.classList.remove('on'); P.isOpen=false; document.body.classList.remove('hub-open'); if(FK.hub)FK.hub.open(); },
+  go:function(v,id){ P.view=v; if(id)P.id=id; P.editing=false; P._conf=null; P.render(); P.hash(); var b=document.querySelector('#fk-pil .q-body'); if(b)b.scrollTop=0; },
+  hash:function(){ try{ history.replaceState(null,'',location.pathname+location.search+'#pilotos'+(P.view==='perfil'&&P.id?'/'+P.id:'')); }catch(e){} },
+  toast:function(m){ var t=document.getElementById('pl-toast'); if(!t)return; t.textContent=m; t.classList.add('on'); clearTimeout(P._tt); P._tt=setTimeout(function(){t.classList.remove('on');},2600); },
+  render:function(keep){
+    var el=document.getElementById('fk-pil'); if(!el)return;
+    var b=el.querySelector('.q-body'), sc=b?b.scrollTop:0;
+    if(P.view==='perfil'&&P.get(P.id))el.innerHTML=P.htmlPerfil(); else { P.view='home'; el.innerHTML=P.htmlHome(); }
+    if(keep){ var nb=el.querySelector('.q-body'); if(nb)nb.scrollTop=sc; }
+  },
+  /* ---------- carta ---------- */
+  card:function(p,S,big){
+    var t=P.tier(S.ovr), ph=P.photo(p), nm=P.key(p)||'Sem nome', g=P.isGuest(p), off=p.ativo===false;
+    var att=ATTRS.map(function(a){ var v=S.att[a.k]; return '<div class="pc-a"><b>'+(v==null?'--':v)+'</b><span>'+a.lb+'</span><i><em style="width:'+(v==null?0:v)+'%"></em></i></div>'; }).join('');
+    return '<div class="pc'+(big?' big':'')+(off?' off':'')+'" style="--t:'+t.c+'" '+(big?'':'onclick="FK.pil.go(\'perfil\',\''+p.id+'\')" role="button" tabindex="0"')+'>'+
+      '<div class="pc-ph">'+(ph?'<img src="'+ph+'" alt="">':'<div class="pc-ini" style="--h:'+hue(nm)+'">'+esc(initials(nm))+'</div>')+'</div>'+
+      '<div class="pc-shade"></div>'+
+      '<div class="pc-ovr"><b>'+(S.ovr==null?'--':S.ovr)+'</b><small>OVR</small>'+(p.numero?'<span class="pc-num">#'+esc(p.numero)+'</span>':'')+'</div>'+
+      '<div class="pc-tier">'+t.nm+'</div>'+
+      '<div class="pc-bot"><div class="pc-nm">'+esc(nm)+'</div><div class="pc-sub">'+esc(p.apelido&&p.nome!==p.apelido?p.nome:'')+'</div>'+
+      '<div class="pc-att">'+att+'</div>'+
+      '<div class="pc-ft"><span>'+(g?'CONVIDADO':'FKART')+'</span><span>'+(off?'INATIVO':(S.rank?S.rank+'º NO QUALY'+(S.grp==='fkart'?' FKART':''):(S.n?'':'SEM TREINOS')))+'</span></div></div>'+
+    '</div>';
+  },
+  /* ---------- tela inicial ---------- */
+  htmlHome:function(){
+    var arr=P.list(), rows=arr.map(function(p){ return {p:p,S:P.stats(p)}; });
+    var cnt={todos:rows.length,fkart:0,conv:0,inat:0}; rows.forEach(function(r){ if(r.p.ativo===false)cnt.inat++; else if(P.isGuest(r.p))cnt.conv++; else cnt.fkart++; });
+    var f=P.filter, q=lcn(P.q);
+    rows=rows.filter(function(r){ var off=r.p.ativo===false, g=P.isGuest(r.p);
+      if(f==='fkart'&&(off||g))return false; if(f==='conv'&&(off||!g))return false; if(f==='inat'&&!off)return false; if(f==='todos'&&off)return false;
+      return !q||lcn(r.p.nome+' '+(r.p.apelido||'')+' '+(r.p.numero||'')).indexOf(q)>=0; });
+    rows.sort(function(a,b){
+      if(P.sort==='nome')return P.key(a.p).localeCompare(P.key(b.p),'pt-BR');
+      if(P.sort==='rank')return (a.S.rank||999)-(b.S.rank||999)||P.key(a.p).localeCompare(P.key(b.p),'pt-BR');
+      return ((b.S.ovr==null?-1:b.S.ovr)-(a.S.ovr==null?-1:a.S.ovr))||P.key(a.p).localeCompare(P.key(b.p),'pt-BR'); });
+    var ov=rows.map(function(r){return r.S.ovr;}).filter(function(v){return v!=null;});
+    var h='<div class="q-top"><button class="q-back" onclick="FK.pil.close()">‹ MENU</button><div class="q-title"><b>Pilotos</b><span>GARAGEM · '+cnt.fkart+' FKART · '+cnt.conv+' CONVIDADOS'+(cnt.inat?' · '+cnt.inat+' INATIVOS':'')+'</span></div>'+
+      (P.canEdit()?'<div class="q-mini"><button class="q-btn" onclick="FK.pil.imp=!FK.pil.imp;FK.pil.render(true)">Importar lista</button><button class="q-btn pri" onclick="FK.pil.add()">+ Novo piloto</button></div>':'')+'</div><div class="q-body">';
+    if(P.imp)h+='<section class="q-sec"><h3><i>⇩</i>IMPORTAR LISTA</h3><div class="q-note" style="margin-bottom:6px">Uma linha por piloto: <b>Nome; Apelido; Número</b> (apelido e número são opcionais). Quem já existe (mesmo nome ou apelido) é atualizado.</div><textarea id="pl-imp" class="pl-ta" rows="6" placeholder="Raphael Cardozo; Rapha; 35&#10;Marcos Takuma; Takuma"></textarea><div class="q-tools" style="margin-top:8px"><button class="q-btn pri" onclick="FK.pil.importText()">Importar</button><button class="q-btn" onclick="FK.pil.imp=false;FK.pil.render(true)">Cancelar</button></div></section>';
+    h+='<div class="pl-bar"><div class="pl-tabs">'+[['todos','Ativos',cnt.todos-cnt.inat],['fkart','FKART',cnt.fkart],['conv','Convidados',cnt.conv],['inat','Inativos',cnt.inat]].map(function(x){ return '<button class="'+(f===x[0]?'on':'')+'" onclick="FK.pil.filter=\''+x[0]+'\';FK.pil.render(true)">'+x[1]+' <small>'+x[2]+'</small></button>'; }).join('')+'</div>'+
+      '<input id="pl-q" type="search" placeholder="Buscar nome, apelido ou número" value="'+esc(P.q)+'" oninput="FK.pil.q=this.value;FK.pil.render(true);var e=document.getElementById(\'pl-q\');e.focus();e.setSelectionRange(e.value.length,e.value.length)">'+
+      '<label class="pl-sort">Ordenar <select onchange="FK.pil.sort=this.value;FK.pil.render(true)">'+[['ovr','Overall'],['rank','Ranking do Qualy'],['nome','Nome']].map(function(o){return '<option value="'+o[0]+'"'+(P.sort===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></label></div>';
+    if(ov.length)h+='<div class="pl-sum"><div><small>OVERALL MÉDIO</small><b>'+Math.round(avg(ov))+'</b></div><div><small>MELHOR</small><b>'+Math.max.apply(null,ov)+'</b></div>'+TIERS.map(function(t){ var n=rows.filter(function(r){return r.S.ovr!=null&&P.tier(r.S.ovr).id===t.id;}).length; return '<div><small style="color:'+t.c+'">'+t.nm+'</small><b>'+n+'</b></div>'; }).join('')+'<div><small>ESTREANTES</small><b>'+rows.filter(function(r){return r.S.ovr==null;}).length+'</b></div></div>';
+    h+=rows.length?'<div class="pl-grid">'+rows.map(function(r){ return P.card(r.p,r.S); }).join('')+'</div>':'<section class="q-sec"><div class="q-empty">'+(arr.length?'Nenhum piloto nesse filtro.':'Nenhum piloto cadastrado ainda. Toque em "+ Novo piloto".')+'</div></section>';
+    h+='<div class="q-note" style="margin-top:4px">Overall = média ponderada dos atributos. VEL, SAÍ, DUP e REG vêm dos pontos do Treino de Qualy (cada critério da regra), EXP das baterias disputadas e CHF da nota do chefe. Sem treinos e sem nota, o piloto aparece como ESTREANTE.</div>';
+    return h+'</div><div class="hub-toast" id="pl-toast"></div>';
+  },
+  /* ---------- perfil ---------- */
+  htmlPerfil:function(){
+    var p=P.get(P.id), S=P.stats(p), t=P.tier(S.ovr), ed=P.canEdit(), nm=P.key(p), g=P.isGuest(p);
+    var inp=function(f,lb,type,ph,extra){ var v=p[f]==null?'':p[f]; return '<label class="pp-f"><span>'+lb+'</span><input id="pp-'+f+'" type="'+(type||'text')+'" value="'+esc(v)+'" placeholder="'+esc(ph||'')+'"'+(ed?'':' disabled')+(extra||'')+' onchange="FK.pil.set(\''+p.id+'\',\''+f+'\',this.value)"></label>'; };
+    var h='<div class="q-top"><button class="q-back" onclick="FK.pil.go(\'home\')">‹ PILOTOS</button><div class="q-title"><b>'+esc(nm||'Piloto')+'</b><span>FICHA DO PILOTO · '+t.nm+(S.ovr!=null?' · OVR '+S.ovr:'')+'</span></div></div><div class="q-body"><div class="pp-wrap">';
+    /* coluna da carta */
+    h+='<div class="pp-left">'+P.card(p,S,true)+
+      (ed?'<div class="pp-phb"><button class="q-btn" onclick="FK.pil.pickPhoto(\''+p.id+'\')">📷 '+(P.photo(p)?'Trocar foto':'Enviar foto')+'</button>'+(p.fotoV?'<button class="q-btn" onclick="FK.pil.removePhoto(\''+p.id+'\')">Remover foto</button>':'')+'</div><div class="q-note" style="text-align:center">A foto é recortada na vertical, focando a parte de cima.</div>':'')+
+      '</div>';
+    h+='<div class="pp-right">';
+    /* atributos */
+    h+='<section class="q-sec"><h3><i>◆</i>ATRIBUTOS<span class="q-mut">0 a 99 · calculados dos treinos de qualy</span></h3><div class="pp-atts">'+ATTRS.map(function(a){ var v=S.att[a.k]; return '<div class="pp-at"><div class="pp-ath"><b>'+a.nm+'</b><span>'+(v==null?'—':v)+'</span></div><i><em style="width:'+(v==null?0:v)+'%;background:'+(v==null?'transparent':(v>=85?'#b06cff':v>=75?'#2fbf71':v>=60?'#f2c230':'#ff6b6b'))+'"></em></i><small>'+a.d+'</small></div>'; }).join('')+'</div></section>';
+    /* qualy */
+    var D=S.D;
+    h+='<section class="q-sec"><h3><i>⏱</i>TREINO DE QUALY</h3><div class="pp-kpi">'+
+      [[S.grp==='fkart'?'RANKING FKART':'RANKING GERAL',S.rank?S.rank+'º':'—',S.grp==='fkart'&&S.rank&&S.vagas&&S.rank<=S.vagas?'dentro das vagas':''],['PONTOS',S.pts||0,''],['BATERIAS',S.n,''],['VITÓRIAS',S.wins,''],['PÓDIOS',S.pod,''],['MELHOR VOLTA',fmt(S.best),'']].map(function(k){ return '<div><small>'+k[0]+'</small><b>'+k[1]+'</b>'+(k[2]?'<span>'+k[2]+'</span>':'')+'</div>'; }).join('')+'</div>';
+    if(D.length){
+      try{ h+='<div style="margin-top:12px">'+FK.qualy.pilChart(D)+'</div>'; }catch(e){}
+      h+='<div class="q-tw" style="margin-top:10px"><table class="q-tb"><thead><tr><th>Data</th><th>Bateria</th><th>Dupla com</th><th>Pos</th><th>Pts</th><th>Melhor</th><th>Dist.</th></tr></thead><tbody>'+
+        D.slice().reverse().map(function(x){ return '<tr class="'+(x.r.pos===1?'p1':'')+'"><td>'+dtxt(x.ev.data)+'</td><td>'+esc(x.b.nome)+'</td><td>'+esc(x.partner||'—')+'</td><td><b>'+(x.r.pos||'—')+'</b><small class="q-mut">/'+x.N+'</small></td><td class="q-pts">'+(x.r.pts||0)+'</td><td class="q-t">'+fmt(x.r.best)+'</td><td class="q-t">'+(x.gapPct?'+'+x.gapPct.toFixed(2)+'%':'—')+'</td></tr>'; }).join('')+
+        '</tbody></table></div><div class="q-tools" style="margin-top:8px"><button class="q-btn" onclick="FK.pil.toQualy(\''+p.id+'\')">Abrir ficha completa no Treino de Qualy ›</button></div>';
+    } else h+='<div class="q-empty" style="margin-top:8px">Ainda sem tempos nos treinos de qualy'+(nm?' com o nome "'+esc(nm)+'"':'')+'.</div>';
+    h+='</section>';
+    /* cadastro */
+    h+='<section class="q-sec"><h3><i>✎</i>CADASTRO'+(ed?'':'<span class="q-mut">somente leitura</span>')+'</h3><div class="pp-form">'+
+      inp('nome','Nome completo','text','Nome e sobrenome')+inp('apelido','Apelido (nome nos treinos e telas)','text','Como aparece nas telas')+
+      inp('numero','Número','text','35',' inputmode="numeric" maxlength="4"')+inp('peso','Peso (kg)','number','75',' step="0.5" min="30" max="160"')+
+      inp('altura','Altura (cm)','number','175',' min="120" max="220"')+inp('desde','Pilota desde (ano)','number','2018',' min="1980" max="2030"')+
+      inp('telefone','WhatsApp','tel','(11) 9....-....')+inp('instagram','Instagram','text','@')+
+      '<label class="pp-f"><span>Nota do chefe (0 a 10)</span><input id="pp-nota" type="number" min="0" max="10" step="0.5" value="'+(p.nota==null?'':esc(p.nota))+'" placeholder="--"'+(ed?'':' disabled')+' onchange="FK.pil.set(\''+p.id+'\',\'nota\',this.value)"></label>'+
+      '<div class="pp-f"><span>Grupo</span><div class="pp-seg"><button class="'+(!g?'on':'')+'" '+(ed?'onclick="FK.pil.setGuest(\''+p.id+'\',false)"':'disabled')+'>FKART</button><button class="'+(g?'on':'')+'" '+(ed?'onclick="FK.pil.setGuest(\''+p.id+'\',true)"':'disabled')+'>Convidado</button></div></div>'+
+      '<div class="pp-f"><span>Status</span><div class="pp-seg"><button class="'+(p.ativo!==false?'on':'')+'" '+(ed?'onclick="FK.pil.update(\''+p.id+'\',function(x){x.ativo=true;})"':'disabled')+'>Ativo</button><button class="'+(p.ativo===false?'on':'')+'" '+(ed?'onclick="FK.pil.update(\''+p.id+'\',function(x){x.ativo=false;})"':'disabled')+'>Inativo</button></div></div>'+
+      '<label class="pp-f wide"><span>Observações</span><textarea id="pp-obs" rows="2"'+(ed?'':' disabled')+' onchange="FK.pil.set(\''+p.id+'\',\'obs\',this.value)" placeholder="Ex.: prefere stint curto, bom em pista molhada">'+esc(p.obs||'')+'</textarea></label>'+
+      '<div class="pp-f wide"><span>Características</span><div class="pp-tags">'+TAGS.concat((p.attrs||[]).filter(function(a){return TAGS.indexOf(a)<0;})).map(function(a){ var on=(p.attrs||[]).indexOf(a)>=0; return '<button class="'+(on?'on':'')+'" '+(ed?'onclick="FK.pil.toggleTag(\''+p.id+'\',this.dataset.t)"':'disabled')+' data-t="'+esc(a)+'">'+esc(a)+'</button>'; }).join('')+'</div></div>'+
+      '</div>';
+    /* endurance */
+    var mk=(FK.cfg&&FK.cfg.myKarts)||[], k1=p.kart||(p.karts&&p.karts[0])||'', k2=(p.karts&&p.karts[1])||'';
+    var sel=function(slot,cur){ return '<select'+(ed?'':' disabled')+' onchange="FK.pil.setKart(\''+p.id+'\','+slot+',this.value)"><option value="">--</option>'+mk.map(function(k){return '<option value="'+esc(k)+'"'+(String(cur)===String(k)?' selected':'')+'>Kart '+esc(k)+'</option>';}).join('')+'</select>'; };
+    h+='<div class="pp-sub">ENDURANCE</div><div class="pp-form">'+
+      '<label class="pp-f"><span>Kart 1</span>'+sel(0,k1)+'</label><label class="pp-f"><span>Kart 2</span>'+sel(1,k2)+'</label>'+
+      inp('ordem','Ordem de pilotagem','number','1',' min="1" max="30"')+'</div>';
+    if(ed)h+='<div class="q-tools" style="margin-top:14px"><button class="q-btn danger" onclick="FK.pil.remove(\''+p.id+'\')">'+(P._conf===p.id?'Confirmar remoção':'Remover piloto')+'</button></div>';
+    h+='</section></div></div></div><div class="hub-toast" id="pl-toast"></div>';
+    return h;
+  },
+  toQualy:function(id){ var p=P.get(id); if(!p||!FK.qualy)return; P.isOpen=false; var el=document.getElementById('fk-pil'); if(el)el.classList.remove('on'); FK.qualy.open(); FK.qualy.openPil(P.key(p)); }
+};
+
+var box=document.createElement('div'); box.id='fk-pil'; document.body.appendChild(box);
+document.addEventListener('keydown',function(e){ if(!P.isOpen||/INPUT|TEXTAREA|SELECT/.test((e.target&&e.target.tagName)||''))return;
+  if(e.key==='Escape'){ if(P.view==='perfil')P.go('home'); else P.close(); }
+  if(e.key==='Enter'&&e.target&&e.target.classList&&e.target.classList.contains('pc'))e.target.click(); });
+/* lista chegou de outro aparelho: redesenha */
+var _arp=FK.applyRemotePilotos;
+if(_arp)FK.applyRemotePilotos=function(){ var r=_arp.apply(FK,arguments); try{ if(P.isOpen&&!(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)))P.render(true); }catch(e){} return r; };
+
+var css=document.createElement('style');
+css.textContent=[
+'#fk-pil{position:fixed;inset:0;z-index:9002;display:none;flex-direction:column;color:#fff;background:radial-gradient(900px 500px at 90% -10%,rgba(207,216,227,.16),transparent 60%),radial-gradient(700px 500px at 0% 110%,rgba(215,38,61,.18),transparent 60%),linear-gradient(180deg,#0b0f18,#121826 60%,#0a0d14)}',
+'#fk-pil.on{display:flex}',
+'#fk-pil .q-sec h3 i{background:#d7263d}',
+'#fk-pil .q-btn.pri{background:#d7263d;border-color:#d7263d}',
+'.pl-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}',
+'.pl-tabs{display:flex;gap:4px;flex-wrap:wrap}.pl-tabs button{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:#c9d1e0;font-weight:800;font-size:12px;letter-spacing:.5px;padding:8px 12px;border-radius:2px;cursor:pointer}',
+'.pl-tabs button small{color:#8f9ab0;margin-left:4px}.pl-tabs button.on{background:#fff;color:#000;border-color:#fff}.pl-tabs button.on small{color:#555}',
+'#pl-q{flex:1;min-width:180px;background:#0f1420;border:1px solid rgba(255,255,255,.2);color:#fff;padding:8px 10px;border-radius:2px;font-size:13px}',
+'.pl-sort{font-size:11px;color:#9aa4b8;display:flex;gap:6px;align-items:center}.pl-sort select,.pp-f select{background:#0f1420;border:1px solid rgba(255,255,255,.2);color:#fff;padding:7px 8px;border-radius:2px}',
+'.pl-sum{display:flex;gap:8px;flex-wrap:wrap}.pl-sum div{background:rgba(5,6,8,.75);box-shadow:0 0 0 1px rgba(255,255,255,.07);padding:8px 14px;min-width:96px}.pl-sum small{display:block;font-size:9px;letter-spacing:1.5px;color:#8f9ab0;font-weight:800}.pl-sum b{font-size:22px;font-variant-numeric:tabular-nums}',
+'.pl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px}',
+'.pl-ta{width:100%;background:#0f1420;border:1px solid rgba(255,255,255,.2);color:#fff;padding:8px;border-radius:2px;font-family:ui-monospace,monospace;font-size:12px}',
+/* carta */
+'.pc{position:relative;aspect-ratio:5/7;overflow:hidden;cursor:pointer;color:#fff;background:#0b0e14;clip-path:polygon(0 0,calc(100% - 22px) 0,100% 22px,100% 100%,22px 100%,0 calc(100% - 22px));transition:transform .18s ease}',
+'.pc::after{content:"";position:absolute;inset:0;pointer-events:none;clip-path:inherit;box-shadow:inset 0 0 0 2px var(--t),inset 0 0 40px rgba(0,0,0,.4)}',
+'.pc:hover,.pc:focus-visible{transform:translateY(-4px);outline:none}.pc:hover::after,.pc:focus-visible::after{box-shadow:inset 0 0 0 3px var(--t),inset 0 0 40px rgba(0,0,0,.3)}',
+'.pc.big{cursor:default;width:100%;max-width:340px}.pc.big:hover{transform:none}',
+'.pc.off{filter:grayscale(.9) brightness(.7)}',
+'.pc-ph{position:absolute;inset:0 0 34% 0}.pc-ph img{width:100%;height:100%;object-fit:cover;display:block}',
+'.pc-ini{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-weight:900;font-style:italic;font-size:64px;letter-spacing:2px;color:rgba(255,255,255,.9);background:linear-gradient(135deg,hsl(var(--h) 45% 32%),hsl(calc(var(--h) + 40) 50% 14%))}',
+'.pc.big .pc-ini{font-size:96px}',
+'.pc-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.55) 0,transparent 26%,transparent 46%,#0b0e14 66%)}',
+'.pc-ovr{position:absolute;left:12px;top:10px;display:flex;flex-direction:column;align-items:center;line-height:.9;text-shadow:0 2px 8px rgba(0,0,0,.6)}',
+'.pc-ovr b{font-size:40px;font-weight:900;font-style:italic;color:var(--t);font-variant-numeric:tabular-nums}.pc-ovr small{font-size:10px;letter-spacing:2px;font-weight:800;margin-top:2px}',
+'.pc-num{margin-top:8px;background:#fff;color:#000;font-weight:900;font-size:12px;padding:2px 6px;border-radius:2px;font-style:normal;text-shadow:none}',
+'.pc.big .pc-ovr b{font-size:58px}.pc.big .pc-num{font-size:15px}',
+'.pc-tier{position:absolute;right:0;top:30px;background:var(--t);color:#000;font-size:10px;font-weight:900;letter-spacing:2px;padding:3px 10px 3px 12px;clip-path:polygon(8px 0,100% 0,100% 100%,0 100%)}',
+'.pc-bot{position:absolute;left:0;right:0;bottom:0;padding:0 12px 10px;display:flex;flex-direction:column}',
+'.pc-nm{font-size:20px;font-weight:900;font-style:italic;text-transform:uppercase;letter-spacing:.5px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:2px solid var(--t);padding-bottom:5px}',
+'.pc.big .pc-nm{font-size:28px}',
+'.pc-sub{font-size:10px;color:#9aa4b8;letter-spacing:.5px;min-height:14px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+'.pc-att{display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;margin-top:4px}',
+'.pc-a{display:grid;grid-template-columns:24px 30px 1fr;align-items:center;gap:4px;font-size:10px}.pc-a b{font-size:13px;font-variant-numeric:tabular-nums}.pc-a span{color:#9aa4b8;font-weight:800;letter-spacing:.5px}',
+'.pc-a i{height:3px;background:rgba(255,255,255,.12);display:block}.pc-a em{display:block;height:100%;background:var(--t)}',
+'.pc.big .pc-a{font-size:12px;grid-template-columns:30px 36px 1fr}.pc.big .pc-a b{font-size:16px}',
+'.pc-ft{display:flex;justify-content:space-between;margin-top:8px;font-size:9px;letter-spacing:1.5px;font-weight:800;color:#8f9ab0}',
+/* perfil */
+'.pp-wrap{display:grid;grid-template-columns:minmax(240px,340px) 1fr;gap:20px;align-items:start}',
+'.pp-left{position:sticky;top:0;display:flex;flex-direction:column;gap:10px;align-items:center}',
+'.pp-phb{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}',
+'.pp-right{display:flex;flex-direction:column;gap:16px;min-width:0}',
+'.pp-atts{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px 18px}',
+'.pp-ath{display:flex;justify-content:space-between;align-items:baseline}.pp-ath b{font-size:13px}.pp-ath span{font-size:22px;font-weight:900;font-style:italic;font-variant-numeric:tabular-nums}',
+'.pp-at i{display:block;height:6px;background:rgba(255,255,255,.08);margin:4px 0}.pp-at em{display:block;height:100%}.pp-at small{font-size:10px;color:#8f9ab0}',
+'.pp-kpi{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px}',
+'.pp-kpi div{background:#0f1420;padding:8px 10px;box-shadow:inset 3px 0 0 #d7263d}.pp-kpi small{display:block;font-size:9px;letter-spacing:1.5px;color:#8f9ab0;font-weight:800}.pp-kpi b{display:block;font-size:20px;font-variant-numeric:tabular-nums}.pp-kpi span{font-size:10px;color:#2fbf71}',
+'.pp-form{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px 14px}',
+'.pp-f{display:flex;flex-direction:column;gap:4px;font-size:11px;color:#9aa4b8;min-width:0}.pp-f.wide{grid-column:1/-1}',
+'.pp-f input,.pp-f textarea{background:#0f1420;border:1px solid rgba(255,255,255,.2);color:#fff;padding:8px 9px;border-radius:2px;font-size:14px;width:100%;box-sizing:border-box;font-family:inherit}',
+'.pp-f input:focus,.pp-f textarea:focus,#pl-q:focus{outline:none;border-color:#d7263d}',
+'.pp-seg{display:flex}.pp-seg button{flex:1;background:#0f1420;border:1px solid rgba(255,255,255,.2);color:#c9d1e0;padding:8px;font-weight:800;font-size:12px;cursor:pointer}.pp-seg button+button{border-left:0}.pp-seg button.on{background:#fff;color:#000;border-color:#fff}',
+'.pp-tags{display:flex;gap:6px;flex-wrap:wrap}.pp-tags button{background:transparent;border:1px solid rgba(255,255,255,.2);color:#c9d1e0;padding:6px 10px;border-radius:999px;font-size:12px;cursor:pointer}.pp-tags button.on{background:#d7263d;border-color:#d7263d;color:#fff}',
+'.pp-sub{font-size:10px;letter-spacing:2px;color:#8f9ab0;font-weight:800;margin:16px 0 8px;border-top:1px solid rgba(255,255,255,.08);padding-top:12px}',
+'#fk-pil .hub-toast{position:fixed;left:50%;bottom:30px;transform:translate(-50%,20px);background:#fff;color:#000;font-weight:800;font-size:13px;padding:10px 16px;border-radius:3px;opacity:0;transition:all .25s;pointer-events:none;z-index:2}',
+'#fk-pil .hub-toast.on{opacity:1;transform:translate(-50%,0)}',
+'@media(max-width:760px){.pl-sum{flex-wrap:nowrap;overflow-x:auto}.pl-sum div{min-width:84px;padding:6px 10px}.pl-sum b{font-size:18px}.pp-wrap{grid-template-columns:1fr}.pp-left{position:static}.pc.big{max-width:300px}.pl-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.pc-nm{font-size:16px}.pc-ovr b{font-size:32px}.pc-a{grid-template-columns:20px 26px 1fr}.pc-att{gap:2px 8px}}',
+'@media(prefers-reduced-motion:reduce){.pc{transition:none}}'
+].join('\n');
+document.head.appendChild(css);
+})();
+</script>
+<script>
+/* =====================================================================================
    AUDIO (03/10/2026) -- trilha estilo game (gerada no Suno) + efeitos de interface.
    Trilhas (arquivos na pasta public/audio do site; se o arquivo nao existir, fica mudo):
      audio/menu.mp3     -> menu principal
      audio/sistema.mp3  -> modulos (Sorteio, Treino de Qualy, Analise pos-corrida)
      audio/podio.mp3    -> vinheta curta no fim das revelacoes (opcional)
+     audio/pilotos.mp3  -> garagem de Pilotos (estilo selecao de personagem) -- 05/10/2026
+     audio/sorteio.mp3  -> Sorteio (mesma familia, com tensao) -- 05/10/2026
+     (se pilotos/sorteio nao existirem, toca a trilha 'sistema')
    No Endurance (dia de corrida) a musica para sozinha.
    Efeitos (tick ao passar pelos cards, clique, voltar) sao sintetizados no navegador.
    Preferencias (musica, volume, efeitos) ficam salvas no aparelho.
    ===================================================================================== */
 (function(){
 if(typeof FK==='undefined')return;
-var TR={menu:'audio/menu.mp3',sistema:'audio/sistema.mp3',podio:'audio/podio.mp3'};
+var TR={menu:'audio/menu.mp3',sistema:'audio/sistema.mp3',podio:'audio/podio.mp3',pilotos:'audio/Pilotos.mp3',sorteio:'audio/Sorteio.mp3'};
 function lsG(k,d){ try{ var v=localStorage.getItem(k); return v==null?d:JSON.parse(v); }catch(e){ return d; } }
 function lsS(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
 var A=FK.audio={
@@ -8444,6 +8800,9 @@ var A=FK.audio={
   target:function(){ var duck=document.getElementById('st-rv')||document.getElementById('q-rv'); return A.vol()*(duck?0.25:1); },
   /* qual trilha combina com a tela atual */
   context:function(){
+    var on=function(id){ var e=document.getElementById(id); return e&&e.classList.contains('on'); };
+    if(on('fk-pil'))return A.ok.pilotos?'pilotos':'sistema';
+    if(on('fk-sorteio'))return A.ok.sorteio?'sorteio':'sistema';
     if(['fk-sorteio','fk-qualy','fk-post'].some(function(id){ var e=document.getElementById(id); return e&&e.classList.contains('on'); }))return 'sistema';
     var h=document.getElementById('fk-hub'); if(h&&h.classList.contains('on'))return 'menu';
     return null; /* Endurance / dia de corrida: silencio */
@@ -8493,7 +8852,7 @@ var A=FK.audio={
   setVol:function(v){ lsS('fk_mus_vol',Math.max(0,Math.min(1,v))); var a=A.cur&&A.el[A.cur]; if(a){ clearInterval(a._f); a._fading=false; a.volume=A.target(); } },
   ui:function(){
     var box=document.getElementById('fk-audio'); if(!box)return;
-    var anyMusic=A.ok.menu||A.ok.sistema;
+    var anyMusic=A.ok.menu||A.ok.sistema||A.ok.pilotos||A.ok.sorteio;
     box.innerHTML=(anyMusic?'<button class="fa-b'+(A.musicOn()?' on':'')+'" title="Música" onclick="FK.audio.toggleMusic()">♫</button>'+
       '<input class="fa-v" type="range" min="0" max="100" value="'+Math.round(A.vol()*100)+'" title="Volume da música" oninput="FK.audio.setVol(this.value/100)"'+(A.musicOn()?'':' disabled')+'>':'')+
       '<button class="fa-b'+(A.sfxOn()?' on':'')+'" title="Efeitos sonoros" onclick="FK.audio.toggleSfx()">'+(A.sfxOn()?'🔊':'🔇')+'</button>';
@@ -8512,11 +8871,11 @@ document.head.appendChild(css);
 /* desbloqueia o audio no primeiro toque/tecla (regra dos navegadores) */
 ['pointerdown','mousedown','click','keydown','touchstart'].forEach(function(ev){ window.addEventListener(ev,function(){ A.unlock(); },{capture:true,passive:true}); });
 /* efeitos nos elementos da interface */
-document.addEventListener('mouseover',function(e){ var t=e.target.closest&&e.target.closest('#fk-hub .hub-tile'); if(t&&t!==A._lt){ A._lt=t; A.hover(); } else if(!t)A._lt=null; },true);
-document.addEventListener('click',function(e){ var t=e.target.closest&&e.target.closest('button,.hub-tile,label.q-file'); if(!t||t.closest('#fk-audio'))return;
+document.addEventListener('mouseover',function(e){ var t=e.target.closest&&e.target.closest('#fk-hub .hub-tile,#fk-pil .pl-grid .pc'); if(t&&t!==A._lt){ A._lt=t; A.hover(); } else if(!t)A._lt=null; },true);
+document.addEventListener('click',function(e){ var t=e.target.closest&&e.target.closest('button,.hub-tile,label.q-file,.pc'); if(!t||t.closest('#fk-audio'))return;
   if(t.matches('.q-back,.st-back,.hub-back'))A.back();
-  else if(t.matches('.hub-tile,.st-draw,.q-btn.pri,.q-ev,.st-tabs button'))A.click();
-  else if(t.closest('#fk-hub,#fk-sorteio,#fk-qualy,#fk-post'))A.tap(); },true);
+  else if(t.matches('.hub-tile,.st-draw,.q-btn.pri,.q-ev,.st-tabs button,.pc'))A.click();
+  else if(t.closest('#fk-hub,#fk-sorteio,#fk-qualy,#fk-post,#fk-pil'))A.tap(); },true);
 /* teclado no menu (setas) */
 document.addEventListener('keydown',function(e){ var h=document.getElementById('fk-hub'); if(!h||!h.classList.contains('on'))return; if(/^Arrow/.test(e.key))A.hover(); else if(e.key==='Enter')A.click(); },true);
 /* vinheta no fim das revelacoes (Sorteio/Qualy), se existir audio/podio.mp3 */
