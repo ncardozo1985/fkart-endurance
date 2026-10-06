@@ -6127,6 +6127,62 @@ document.head.appendChild(css);
    ===================================================================================== */
 (function(){
 if(typeof FK==='undefined')return;
+/* Icones premium do menu (06/10/2026): camadas metal + acento da cor do card (--acc). */
+var ICON2_DEFS='<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>'+
+ '<linearGradient id="hgM" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#d9dee7"/><stop offset="1" stop-color="#7d8697"/></linearGradient>'+
+ '<linearGradient id="hgM2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f4f6fa"/><stop offset=".55" stop-color="#aab2c0"/><stop offset="1" stop-color="#5b6372"/></linearGradient>'+
+ '<linearGradient id="hgD" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a303b"/><stop offset="1" stop-color="#0c0f14"/></linearGradient>'+
+ '<linearGradient id="hgG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient>'+
+ '<radialGradient id="hgL" cx=".5" cy=".35" r=".6"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>'+
+'</defs></svg>';
+var ICON2={
+ /* SORTEIO: dois dados 3D, pontos na cor do card */
+ dice:'<svg viewBox="0 0 96 96"><g transform="rotate(-14 34 58)"><rect x="12" y="38" width="42" height="42" rx="9" fill="url(#hgM)" stroke="#0b0e14" stroke-width="2.5"/><rect x="16" y="41" width="34" height="14" rx="6" fill="url(#hgG)"/><circle class="ac" cx="23" cy="49" r="4.2"/><circle class="ac" cx="33" cy="59" r="4.2"/><circle class="ac" cx="43" cy="69" r="4.2"/></g>'+
+   '<g transform="rotate(12 64 36)"><rect x="44" y="14" width="38" height="38" rx="8" fill="url(#hgM2)" stroke="#0b0e14" stroke-width="2.5"/><rect x="48" y="17" width="30" height="12" rx="5" fill="url(#hgG)"/><circle cx="54" cy="24" r="3.8" fill="#0b0e14"/><circle cx="72" cy="24" r="3.8" fill="#0b0e14"/><circle cx="54" cy="42" r="3.8" fill="#0b0e14"/><circle cx="72" cy="42" r="3.8" fill="#0b0e14"/></g></svg>',
+ /* TV DO BOX: monitor com cronometragem na tela */
+ tv:'<svg viewBox="0 0 96 96"><path d="M40 72h16l4 12H36z" fill="url(#hgM2)" stroke="#0b0e14" stroke-width="2"/><rect x="26" y="83" width="44" height="6" rx="3" fill="url(#hgM)" stroke="#0b0e14" stroke-width="2"/>'+
+   '<rect x="8" y="14" width="80" height="58" rx="7" fill="url(#hgM)" stroke="#0b0e14" stroke-width="2.5"/><rect x="14" y="20" width="68" height="46" rx="3" fill="url(#hgD)"/>'+
+   '<rect class="ac" x="19" y="26" width="8" height="6" rx="1"/><rect x="30" y="26" width="30" height="6" rx="1" fill="#e8ecf3"/><rect x="64" y="26" width="13" height="6" rx="1" fill="#8f9ab0"/>'+
+   '<rect x="19" y="36" width="8" height="6" rx="1" fill="#8f9ab0"/><rect x="30" y="36" width="24" height="6" rx="1" fill="#c9d1e0"/><rect x="64" y="36" width="13" height="6" rx="1" fill="#8f9ab0"/>'+
+   '<rect x="19" y="46" width="8" height="6" rx="1" fill="#8f9ab0"/><rect x="30" y="46" width="27" height="6" rx="1" fill="#c9d1e0"/><rect x="64" y="46" width="13" height="6" rx="1" fill="#8f9ab0"/>'+
+   '<rect class="ac" x="14" y="58" width="68" height="3" opacity=".9"/><path d="M14 20h68v14C60 30 36 30 14 36z" fill="#fff" opacity=".07"/></svg>',
+ /* FILA DE PILOTOS: tres capacetes em fila com posicoes */
+ queue:'<svg viewBox="0 0 96 96">'+[[0,'#5b6372',.55],[1,'#8a93a3',.8],[2,null,1]].map(function(r){ var y=14+r[0]*25, o=r[2];
+     return '<g opacity="'+o+'"><rect x="34" y="'+(y+4)+'" width="54" height="17" rx="8.5" fill="'+(r[1]?'url(#hgD)':'url(#hgD)')+'" stroke="'+(r[1]||'url(#hgM2)')+'" stroke-width="2"/>'+
+       '<rect x="44" y="'+(y+10)+'" width="'+(r[1]?26:34)+'" height="5" rx="2.5" fill="'+(r[1]?r[1]:'#e8ecf3')+'"/>'+
+       '<path d="M8 '+(y+22)+'c0-10 6-17 14-17 7 0 12 5 12 11v6z" fill="'+(r[1]?r[1]:'url(#hgM)')+'" stroke="#0b0e14" stroke-width="2"/><path d="M18 '+(y+11)+'h16v6H18z" class="'+(r[1]?'':'ac')+'" fill="'+(r[1]?'#2a303b':'')+'"/></g>'; }).join('')+
+   '<circle class="ac" cx="84" cy="70" r="9" stroke="#0b0e14" stroke-width="2"/><text x="84" y="74" text-anchor="middle" font-size="11" font-weight="900" fill="#0b0e14" font-family="Arial,sans-serif">1</text></svg>',
+ /* ANALISE POS-CORRIDA: lupa sobre grafico de voltas */
+ search:'<svg viewBox="0 0 96 96"><path d="M58 60l22 22" stroke="#0b0e14" stroke-width="15" stroke-linecap="round"/><path d="M58 60l22 22" stroke="url(#hgM2)" stroke-width="10" stroke-linecap="round"/><path d="M62 64l4 4" stroke="#0b0e14" stroke-width="3"/>'+
+   '<circle cx="40" cy="40" r="29" fill="url(#hgM)" stroke="#0b0e14" stroke-width="2.5"/><circle cx="40" cy="40" r="22" fill="url(#hgD)"/>'+
+   '<path d="M22 48l7-9 6 5 7-12 6 7 8-10" fill="none" class="acs" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><circle class="ac" cx="56" cy="29" r="3"/>'+
+   '<path d="M22 54h36" stroke="#5b6372" stroke-width="1.5"/><circle cx="40" cy="40" r="22" fill="url(#hgL)"/><path d="M24 30a20 20 0 0 1 14-10" stroke="#fff" stroke-opacity=".5" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>',
+ /* PILOTOS: capacete 3D com viseira na cor do card */
+ helmet:'<svg viewBox="0 0 96 96"><path d="M10 66c0-30 16-50 42-50 20 0 34 15 34 34v12l-6 10H20z" fill="url(#hgM)" stroke="#0b0e14" stroke-width="2.5" stroke-linejoin="round"/>'+
+   '<path d="M14 54c4-20 16-32 34-34" class="acs" stroke-width="6" fill="none" stroke-linecap="round" opacity=".9"/>'+
+   '<path d="M40 38h44c3 0 4 2 4 5v10c0 3-2 5-5 5H46c-4 0-7-3-7-7z" class="ac" stroke="#0b0e14" stroke-width="2.5"/><path d="M44 41h38v6H44z" fill="#fff" opacity=".35"/>'+
+   '<path d="M20 72h60l-4 8H24z" fill="url(#hgD)" stroke="#0b0e14" stroke-width="2"/><path d="M26 24c8-6 18-8 28-7" stroke="#fff" stroke-opacity=".7" stroke-width="3" fill="none" stroke-linecap="round"/></svg>',
+ /* ESTRATEGIA: prancheta tatica com tracado e setas */
+ chart:'<svg viewBox="0 0 96 96"><rect x="14" y="12" width="68" height="78" rx="8" fill="url(#hgM2)" stroke="#0b0e14" stroke-width="2.5"/><rect x="20" y="22" width="56" height="62" rx="3" fill="url(#hgD)"/>'+
+   '<rect x="34" y="6" width="28" height="12" rx="4" fill="url(#hgM)" stroke="#0b0e14" stroke-width="2"/>'+
+   '<path d="M28 74c6-14 4-26 16-30s20-4 22-18" fill="none" class="acs" stroke-width="3.2" stroke-dasharray="5 4" stroke-linecap="round"/><path d="M60 26l6 0 0 6" fill="none" class="acs" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>'+
+   '<circle cx="28" cy="74" r="4.5" fill="#e8ecf3"/><path d="M58 60l8 8M66 60l-8 8" stroke="#e8ecf3" stroke-width="3" stroke-linecap="round"/><path d="M30 34l6 6M36 34l-6 6" stroke="#8f9ab0" stroke-width="2.5" stroke-linecap="round"/></svg>',
+ /* CELULAR DO PILOTO: smartphone com volante e ondas de radio */
+ wheel:'<svg viewBox="0 0 96 96"><path d="M70 22a20 20 0 0 1 0 26M77 15a30 30 0 0 1 0 40" fill="none" class="acs" stroke-width="3.5" stroke-linecap="round"/>'+
+   '<rect x="20" y="8" width="44" height="80" rx="9" fill="url(#hgM)" stroke="#0b0e14" stroke-width="2.5"/><rect x="25" y="16" width="34" height="62" rx="3" fill="url(#hgD)"/><rect x="36" y="11" width="12" height="2.5" rx="1.2" fill="#0b0e14"/>'+
+   '<circle cx="42" cy="44" r="13" fill="none" stroke="#e8ecf3" stroke-width="3.5"/><path d="M29.5 41c8-3 17-3 25 0" stroke="#e8ecf3" stroke-width="3.5" fill="none"/><path d="M42 46v11" stroke="#e8ecf3" stroke-width="3.5"/><circle class="ac" cx="42" cy="46" r="4"/>'+
+   '<rect class="ac" x="29" y="66" width="26" height="6" rx="3"/><path d="M25 16h34v12C46 24 36 26 25 32z" fill="#fff" opacity=".07"/></svg>',
+ /* CONFIGURAR: engrenagem metalica com miolo na cor do card */
+ gear:'<svg viewBox="0 0 96 96"><path d="M53 8l2 9a31 31 0 0 1 9 4l8-5 8 8-5 8a31 31 0 0 1 4 9l9 2v11l-9 2a31 31 0 0 1-4 9l5 8-8 8-8-5a31 31 0 0 1-9 4l-2 9H42l-2-9a31 31 0 0 1-9-4l-8 5-8-8 5-8a31 31 0 0 1-4-9l-9-2V43l9-2a31 31 0 0 1 4-9l-5-8 8-8 8 5a31 31 0 0 1 9-4l2-9z" fill="url(#hgM)" stroke="#0b0e14" stroke-width="2.5" stroke-linejoin="round"/>'+
+   '<circle cx="48" cy="48" r="20" fill="url(#hgM2)" stroke="#0b0e14" stroke-width="2"/><circle class="ac" cx="48" cy="48" r="13" stroke="#0b0e14" stroke-width="2"/><circle cx="48" cy="48" r="6" fill="url(#hgD)"/>'+
+   '<path d="M34 30a24 24 0 0 1 18-6" stroke="#fff" stroke-opacity=".7" stroke-width="3" fill="none" stroke-linecap="round"/></svg>',
+ /* USUARIOS: dois perfis + escudo de acesso */
+ users:'<svg viewBox="0 0 96 96"><circle cx="62" cy="28" r="12" fill="url(#hgM2)" stroke="#0b0e14" stroke-width="2"/><path d="M44 74c0-16 8-26 18-26s20 10 20 26z" fill="url(#hgM2)" stroke="#0b0e14" stroke-width="2"/>'+
+   '<circle cx="36" cy="32" r="15" fill="url(#hgM)" stroke="#0b0e14" stroke-width="2.5"/><path d="M10 86c0-20 11-32 26-32s26 12 26 32z" fill="url(#hgM)" stroke="#0b0e14" stroke-width="2.5"/>'+
+   '<path d="M66 56l14-5 14 5v10c0 9-6 15-14 19-8-4-14-10-14-19z" class="ac" stroke="#0b0e14" stroke-width="2.5"/><path d="M73 67l5 5 9-10" stroke="#0b0e14" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'+
+   '<path d="M27 24a12 12 0 0 1 10-5" stroke="#fff" stroke-opacity=".7" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>'
+};
+
 var ICON={
   flag:'<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"><path d="M10 44V6"/><path d="M10 7h28l-5 8 5 8H10"/><path d="M17 7v16M24 7v16M31 7v16M10 15h28" stroke-width="1.2" opacity=".55"/></svg>',
   timer:'<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="24" cy="27" r="15"/><path d="M24 27l7-6M20 5h8M24 5v7M37 13l3-3"/></svg>',
@@ -6141,7 +6197,7 @@ var ICON={
   search:'<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="20" cy="20" r="13"/><path d="M30 30l12 12"/><path d="M13 24v-4M18 24v-8M23 24v-6M28 24v-10" stroke-width="2"/></svg>',
   users:'<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="18" cy="16" r="7"/><path d="M4 40c1-8 7-12 14-12s13 4 14 12"/><circle cx="34" cy="14" r="5"/><path d="M34 24c5 0 9 3 10 9"/></svg>'
 };
-var ACC={endurance:'#d7263d',qualy:'#1e88e5',sorteio:'#f2a900',piloto:'#26c6da',tv:'#2fbf71',fila:'#4fc3f7',analise:'#ab47bc',pilotos:'#cfd8e3',estrategia:'#ff8f00',config:'#78909c',users:'#90a4ae'};
+var ACC={endurance:'#d7263d',qualy:'#1e88e5',sorteio:'#f2a900',piloto:'#26c6da',tv:'#2fbf71',fila:'#4fc3f7',analise:'#ab47bc',pilotos:'#ff4d3d',estrategia:'#ff8f00',config:'#8c9eff',users:'#26c6a0'};
 var MESES=['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
 var TILES=[
   {id:'endurance', cls:'hero hero-end', area:'end', title:'Endurance', sub:'Gestão de prova ao vivo', tab:null, live:true},
@@ -6250,7 +6306,7 @@ var H=FK.hub={
                 '<div class="hc-txt">TEMPORADA <b>'+Qi.done+'/'+Qi.total+'</b> EVENTOS'+(nd?' · PRÓXIMO <b>'+nd[2]+'/'+nd[1]+'</b>':'')+'</div></div>'+
                 '<div class="hub-foot"><div><small>LÍDER FKART</small><b>'+(L?esc(L.nome)+' · '+(String(L.pts).replace('.',','))+' pts':'—')+'</b></div><div><small>VAGAS</small><b>'+Qi.vagas+'</b></div></div>'; })();
         }else{
-          body='<div class="hub-t">'+t.title+'</div>'+(t.sub?'<div class="hub-s">'+t.sub+'</div>':'')+'<div class="hub-ic">'+ICON[t.icon]+'</div>';
+          body='<div class="hub-t">'+t.title+'</div>'+(t.sub?'<div class="hub-s">'+t.sub+'</div>':'')+'<div class="hub-ic">'+(ICON2[t.icon]||ICON[t.icon])+'</div>';
         }
         return '<button class="hub-tile '+(t.cls||'small')+(t.soon?' soon':'')+'" style="grid-area:'+t.area+';--d:'+(120+i*80)+'ms;--acc:'+(ACC[t.id]||'#d7263d')+'" data-id="'+t.id+'" data-i="'+i+'">'+
           (t.soon?'<span class="hub-badge">EM BREVE</span>':'')+body+'</button>';
@@ -6307,6 +6363,7 @@ FK.tab=function(name){ var r=_tab.apply(FK,arguments); try{ if(!H.isOpen&&name&&
 
 /* monta */
 var hub=document.createElement('div'); hub.id='fk-hub'; document.body.appendChild(hub);
+document.body.insertAdjacentHTML('afterbegin',ICON2_DEFS); /* gradientes dos icones premium */
 /* botao Menu nas abas + logo volta pro menu */
 var tabs=document.getElementById('tabs');
 if(tabs&&!document.getElementById('tab-hub')){
@@ -6414,11 +6471,18 @@ css.textContent=[
 '.hub-tile .hub-s{font-size:11px;color:#aeb6c6;margin-top:4px;position:relative;z-index:2;max-width:95%}',
 '.hub-ic{flex:1;display:flex;align-items:center;justify-content:center;color:#fff;min-height:0}',
 '.hub-ic svg{width:clamp(34px,4.2vw,64px);height:auto;max-height:70%;transition:transform .2s}',
+'.hub-ic{position:relative}.hub-ic .ac{fill:var(--acc)}.hub-ic .acs{stroke:var(--acc)}',
+'.hub-tile:not(.hero) .hub-ic svg{width:clamp(54px,6vw,96px);position:relative;z-index:1;filter:drop-shadow(0 8px 10px rgba(0,0,0,.55))}',
+'.hub-tile:not(.hero) .hub-ic::before{content:"";position:absolute;width:clamp(100px,11vw,170px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--acc) 26%,transparent),transparent 65%);opacity:.5;transition:opacity .25s}',
+'.hub-tile:not(.hero) .hub-ic::after{content:"";position:absolute;bottom:4%;width:clamp(60px,6vw,96px);height:10px;border-radius:50%;background:radial-gradient(ellipse,rgba(0,0,0,.7),transparent 70%)}',
+'.hub-tile:not(.hero):before{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--acc);opacity:.45;z-index:3}',
+'.hub-tile.focus:not(.hero){background:linear-gradient(180deg,color-mix(in srgb,var(--acc) 13%,var(--panel2)),var(--panel2) 70%)}',
+'.hub-tile.focus:not(.hero) .hub-ic::before{opacity:1}',
 '.hub-tile.big .hub-ic svg{width:clamp(48px,6vw,92px)}',
 '.hub-tile.focus,.hub-tile.soon.focus:not(.hero){background:var(--panel2);box-shadow:0 0 0 1px color-mix(in srgb,var(--acc) 70%,transparent),inset 3px 0 0 var(--acc),0 18px 40px color-mix(in srgb,var(--acc) 28%,transparent);transform:scale(1.015);z-index:3}',
 '.hub-tile.focus .hub-s{color:#e6ebf3}',
 '.hub-tile .hub-ic{color:#e8ecf3;transition:color .2s}.hub-tile.focus .hub-ic{color:var(--acc)}',
-'.hub-tile.focus .hub-ic svg{transform:scale(1.08);filter:drop-shadow(0 0 12px color-mix(in srgb,var(--acc) 60%,transparent))}',
+'.hub-tile.focus .hub-ic svg{transform:scale(1.1) translateY(-3px);filter:drop-shadow(0 0 14px color-mix(in srgb,var(--acc) 65%,transparent)) drop-shadow(0 8px 10px rgba(0,0,0,.6))}',
 '.hub-tile.hero{padding:16px 20px;justify-content:space-between}',
 '.hub-tile.hero.focus{background:var(--panel);box-shadow:0 0 0 2px var(--acc),0 18px 44px color-mix(in srgb,var(--acc) 35%,transparent)}',
 '.hub-art{position:absolute;inset:0;z-index:1;transition:transform .5s ease}',
