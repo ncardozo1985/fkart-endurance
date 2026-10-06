@@ -9093,7 +9093,7 @@ var E=FK.est={
   pickSim:function(k,n){ E._sim=E._sim||{}; E._sim[k]=n; E.render(true); },
   boxNow:function(){ try{ if(FK.countBoxNow)return FK.countBoxNow(); }catch(e){} var n=0; try{ (FK.getData()||[]).forEach(function(x){ if(FK.isKartInBoxNow(x.kart))n++; }); }catch(e){} return n; },
   htmlSim:function(k){
-    var O=E.simOpts(k), h='<section class="q-sec"><h3><i>3</i>E SE…?<span class="q-mut">simulação da próxima parada do #'+esc(k)+'</span></h3>';
+    var O=E.simOpts(k), h='<section class="q-sec"><h3><i>3</i>E SE…?<span class="q-mut">simulação da próxima parada do #'+esc(k)+'</span>'+E.hq('ese')+'</h3>';
     if(!O.length)return h+'<div class="q-empty">Sem leitura da cronometragem para simular.</div></section>';
     if(O[0].r&&O[0].r.done)return h+'<div class="es-val"><div class="v-ok">✓ O #'+esc(k)+' já cumpriu as paradas obrigatórias — parar de novo só custa tempo.</div></div></section>';
     E._sim=E._sim||{}; var selN=E._sim[k]!=null?E._sim[k]:(O.filter(function(x){return x.best;})[0]||O[0]).N, S=(O.filter(function(x){return x.N===selN;})[0]||O[0]), r=S.r;
@@ -9114,7 +9114,7 @@ var E=FK.est={
     return h;
   },
   htmlBox:function(k){
-    var box=E.boxNow(), full=+E.st.rules.boxFull||4, h='<section class="q-sec"><h3><i>⛽</i>BOX AGORA</h3>';
+    var box=E.boxNow(), full=+E.st.rules.boxFull||4, h='<section class="q-sec"><h3><i>⛽</i>BOX AGORA'+E.hq('box')+'</h3>';
     h+='<div class="es-bx"><div class="'+(box>=full?'hot':'')+'"><small>EQUIPES NO BOX</small><b>'+box+'</b><span>'+(box>=full?'box cheio':'box livre')+' · alerta a partir de '+full+'</span></div></div>';
     try{ if(FK.boxAI){ var A=FK.boxAI.analyze(), d=FK.findKartData(FK.getData(),k), V=FK.boxAI.decide(A,k,d); var col={entrar:'#1e9e4a',segurar:'#e5533d',neutro:'#c9a227',aguarde:'#6b7a99',nao:'#6b7a99'}[V.v]||'#6b7a99';
       h+='<div class="es-ai" style="--c:'+col+'"><small>BOX INTELIGENTE · #'+esc(k)+'</small><b>'+esc(V.title)+'</b><span>'+(V.why||'')+'</span></div>';
@@ -9124,9 +9124,44 @@ var E=FK.est={
     return h+'</section>';
   },
   boxNowOld:function(){ var n=0; try{ (FK.getData()||[]).forEach(function(x){ if(FK.isKartInBoxNow(x.kart))n++; }); }catch(e){} return n; },
+  /* ---------- Ajuda: guia completo (? GUIA) + dica por bloco (?) ---------- */
+  HELP:{
+    todos:{t:'Todos os karts',s:'s1',b:'<p>Visão geral de todos os karts da equipe: uma linha do tempo com o plano e o real de cada um e um cartão por kart.</p><p>O cartão mostra a posição na categoria, a posição geral e a etiqueta <b>EQ P#</b> (posição equalizada, descontando as paradas que faltam). Toque no cartão para abrir o kart.</p>'},
+    kpis:{t:'KPIs do kart',s:'s3',b:'<ul><li><b>Posição:</b> na categoria e, embaixo, a geral.</li><li><b>À frente / Atrás:</b> o kart vizinho na categoria e a distância, em segundos ou voltas.</li><li><b>Paradas:</b> feitas sobre as exigidas, curta e longa separadas.</li><li><b>Stint pesado:</b> FEITO ou PENDENTE.</li></ul>'},
+    tl:{t:'Linha do tempo plano × real',s:'s3',b:'<ul><li><b>PLANO</b> (mais claro): os stints previstos, um bloco por piloto. Marca branca = parada curta; marca listrada laranja = longa.</li><li><b>REAL:</b> o que aconteceu, a partir das paradas detectadas e das trocas de piloto registradas. O stint atual pisca.</li><li><b>AGORA:</b> a linha laranja mostra onde estamos.</li></ul><p>Se os blocos real e plano não batem, a prova saiu do plano: use <b>Ajustar ao real</b>. O REAL só mostra o piloto se a troca for registrada no app na hora.</p>'},
+    plano:{t:'1 · Plano de stints',s:'s2',b:'<ol><li><b>Gerar automático:</b> divide o tempo de pista igualmente, alterna os pilotos do kart, põe a longa no meio e marca o 2º stint como pesado (se obrigatório).</li><li>Ajuste <b>Piloto</b>, <b>Min</b>, <b>Parada depois</b> e <b>Pesado</b>. Início e Fim se recalculam.</li><li><b>↑ ↓</b> troca a ordem dos pilotos, <b>✕</b> remove, <b>+ stint</b> acrescenta.</li></ol><p><b>Ajustar ao real</b> (durante a prova): fixa os stints feitos com a duração real, recoloca a longa se ainda faltar e redistribui o resto para fechar na bandeirada. “Não cabe” = remova ou junte um stint.</p>'},
+    val:{t:'✓ Regulamento (validador)',s:'s2',b:'<ul><li><b>✓ verde:</b> está certo.</li><li><b>⚠ amarelo:</b> atenção, não quebra regra (stint muito curto, sem piloto…).</li><li><b>✕ vermelho:</b> quebra o regulamento (faltam paradas, piloto abaixo do mínimo, falta stint pesado…).</li></ul><p>Antes da largada, todos os karts devem estar sem nenhum ✕. Tolerância de 1min30 entre a soma do plano e a duração da prova.</p>'},
+    ese:{t:'3 · E se…?',s:'s5',b:'<p>Compara <b>Parar agora</b>, <b>+2 voltas</b>, <b>+5 voltas</b> e <b>No plano</b>. Já sabe se a próxima parada é curta ou longa.</p><ul><li><b>Posição na pista ao voltar:</b> onde o kart volta e quantas posições perde.</li><li><b>Perda no box:</b> parada + pitlane.</li><li><b>Sai atrás de / à frente de:</b> os vizinhos na volta.</li><li><b>⚠ Tráfego:</b> sai a menos de 2,5 s de outro kart. <b>⚠ Box cheio:</b> risco de fila.</li><li><b>★</b> = melhor opção pelo sistema.</li></ul><p>No meio da prova a posição ao voltar cai bastante (os outros ainda devem box). É normal: compare as opções entre si. Limite: assume que os rivais não param nas próximas voltas.</p>'},
+    box:{t:'Box agora',s:'s5',b:'<ul><li><b>Equipes no box:</b> quantas estão paradas. Destaque a partir do número de <b>Box cheio</b> do regulamento.</li><li><b>Box Inteligente:</b> veredito (ENTRAR, SEGURAR, TANTO FAZ) com a explicação.</li><li><b>Composição estimada:</b> de Tocha (melhor) a Jaca (pior). Box com muitos karts bons = boa hora para entrar; cheio de Jaca = melhor segurar.</li></ul><p><b>Decisão em 3 olhadas:</b> ★ do E se…? → Box Inteligente → aviso de tráfego.</p>'},
+    rivais:{t:'2 · Rivais · classificação equalizada',s:'s4',b:'<p>A <b>posição equalizada</b> soma ao tempo de prova de cada kart o tempo de box que ele ainda deve. Responde “quem está na frente de verdade”.</p><ul><li><b>Faltam:</b> paradas que o kart ainda deve.</li><li><b>Gap equalizado:</b> verde (negativo) = na nossa frente de verdade; branco (positivo) = atrás.</li><li><b>Equalizada ▲/▼:</b> melhor / pior do que parece na pista.</li><li><b>Chegada:</b> projeção de posição na bandeirada.</li></ul><p>Marque quem está com <b>▲</b>: são os rivais perigosos.</p>'},
+    regras:{t:'Regulamento da prova',s:'s2',b:'<p>Vale para todos os karts. Os 6 primeiros campos são os mesmos do Configurar.</p><ul><li><b>Mínimo/Máximo por piloto</b> e <b>Stint máximo:</b> 0 = livre.</li><li><b>Perda no pitlane:</b> segundos de entrada + saída do box, além da parada. Meça no kartódromo.</li><li><b>Box cheio a partir de:</b> quantas equipes paradas contam como box cheio.</li><li><b>Stint pesado:</b> marque se o lastro é obrigatório e o mínimo.</li></ul><p>Use sempre o regulamento oficial da prova.</p>'}
+  },
+  hq:function(id){ return '<button class="es-q" title="O que é isto?" onclick="event.stopPropagation();FK.est.tip(\''+id+'\')">?</button>'; },
+  hEl:function(){ var el=document.getElementById('es-help'); if(!el){ el=document.createElement('div'); el.id='es-help'; el.onclick=function(e){ if(e.target===el)E.helpClose(); }; document.body.appendChild(el); } return el; },
+  tip:function(id){ var H=E.HELP[id]; if(!H)return; var el=E.hEl(); el.className='on tip';
+    el.innerHTML='<div class="eh-box"><div class="eh-hd"><b>'+H.t+'</b><button onclick="FK.est.helpClose()" title="Fechar">✕</button></div><div class="eh-bd">'+H.b+'</div><div class="eh-ft"><button onclick="FK.est.help(\''+H.s+'\')">Ver guia completo ›</button></div></div>'; },
+  helpClose:function(){ var el=document.getElementById('es-help'); if(el){ el.className=''; el.innerHTML=''; } },
+  guide:function(){
+    var H=E.HELP, M=function(n,d,a){ return '<div class="eh-mb'+(a?' a':'')+'"><b>'+n+'</b><span>'+d+'</span></div>'; };
+    var map='<div class="eh-map">'+M('Barra do topo','Relógio · NO BOX AGORA · Clima e ritmo · ? GUIA')+M('Abas de kart','TODOS OS KARTS · uma aba por kart')+M('KPIs','Posição · à frente · atrás · paradas · stint pesado')+M('Linha do tempo','PLANO × REAL × AGORA')+'<div class="eh-m2">'+M('1 · Plano de stints','Gerar · editar · Ajustar ao real')+M('✓ Validador','✓ ok · ⚠ atenção · ✕ quebra regra')+'</div><div class="eh-m2">'+M('3 · E se…?','Agora · +2 · +5 · no plano · ★',1)+M('Box agora','Equipes no box · Box Inteligente',1)+'</div>'+M('2 · Rivais','Gap real × equalizado · ▲▼ · chegada')+M('Regulamento da prova','Vale para todos os karts')+'</div><p class="eh-mut">Em destaque: os blocos usados na hora de chamar o kart.</p>';
+    var S=[
+      ['s1','1. Para que serve e como abrir','<p>A tela Estratégia é o pit wall da equipe: o plano de stints de cada kart, o que já aconteceu na pista, a posição real descontando as paradas que faltam e o melhor momento para chamar o kart.</p><p>Abra pelo botão <b>Estratégia</b> do menu. A barra do topo mostra o relógio da prova, quantas equipes estão no box agora, o atalho <b>Clima e ritmo</b> e este guia.</p><p><b>Abas:</b> <b>TODOS OS KARTS</b> para a visão geral, ou o número do kart para a visão completa. Os karts vêm de Configurar → Meus karts.</p><p><b>Quem edita:</b> administradores e quem tem permissão de Estratégia ou Configurar. O plano fica na nuvem: todos os aparelhos veem o mesmo. A tela se atualiza a cada 5 s.</p>'+map+'<h4>Todos os karts</h4>'+H.todos.b],
+      ['s2','2. Antes da prova: regulamento e plano','<p>O trabalho de verdade acontece antes da largada: regulamento preenchido, plano gerado em cada kart e validador sem nenhum ✕.</p><h4>'+H.regras.t+'</h4>'+H.regras.b+'<h4>'+H.plano.t+'</h4>'+H.plano.b+'<h4>'+H.val.t+'</h4>'+H.val.b],
+      ['s3','3. Durante a prova: KPIs, linha do tempo e Ajustar ao real','<p>A pergunta é sempre: estamos no plano? Se não, toque em <b>Ajustar ao real</b>. Abaixo do validador aparece a frase pronta, ex.: “Stint atual começou 3 min depois do previsto · troca prevista às 1:52”.</p><h4>'+H.kpis.t+'</h4>'+H.kpis.b+'<h4>'+H.tl.t+'</h4>'+H.tl.b],
+      ['s4','4. Rivais e posição equalizada','<p><b>Exemplo:</b> o kart A está 30 s na nossa frente, mas ainda deve uma parada de 6 min que nós já fizemos. Equalizado, estamos 5min30 na frente dele.</p>'+H.rivais.b],
+      ['s5','5. Decidir a parada: E se…? e Box agora','<h4>'+H.ese.t+'</h4>'+H.ese.b+'<h4>'+H.box.t+'</h4>'+H.box.b],
+      ['s6','6. Rotina do chefe de equipe','<h4>Antes da largada</h4><ul class="eh-ck"><li>Conferir Meus karts e os pilotos de cada kart</li><li>Preencher o Regulamento da prova com o regulamento oficial</li><li>Medir a perda no pitlane no kartódromo</li><li>Em cada kart: Gerar automático, ajustar pilotos e minutos, marcar o pesado</li><li>Validador sem nenhum ✕ em todos os karts</li><li>Combinar quem registra as trocas de piloto no app</li></ul><h4>Durante a prova (a cada stint)</h4><ul class="eh-ck"><li>O REAL está acompanhando o PLANO?</li><li>Troca fora do plano → Ajustar ao real e conferir o validador</li><li>Anotar quem está com ▲ na Equalizada</li><li>5 min antes da troca: abrir o E se…? e comparar</li><li>Na hora de chamar: ★ + Box Inteligente + tráfego</li><li>Confirmar que a troca de piloto foi registrada</li></ul><h4>Depois da prova</h4><ul class="eh-ck"><li>Abrir a Análise Pós-corrida</li><li>Comparar plano × real: onde perdemos tempo</li><li>Anotar o que mudar na próxima prova</li></ul>'],
+      ['s7','7. Erros comuns e limites','<ul><li><b>“sem leitura”:</b> o kart não está na sessão ao vivo ou o número está errado em Meus karts.</li><li><b>Campos travados:</b> falta permissão de Estratégia ou Configurar.</li><li><b>REAL sem nome de piloto:</b> troca não registrada no app.</li><li><b>“sobram/faltam minutos”:</b> ajuste os minutos ou use Ajustar ao real.</li><li><b>“Não cabe”:</b> remova ou junte um stint.</li></ul><h4>Limites do simulador</h4><ul><li>Assume que os rivais não param nas próximas voltas.</li><li>Usa o ritmo recente: depois de troca de kart ou piloto, leva algumas voltas para ajustar.</li><li>A perda no box usa o tempo mínimo da parada + pitlane.</li><li>A composição do box é uma estimativa: melhora com mais paradas na prova.</li></ul>']
+    ];
+    return {S:S};
+  },
+  help:function(sec){ var G=E.guide(), el=E.hEl(); el.className='on full';
+    el.innerHTML='<div class="eh-box"><div class="eh-hd"><b>Guia da tela Estratégia</b><button onclick="FK.est.helpClose()" title="Fechar">✕</button></div><div class="eh-toc">'+G.S.map(function(s){ return '<button onclick="FK.est.helpGo(\''+s[0]+'\')">'+s[1].split(':')[0].replace(/^(\d+)\. /,'<i>$1</i>')+'</button>'; }).join('')+'</div><div class="eh-bd" id="eh-bd">'+G.S.map(function(s){ return '<section id="eh-'+s[0]+'"><h3>'+s[1]+'</h3>'+s[2]+'</section>'; }).join('')+'</div></div>';
+    if(sec)setTimeout(function(){ E.helpGo(sec); },30); },
+  helpGo:function(sec){ var b=document.getElementById('eh-bd'), t=document.getElementById('eh-'+sec); if(b&&t)b.scrollTop=t.offsetTop-b.offsetTop-4; },
   /* ---------- tela ---------- */
   open:function(k){ var el=document.getElementById('fk-est'); if(!el)return; E.isOpen=true; if(k)E.sel=String(k); el.classList.add('on'); document.body.classList.add('hub-open'); E.listen(); E.render(); E.hash(); clearInterval(E._iv); E._iv=setInterval(function(){ if(E.isOpen&&!(document.activeElement&&/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)))E.render(true); },5000); },
-  close:function(){ clearInterval(E._iv); var el=document.getElementById('fk-est'); if(el)el.classList.remove('on'); E.isOpen=false; document.body.classList.remove('hub-open'); if(FK.hub)FK.hub.open(); },
+  close:function(){ E.helpClose(); clearInterval(E._iv); var el=document.getElementById('fk-est'); if(el)el.classList.remove('on'); E.isOpen=false; document.body.classList.remove('hub-open'); if(FK.hub)FK.hub.open(); },
   oldPane:function(){ clearInterval(E._iv); var el=document.getElementById('fk-est'); if(el)el.classList.remove('on'); E.isOpen=false; document.body.classList.remove('hub-open'); if(FK.hub&&FK.hub.close)FK.hub.close('estrategia'); },
   pick:function(k){ E.sel=String(k); E.render(); E.hash(); },
   hash:function(){ try{ history.replaceState(null,'',location.pathname+location.search+'#estrategia'+(E.sel&&E.sel!=='all'?'/'+E.sel:'')); }catch(e){} },
@@ -9137,7 +9172,7 @@ var E=FK.est={
     var R=E.reg(), el2=+FK.state.elapsed||0, rem=Math.max(0,R.total-el2), ed=E.canEdit();
     var h='<div class="q-top"><button class="q-back" onclick="FK.est.close()">‹ MENU</button><div class="q-title"><b>Estratégia</b><span>PIT WALL · '+esc(FK.cfg.raceName||'')+' · '+ks.length+' KART'+(ks.length!==1?'S':'')+'</span></div>'+
       '<div class="es-clock"><b>'+hms(el2)+'</b><small>DECORRIDO · RESTAM '+hms(rem)+'</small></div><div class="es-boxk'+(E.boxNow()>=3?' hot':'')+'"><small>NO BOX AGORA</small><b>'+E.boxNow()+'</b></div>'+
-      '<div class="q-mini"><button class="q-btn" onclick="FK.est.oldPane()" title="Clima e leitura de ritmo da tela anterior">Clima e ritmo</button></div></div>';
+      '<div class="q-mini"><button class="q-btn" onclick="FK.est.oldPane()" title="Clima e leitura de ritmo da tela anterior">Clima e ritmo</button><button class="q-btn es-gb" onclick="FK.est.help()" title="Como usar esta tela">? GUIA</button></div></div>';
     h+='<div class="es-tabs">'+(ks.length>1?'<button class="'+(E.sel==='all'?'on':'')+'" onclick="FK.est.pick(\'all\')">TODOS OS KARTS</button>':'')+ks.map(function(k){ var L=E.live(k); return '<button class="'+(E.sel===k?'on':'')+'" style="--k:'+E.kcol(k)+'" onclick="FK.est.pick(\''+k+'\')"><i></i>#'+esc(k)+(L?' <small>P'+L.catPos+' '+esc(L.cat)+'</small>':'')+'</button>'; }).join('')+'</div>';
     h+='<div class="q-body">';
     if(!ks.length){ h+='<section class="q-sec"><div class="q-empty">Nenhum kart da equipe configurado. Defina os karts em Configurar.</div></section>'; }
@@ -9156,7 +9191,7 @@ var E=FK.est={
       '<div><small>ATRÁS'+(L&&L.bh?' · #'+esc(L.bh.kart):'')+'</small><b>'+(L&&L.bh?(L.gbT?L.gbT.replace('+','−'):'—'):(L?'último':'—'))+'</b></div>'+
       '<div><small>PARADAS '+Math.round(R.durS/60)+"'</small><b>"+E.done(k).s+'/'+R.nS+'</b></div>'+
       (R.nL?'<div><small>PARADA '+Math.round(R.durL/60)+"'</small><b>"+E.done(k).l+'/'+R.nL+'</b></div>':'')+
-      '<div class="'+(fl.heavy?'ok':'')+'"><small>STINT PESADO</small><b>'+(fl.heavy?'✓ FEITO':'PENDENTE')+'</b></div>'+
+      '<div class="'+(fl.heavy?'ok':'')+'"><small>STINT PESADO</small><b>'+(fl.heavy?'✓ FEITO':'PENDENTE')+'</b></div>'+'<div class="es-kq">'+E.hq('kpis')+'</div>'+
     '</div>';
   },
   /* linha do tempo: lanes plano/real de um kart */
@@ -9174,7 +9209,7 @@ var E=FK.est={
   axis:function(){ var R=E.reg(), T=Math.max(R.total,1), st=T>4*3600?3600:1800, h='<div class="es-ax">'; for(var t=0;t<=T+1;t+=st)h+='<span style="left:'+(t/T*100)+'%">'+Math.floor(t/3600)+'h'+(t%3600?String(t%3600/60).padStart(2,'0'):'')+'</span>'; return h+'</div>'; },
   now:function(){ var T=Math.max(E.reg().total,1), el=+FK.state.elapsed||0; if(el<=0)return ''; return '<div class="es-now" style="--p:'+Math.min(1,el/T)+'"><b>AGORA '+hm(el)+'</b></div>'; },
   htmlAll:function(ks){
-    var h='<section class="q-sec"><h3><i>⟶</i>TODOS OS KARTS<span class="q-mut">plano × real de cada kart da equipe · toque no número para abrir o kart</span></h3><div class="es-tl">'+E.axis();
+    var h='<section class="q-sec"><h3><i>⟶</i>TODOS OS KARTS<span class="q-mut">plano × real de cada kart da equipe · toque no número para abrir o kart</span>'+E.hq('todos')+'</h3><div class="es-tl">'+E.axis();
     ks.forEach(function(k){ h+='<div class="es-grp" onclick="FK.est.pick(\''+k+'\')">'+E.lanes(k,true)+'</div>'; });
     h+=E.now()+'</div>'+E.legend()+'</section>';
     h+='<div class="es-cards">'+ks.map(function(k){ var L=E.live(k), V=E.check(k), bad=V.filter(function(v){return v.l==='b';}).length, warn=V.filter(function(v){return v.l==='w';}).length, Rl=E.real(k), R=E.reg(k), cur=Rl.stints.filter(function(s){return s.cur;})[0];
@@ -9188,12 +9223,12 @@ var E=FK.est={
   htmlKart:function(k){
     var ed=E.canEdit(), P=E.plan(k), S=E.sched(k), V=E.check(k), ps=E.pilots(k), Rl=E.real(k), el=+FK.state.elapsed||0, R=E.reg(k);
     var h=E.kpis(k);
-    h+='<section class="q-sec"><h3><i>⟶</i>LINHA DO TEMPO · KART #'+esc(k)+'<span class="q-mut">plano × real</span></h3><div class="es-tl big">'+E.axis()+E.lanes(k,false)+E.now()+'</div>'+E.legend()+'</section>';
+    h+='<section class="q-sec"><h3><i>⟶</i>LINHA DO TEMPO · KART #'+esc(k)+'<span class="q-mut">plano × real</span>'+E.hq('tl')+'</h3><div class="es-tl big">'+E.axis()+E.lanes(k,false)+E.now()+'</div>'+E.legend()+'</section>';
     /* plano */
     var stopSel=function(i,v){ return '<select '+(ed?'':'disabled')+' onchange="FK.est.setStint(\''+k+'\','+i+',\'stop\',this.value)">'+[['c',Math.round(R.durS/60)+"' curta"],['l',Math.round(R.durL/60)+"' longa"],['f','🏁 fim']].filter(function(o){ return o[0]!=='l'||R.nL||v==='l'; }).map(function(o){return '<option value="'+o[0]+'"'+(o[0]===v?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>'; };
     var pSel=function(i,v){ var opts=ps.slice(); if(v&&opts.indexOf(v)<0)opts.unshift(v); return '<select '+(ed?'':'disabled')+' onchange="FK.est.setStint(\''+k+'\','+i+',\'p\',this.value)"><option value="">—</option>'+opts.map(function(n){return '<option'+(n===v?' selected':'')+'>'+esc(n)+'</option>';}).join('')+'</select>'; };
     var nReal=Rl.stints.length;
-    h+='<div class="es-g2"><section class="q-sec"><h3><i>1</i>PLANO DE STINTS<span class="q-mut">duração em minutos · horários previstos a partir da largada</span>'+(ed?'<span class="q-mini"><button class="q-btn" onclick="FK.est.gen(\''+k+'\')">'+(P.length?'Regerar':'Gerar automático')+'</button><button class="q-btn" onclick="FK.est.addStint(\''+k+'\')">+ stint</button>'+(el>0&&P.length?'<button class="q-btn pri" onclick="FK.est.fit(\''+k+'\')" title="Stints feitos ficam com a duração real e os próximos são redistribuídos para fechar na bandeirada">Ajustar ao real</button>':'')+'</span>':'')+'</h3>';
+    h+='<div class="es-g2"><section class="q-sec"><h3><i>1</i>PLANO DE STINTS<span class="q-mut">duração em minutos · horários previstos a partir da largada</span>'+(ed?'<span class="q-mini"><button class="q-btn" onclick="FK.est.gen(\''+k+'\')">'+(P.length?'Regerar':'Gerar automático')+'</button><button class="q-btn" onclick="FK.est.addStint(\''+k+'\')">+ stint</button>'+(el>0&&P.length?'<button class="q-btn pri" onclick="FK.est.fit(\''+k+'\')" title="Stints feitos ficam com a duração real e os próximos são redistribuídos para fechar na bandeirada">Ajustar ao real</button>':'')+'</span>':'')+E.hq('plano')+'</h3>';
     if(!P.length)h+='<div class="q-empty">Nenhum plano para este kart. "Gerar automático" divide o tempo pelas paradas do regulamento e reveza os pilotos do kart'+(ps.length?' ('+ps.map(esc).join(', ')+')':'')+'.</div>';
     else h+='<div class="q-tw"><table class="q-tb es-tb"><thead><tr><th>#</th><th>Piloto</th><th>Início</th><th>Fim</th><th>Min</th><th>Parada depois</th><th title="Stint pesado (lastro)">Pesado</th><th>Status</th>'+(ed?'<th></th>':'')+'</tr></thead><tbody>'+
       S.map(function(x,i){ var done=i<nReal-1||(i<nReal&&!Rl.stints[i].cur), cur=i===nReal-1&&Rl.stints[i]&&Rl.stints[i].cur;
@@ -9205,7 +9240,7 @@ var E=FK.est={
     /* tempo por piloto */
     if(P.length){ var tot={}, real={}; P.forEach(function(s){ if(s.p)tot[s.p]=(tot[s.p]||0)+s.min; }); Rl.stints.forEach(function(s){ if(s.p)real[s.p]=(real[s.p]||0)+(s.end-s.start)/60; });
       h+='<div class="es-pt">'+Object.keys(tot).map(function(n){ return '<div><span class="es-dot" style="background:'+E.pcol(n)+'"></span><b>'+esc(n)+'</b><span>'+tot[n]+"' plano"+(real[n]?' · '+Math.round(real[n])+"' feitos":'')+'</span></div>'; }).join('')+'</div>'; }
-    h+='</section><section class="q-sec"><h3><i>✓</i>REGULAMENTO<span class="q-mut">validação do plano do kart #'+esc(k)+'</span></h3><div class="es-val">'+(V.length?V.map(function(v){ return '<div class="v-'+v.l+'">'+(v.l==='ok'?'✓':v.l==='w'?'⚠':'✕')+' '+esc(v.t)+'</div>'; }).join(''):'<div class="q-empty">Gere ou monte um plano para validar.</div>')+'</div>';
+    h+='</section><section class="q-sec"><h3><i>✓</i>REGULAMENTO<span class="q-mut">validação do plano do kart #'+esc(k)+'</span>'+E.hq('val')+'</h3><div class="es-val">'+(V.length?V.map(function(v){ return '<div class="v-'+v.l+'">'+(v.l==='ok'?'✓':v.l==='w'?'⚠':'✕')+' '+esc(v.t)+'</div>'; }).join(''):'<div class="q-empty">Gere ou monte um plano para validar.</div>')+'</div>';
     if(el>0&&P.length){ var curI=nReal-1, sp=S[curI], cr=Rl.stints[curI]; if(sp&&cr){ var late=(cr.start-sp.start); h+='<div class="es-dev '+(Math.abs(late)<120?'ok':'w')+'">'+(Math.abs(late)<120?'No horário do plano':'Stint atual começou '+mm(Math.abs(late))+(late>0?' depois':' antes')+' do previsto')+(cr.cur?' · troca prevista às '+hm(sp.end+late)+' (em '+mm(Math.max(0,sp.end+late-el))+')':'')+'</div>'; } }
     h+='</section></div>';
     h+='<div class="es-g2">'+E.htmlSim(k)+E.htmlBox(k)+'</div>';
@@ -9213,11 +9248,11 @@ var E=FK.est={
     return h;
   },
   htmlRivals:function(k){
-    var Q=E.eq(k); if(!Q)return '<section class="q-sec"><h3><i>2</i>RIVAIS · CLASSIFICAÇÃO EQUALIZADA</h3><div class="q-empty">Sem leitura da cronometragem para o kart #'+esc(k)+'.</div></section>';
+    var Q=E.eq(k); if(!Q)return '<section class="q-sec"><h3><i>2</i>RIVAIS · CLASSIFICAÇÃO EQUALIZADA'+E.hq('rivais')+'</h3><div class="q-empty">Sem leitura da cronometragem para o kart #'+esc(k)+'.</div></section>';
     var fs=function(x){ if(x==null||!isFinite(x))return '—'; var a=Math.abs(x), t=a>=60?Math.floor(a/60)+':'+String((a%60).toFixed(1)).padStart(4,'0').replace('.',','):a.toFixed(1).replace('.',','); return (x>0.05?'+':x<-0.05?'−':'±')+t; };
     var rows=Q.rows, show=rows.filter(function(r,i){ return i<10||r.mine||Math.abs(r.catPos-Q.me.catPos)<=2; });
     var rs=Math.round(Q.D.s/60), rl=Math.round(Q.D.l/60);
-    var h='<section class="q-sec"><h3><i>2</i>RIVAIS · CLASSIFICAÇÃO EQUALIZADA'+(Q.cat?' · '+esc(Q.cat):'')+'<span class="q-mut">gap para o #'+esc(k)+' · equalizado = descontando as paradas que cada um ainda deve ('+(Q.ru.short||0)+'×'+rs+"'"+(Q.ru.long?' + '+Q.ru.long+'×'+rl+"'":'')+')</span></h3>';
+    var h='<section class="q-sec"><h3><i>2</i>RIVAIS · CLASSIFICAÇÃO EQUALIZADA'+(Q.cat?' · '+esc(Q.cat):'')+'<span class="q-mut">gap para o #'+esc(k)+' · equalizado = descontando as paradas que cada um ainda deve ('+(Q.ru.short||0)+'×'+rs+"'"+(Q.ru.long?' + '+Q.ru.long+'×'+rl+"'":'')+')</span>'+E.hq('rivais')+'</h3>';
     h+='<div class="q-tw"><table class="q-tb es-rv"><thead><tr><th>Real</th><th>Kart</th><th>Equipe</th><th>Voltas</th><th>Paradas</th><th>Faltam</th><th>Gap real</th><th>Gap equalizado</th><th>Equalizada</th><th title="Chegada prevista (projeção com ritmo e paradas restantes)">Chegada</th></tr></thead><tbody>'+
       show.map(function(r){ var me=r===Q.me, dv=r.catPos-r.eqPos;
         var gr=me?'—':(r.lapsDiff>=1?'+'+r.lapsDiff+' v':r.lapsDiff<=-1?'−'+(-r.lapsDiff)+' v':fs(r.gReal));
@@ -9236,7 +9271,7 @@ var E=FK.est={
   htmlRules:function(ed){
     var R=E.reg(), r=E.st.rules, dis=ed?'':' disabled';
     var n=function(lb,val,on,u,step){ return '<label class="es-f"><span>'+lb+'</span><div><input type="number" min="0" step="'+(step||1)+'" value="'+val+'"'+dis+' onchange="'+on+'"><em>'+u+'</em></div></label>'; };
-    return '<section class="q-sec es-rules"><h3><i>⚙</i>REGULAMENTO DA PROVA<span class="q-mut">vale para todos os karts · os 6 primeiros campos são os mesmos do Configurar</span></h3><div class="es-fs">'+
+    return '<section class="q-sec es-rules"><h3><i>⚙</i>REGULAMENTO DA PROVA<span class="q-mut">vale para todos os karts · os 6 primeiros campos são os mesmos do Configurar</span>'+E.hq('regras')+'</h3><div class="es-fs">'+
       n('Duração da prova',Math.round(R.total/60),"FK.est.setCfg('raceTotal',Math.round(this.value*60))",'min')+
       n('Paradas curtas obrigatórias',R.nS,"FK.est.setCfg('minPitStops',+this.value)",'paradas')+
       n('Duração da curta',Math.round(R.durS/60*10)/10,"FK.est.setCfg('minPitDurationSec',Math.round(this.value*60))",'min',0.5)+
@@ -9255,7 +9290,7 @@ var E=FK.est={
 E.load();
 
 var box=document.createElement('div'); box.id='fk-est'; document.body.appendChild(box);
-document.addEventListener('keydown',function(e){ if(E.isOpen&&e.key==='Escape'&&!/INPUT|TEXTAREA|SELECT/.test((e.target&&e.target.tagName)||''))E.close(); });
+document.addEventListener('keydown',function(e){ if(e.key==='Escape'){ var hh=document.getElementById('es-help'); if(hh&&hh.className){ E.helpClose(); return; } } if(E.isOpen&&e.key==='Escape'&&!/INPUT|TEXTAREA|SELECT/.test((e.target&&e.target.tagName)||''))E.close(); });
 var _aui=FK.applyAuthUI; if(_aui)FK.applyAuthUI=function(){ var r=_aui.apply(FK,arguments); try{ if(FK.state.authProfile&&FK.state.authProfile.approved)E.listen(); }catch(e){} return r; };
 
 var css=document.createElement('style');
@@ -9304,6 +9339,19 @@ css.textContent=[
 '.es-fs{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px 16px}.es-f{display:flex;flex-direction:column;gap:4px;font-size:11px;color:#9aa4b8}.es-f div{display:flex;align-items:center;gap:6px;color:#c9d1e0;font-size:12px}',
 '.es-f input[type=number]{background:#0f1420;border:1px solid rgba(255,255,255,.2);color:#fff;padding:6px 8px;border-radius:2px;width:80px;font-size:13px}.es-f em{font-style:normal;color:#7f8aa0;font-size:11px}',
 '#fk-est .hub-toast{position:fixed;left:50%;bottom:30px;transform:translate(-50%,20px);background:#fff;color:#000;font-weight:800;font-size:13px;padding:10px 16px;border-radius:3px;opacity:0;transition:all .25s;pointer-events:none}#fk-est .hub-toast.on{opacity:1;transform:translate(-50%,0)}',
+'.es-q{margin-left:8px;flex:none;width:22px;height:22px;border-radius:50%;border:1px solid rgba(255,255,255,.3);background:transparent;color:#c9d1e0;font-weight:900;font-size:12px;cursor:pointer;line-height:1;padding:0;vertical-align:middle}.es-q:hover{border-color:#ff8f00;color:#ff8f00}',
+'.es-kpis .es-kq{background:transparent!important;box-shadow:none!important;display:flex;align-items:center;justify-content:flex-end;padding:0!important}.es-kq .es-q{margin:0}.es-gb{border-color:#ff8f00!important;color:#ffb74d!important}',
+'#es-help{position:fixed;inset:0;z-index:9010;display:none;background:rgba(5,7,12,.72);backdrop-filter:blur(3px);align-items:center;justify-content:center;padding:16px}#es-help.on{display:flex}',
+'#es-help .eh-box{background:#121826;color:#e8ecf3;box-shadow:0 0 0 1px rgba(255,255,255,.12),0 20px 60px rgba(0,0,0,.6);display:flex;flex-direction:column;max-height:calc(100vh - 32px);width:100%;max-width:520px;border-top:3px solid #ff8f00}',
+'#es-help.full .eh-box{max-width:900px;height:calc(100vh - 32px)}',
+'#es-help .eh-hd{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.08)}#es-help .eh-hd b{font-size:16px;font-weight:900;letter-spacing:.5px}#es-help .eh-hd button{margin-left:auto;background:transparent;border:0;color:#c9d1e0;font-size:18px;cursor:pointer}',
+'#es-help .eh-bd{overflow:auto;padding:4px 18px 18px;font-size:14px;line-height:1.55;flex:1}#es-help .eh-bd p{margin:10px 0}#es-help .eh-bd ul,#es-help .eh-bd ol{margin:8px 0;padding-left:20px}#es-help .eh-bd li{margin:5px 0}#es-help .eh-bd b{color:#fff}',
+'#es-help .eh-bd h3{font-size:17px;font-weight:900;color:#ff8f00;margin:22px 0 4px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08)}#es-help .eh-bd section:first-child h3{border-top:0;margin-top:10px}#es-help .eh-bd h4{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#ffb74d;margin:16px 0 2px}',
+'#es-help .eh-ft{padding:10px 16px;border-top:1px solid rgba(255,255,255,.08);text-align:right}#es-help .eh-ft button{background:#ff8f00;color:#000;border:0;font-weight:900;padding:8px 14px;cursor:pointer}',
+'#es-help .eh-toc{display:flex;gap:6px;overflow-x:auto;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,.08);flex:none}#es-help .eh-toc button{flex:none;background:#171b22;border:1px solid rgba(255,255,255,.14);color:#c9d1e0;font-size:12px;font-weight:700;padding:6px 10px;cursor:pointer}#es-help .eh-toc button:hover{border-color:#ff8f00;color:#fff}#es-help .eh-toc i{font-style:normal;color:#ff8f00;margin-right:5px;font-weight:900}',
+'#es-help .eh-map{display:flex;flex-direction:column;gap:6px;margin:14px 0 4px}#es-help .eh-m2{display:grid;grid-template-columns:1fr 1fr;gap:6px}#es-help .eh-mb{background:#171b22;box-shadow:inset 0 0 0 1px rgba(255,255,255,.1);padding:8px 12px}#es-help .eh-mb b{display:block;font-size:13px}#es-help .eh-mb span{font-size:12px;color:#9aa4b8}#es-help .eh-mb.a{box-shadow:inset 0 0 0 2px #ff8f00;background:rgba(255,143,0,.1)}#es-help .eh-mut{font-size:12px;color:#8f9ab0;margin-top:4px}',
+'#es-help ul.eh-ck{list-style:none;padding-left:0}#es-help ul.eh-ck li{padding-left:26px;position:relative}#es-help ul.eh-ck li:before{content:"";position:absolute;left:0;top:4px;width:12px;height:12px;border:2px solid #ff8f00}',
+'@media(max-width:600px){#es-help{padding:0;align-items:flex-end}#es-help .eh-box{max-height:85vh}#es-help.full .eh-box{height:100vh;max-height:100vh}#es-help .eh-m2{grid-template-columns:1fr}}',
 '@media(max-width:900px){.es-g2{grid-template-columns:1fr}.es-clock b{font-size:20px}.es-tl{--lw:64px}.es-lb{left:-64px;width:60px;font-size:9px}}'
 ].join('\n');
 document.head.appendChild(css);
