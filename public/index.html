@@ -8943,7 +8943,9 @@ var E=FK.est={
   canEdit:function(){ try{ var p=FK.state.authProfile; if(!p)return true; return !!(p.isAdmin||(p.permissions&&(p.permissions.estrategia||p.permissions.config))); }catch(e){ return true; } },
   karts:function(){ return ((FK.cfg&&FK.cfg.myKarts)||[]).map(String); },
   kcol:function(k){ var i=E.karts().indexOf(String(k)); return KCOL[(i<0?0:i)%KCOL.length]; },
-  reg:function(){ var c=FK.cfg||{}; return {total:+c.raceTotal||0, nS:+c.minPitStops||0, maxS:+c.maxPitStops||0, durS:+c.minPitDurationSec||0, nL:+c.longPitStops||0, durL:+c.longPitDurationSec||0}; },
+  catOf:function(k){ var L=k?E.live(k):null; return L?L.cat:''; },
+  reg:function(k){ var c=FK.cfg||{}, o=E.reg0(); if(k&&FK.proj&&FK.proj.rulesFor&&c.catRules&&Object.keys(c.catRules).length){ var cat=E.catOf(k); if(cat){ var r=FK.proj.rulesFor(cat); o.nS=r.short; o.nL=r.long; o.cat=cat; } } return o; },
+  reg0:function(){ var c=FK.cfg||{}; return {total:+c.raceTotal||0, nS:+c.minPitStops||0, maxS:+c.maxPitStops||0, durS:+c.minPitDurationSec||0, nL:+c.longPitStops||0, durL:+c.longPitDurationSec||0}; },
   setCfg:function(k,v){ if(!E.canEdit())return; FK.cfg[k]=v; try{ localStorage.setItem('fkart_cfg',JSON.stringify(FK.cfg)); }catch(e){} try{ FK.pushCfgToCloud&&FK.pushCfgToCloud(); }catch(e){} E.render(true); },
   setRule:function(k,v){ if(!E.canEdit())return; E.st.rules[k]=v; E.save(); E.render(true); },
   /* pilotos elegiveis do kart: Config (kartPilots) > fila de pilotos > cadastro */
@@ -8955,7 +8957,7 @@ var E=FK.est={
   pcol:function(n){ if(!n)return '#5b6372'; var all=[]; E.karts().forEach(function(k){ E.pilots(k).forEach(function(p){ if(all.indexOf(p)<0)all.push(p); }); (E.st.plans[k]||[]).forEach(function(s){ if(s.p&&all.indexOf(s.p)<0)all.push(s.p); }); }); var i=all.indexOf(n); if(i<0){ var h=0; for(var j=0;j<n.length;j++)h=(h*31+n.charCodeAt(j))%PAL.length; i=h; } return PAL[i%PAL.length]; },
   /* ---------- plano ---------- */
   gen:function(k){
-    if(!E.canEdit())return; var R=E.reg(), ps=E.pilots(k), nStops=R.nS+R.nL, n=nStops+1;
+    if(!E.canEdit())return; var R=E.reg(k), ps=E.pilots(k), nStops=R.nS+R.nL, n=nStops+1;
     if(!R.total){ E.toast('Configure a duração da prova no regulamento'); return; }
     var drive=Math.max(60*n,R.total-R.nS*R.durS-R.nL*R.durL), base=Math.floor(drive/n/60);
     var out=[], longAt=R.nL?Math.floor(n/2)-1:-1;
@@ -8968,7 +8970,7 @@ var E=FK.est={
   /* recalcula a partir do real: stints feitos ficam com a duracao real; o que falta e
      redistribuido (proporcional ao plano) para fechar exatamente na bandeirada */
   fit:function(k){
-    if(!E.canEdit())return; var P=E.plan(k), Rl=E.real(k), R=E.reg(); if(!P.length)return;
+    if(!E.canEdit())return; var P=E.plan(k), Rl=E.real(k), R=E.reg(k); if(!P.length)return;
     var cur=Rl.stints.length-1; if(cur<0){ E.toast('A prova ainda não começou'); return; }
     var doneL=0;
     for(var i=0;i<cur&&i<P.length;i++){ P[i].min=Math.max(1,Math.round((Rl.stints[i].end-Rl.stints[i].start)/60)); var lg=!!(Rl.stints[i].pit&&Rl.stints[i].pit.long); P[i].stop=lg?'l':'c'; if(lg)doneL++; }
@@ -8990,7 +8992,7 @@ var E=FK.est={
   delStint:function(k,i){ if(!E.canEdit())return; var P=E.plan(k); P.splice(i,1); if(P.length)P[P.length-1].stop='f'; E.save(); E.render(true); },
   moveStint:function(k,i,d){ if(!E.canEdit())return; var P=E.plan(k), j=i+d; if(j<0||j>=P.length)return; var a=P[i]; P[i]=P[j]; P[j]=a; var stops=P.map(function(s){return s.stop;}); /* mantem a ordem das paradas onde estavam */ P.forEach(function(s,x){ s.stop=stops[x]; }); P[i].stop=stops[i]; P[j].stop=stops[j]; E.save(); E.render(true); },
   /* agenda com horarios: duracao de cada parada vem do regulamento */
-  sched:function(k){ var R=E.reg(), t=0; return E.plan(k).map(function(s){ var st=t, en=t+s.min*60, pd=s.stop==='l'?R.durL:(s.stop==='c'?R.durS:0); t=en+pd; return {s:s,start:st,end:en,pit:pd}; }); },
+  sched:function(k){ var R=E.reg(k), t=0; return E.plan(k).map(function(s){ var st=t, en=t+s.min*60, pd=s.stop==='l'?R.durL:(s.stop==='c'?R.durS:0); t=en+pd; return {s:s,start:st,end:en,pit:pd}; }); },
   /* ---------- real (paradas detectadas + trocas de piloto) ---------- */
   real:function(k){
     var el=+FK.state.elapsed||0, now=Date.now(), toT=function(ms){ return el-(now-ms)/1000; };
@@ -9004,7 +9006,7 @@ var E=FK.est={
   },
   /* ---------- validador ---------- */
   check:function(k){
-    var R=E.reg(), P=E.plan(k), r=E.st.rules, out=[]; if(!P.length)return out;
+    var R=E.reg(k), P=E.plan(k), r=E.st.rules, out=[]; if(!P.length)return out;
     var S=E.sched(k), endT=S.length?S[S.length-1].end:0, diff=endT-R.total;
     if(R.total&&Math.abs(diff)>90)out.push({l:diff>0?'b':'w',t:'O plano soma '+hm(endT)+' e a prova tem '+hm(R.total)+' ('+(diff>0?'sobram ':'faltam ')+mm(Math.abs(diff))+' de pilotagem)'});
     else if(R.total)out.push({l:'ok',t:'Plano fecha com a duração da prova ('+hm(R.total)+')'});
@@ -9029,7 +9031,42 @@ var E=FK.est={
     var g=function(x){ try{ return FK.parseGapSec(x.gap); }catch(e){ return null; } }, gd=g(d);
     var ah=ci>0?cd[ci-1]:null, bh=ci>=0&&ci<cd.length-1?cd[ci+1]:null;
     var ga=ah&&gd!=null&&g(ah)!=null?gd-g(ah):null, gb=bh&&gd!=null&&g(bh)!=null?g(bh)-gd:null;
-    return {d:d,cat:cat,catPos:ci+1,pos:d.pos,ah:ah,bh:bh,ga:ga,gb:gb};
+    var pc=null; try{ pc=FK.proj&&FK.proj.pitCounts?FK.proj.pitCounts(d):null; }catch(e){}
+    return {d:d,cat:cat,catPos:ci+1,pos:d.pos,ah:ah,bh:bh,ga:ga,gb:gb,gaT:E.gapTxt(ah,d),gbT:E.gapTxt(d,bh),pc:pc};
+  },
+  /* distancia entre dois karts (a na frente de b): em voltas quando a diferenca e de volta, senao em segundos */
+  gapTxt:function(a,b){
+    if(!a||!b)return null; var dl=(+a.laps||0)-(+b.laps||0);
+    if(dl>=1)return '+'+dl+' volta'+(dl>1?'s':'');
+    if(a.totalTimeSec!=null&&b.totalTimeSec!=null)return '+'+Math.abs(b.totalTimeSec-a.totalTimeSec).toFixed(2).replace('.',',');
+    var g=function(x){ try{ return FK.parseGapSec(x.gap); }catch(e){ return null; } }, ga=g(a), gb=g(b);
+    if(ga!=null&&gb!=null)return '+'+Math.abs(gb-ga).toFixed(2).replace('.',',');
+    if(+b.pos===+a.pos+1){ var df=g({gap:b.diff}); if(df!=null)return '+'+Math.abs(df).toFixed(2).replace('.',','); }
+    return null;
+  },
+  done:function(k){ var Rl=E.real(k), L=E.live(k), pc=L&&L.pc; return {s:Math.max(Rl.nS,pc?pc.short||0:0), l:Math.max(Rl.nL,pc?pc.long||0:0)}; },
+  /* ---------- Fase 2: classificacao equalizada (desconta o box que cada um ainda deve) ---------- */
+  eq:function(k){
+    var data=[]; try{ data=FK.getData()||[]; }catch(e){} var me=FK.findKartData?FK.findKartData(data,k):null; if(!me)return null;
+    var cat=String(me.cat||'').trim().toUpperCase(), rows=data.filter(function(d){ return !cat||String(d.cat||'').trim().toUpperCase()===cat; });
+    var PJ={}; try{ PJ=FK.proj&&FK.proj.projectFinish?FK.proj.projectFinish(data):{}; }catch(e){}
+    var R0=E.reg0(), D=(FK.proj&&FK.proj.durs)?FK.proj.durs():{s:R0.durS||360,l:R0.durL||600};
+    var ru=(FK.proj&&FK.proj.rulesFor)?FK.proj.rulesFor(cat):{short:R0.nS,long:R0.nL};
+    var lap=function(d){ var pj=PJ[d.kart]; return (pj&&pj.pace)||FK.parseT(d.best)||60; }, mp=lap(me);
+    var g=function(d){ try{ return FK.parseGapSec(d.gap); }catch(e){ return null; } };
+    var out=rows.map(function(d){
+      var pj=PJ[d.kart]||null, pc={short:d.pit6||0,long:d.pit10||0}; try{ if(FK.proj&&FK.proj.pitCounts)pc=FK.proj.pitCounts(d); }catch(e){}
+      var remS=Math.max(0,(ru.short||0)-(pc.short||0)), remL=Math.max(0,(ru.long||0)-(pc.long||0));
+      var cost=remS*D.s+remL*D.l; /* tempo parado que ainda deve (igual para todos: compara so o que falta) */
+      var tl=d.totalTimeSec!=null?d.totalTimeSec:((g(d)!=null?g(d):0)+(+d.pos||0)*0.001);
+      var raw=-(+d.laps||0)*mp+tl;
+      return {d:d,pc:pc,remS:remS,remL:remL,cost:cost,raw:raw,eq:raw+cost,proj:pj?pj.catPos:null,mine:FK.isMy?FK.isMy(d.kart):false};
+    });
+    var m=out.filter(function(r){return r.d===me;})[0];
+    out.slice().sort(function(a,b){return a.eq-b.eq;}).forEach(function(r,i){ r.eqPos=i+1; });
+    out.sort(function(a,b){ return ((+a.d.catPos||0)-(+b.d.catPos||0))||((+a.d.pos||0)-(+b.d.pos||0)); });
+    out.forEach(function(r,i){ r.catPos=+r.d.catPos||i+1; r.gReal=r.raw-m.raw; r.gEq=r.eq-m.eq; r.lapsDiff=(+m.d.laps||0)-(+r.d.laps||0); });
+    return {rows:out,me:m,cat:cat,ru:ru,D:D,mp:mp};
   },
   boxNow:function(){ var n=0; try{ (FK.getData()||[]).forEach(function(x){ if(FK.isKartInBoxNow(x.kart))n++; }); }catch(e){} return n; },
   /* ---------- tela ---------- */
@@ -9056,14 +9093,14 @@ var E=FK.est={
     el.innerHTML=h; if(keep){ var nb=el.querySelector('.q-body'); if(nb)nb.scrollTop=sc; }
   },
   kpis:function(k){
-    var L=E.live(k), R=E.reg(), Rl=E.real(k), fl=(FK.state.pqFlags&&FK.state.pqFlags[k])||{};
+    var L=E.live(k), R=E.reg(k), Rl=E.real(k), fl=(FK.state.pqFlags&&FK.state.pqFlags[k])||{};
     var f=function(v){ return v==null?'—':(v>=0?'+':'−')+Math.abs(v).toFixed(2).replace('.',','); };
     return '<div class="es-kpis">'+
       '<div class="pos"><small>POSIÇÃO '+esc(L?L.cat||'':'')+'</small><b>'+(L?'P'+L.catPos:'—')+'</b>'+(L?'<i>P'+esc(L.pos)+' geral</i>':'')+'</div>'+
-      '<div><small>À FRENTE'+(L&&L.ah?' · #'+esc(L.ah.kart):'')+'</small><b>'+(L?(L.ah?f(L.ga):'líder'):'—')+'</b></div>'+
-      '<div><small>ATRÁS'+(L&&L.bh?' · #'+esc(L.bh.kart):'')+'</small><b>'+(L&&L.bh&&L.gb!=null?'−'+Math.abs(L.gb).toFixed(2).replace('.',','):(L&&!L.bh?'último':'—'))+'</b></div>'+
-      '<div><small>PARADAS '+Math.round(R.durS/60)+"'</small><b>"+Rl.nS+'/'+R.nS+'</b></div>'+
-      (R.nL?'<div><small>PARADA '+Math.round(R.durL/60)+"'</small><b>"+Rl.nL+'/'+R.nL+'</b></div>':'')+
+      '<div><small>À FRENTE'+(L&&L.ah?' · #'+esc(L.ah.kart):'')+'</small><b>'+(L?(L.ah?(L.gaT||'—'):'líder'):'—')+'</b></div>'+
+      '<div><small>ATRÁS'+(L&&L.bh?' · #'+esc(L.bh.kart):'')+'</small><b>'+(L&&L.bh?(L.gbT?L.gbT.replace('+','−'):'—'):(L?'último':'—'))+'</b></div>'+
+      '<div><small>PARADAS '+Math.round(R.durS/60)+"'</small><b>"+E.done(k).s+'/'+R.nS+'</b></div>'+
+      (R.nL?'<div><small>PARADA '+Math.round(R.durL/60)+"'</small><b>"+E.done(k).l+'/'+R.nL+'</b></div>':'')+
       '<div class="'+(fl.heavy?'ok':'')+'"><small>STINT PESADO</small><b>'+(fl.heavy?'✓ FEITO':'PENDENTE')+'</b></div>'+
     '</div>';
   },
@@ -9085,16 +9122,16 @@ var E=FK.est={
     var h='<section class="q-sec"><h3><i>⟶</i>TODOS OS KARTS<span class="q-mut">plano × real de cada kart da equipe · toque no número para abrir o kart</span></h3><div class="es-tl">'+E.axis();
     ks.forEach(function(k){ h+='<div class="es-grp" onclick="FK.est.pick(\''+k+'\')">'+E.lanes(k,true)+'</div>'; });
     h+=E.now()+'</div>'+E.legend()+'</section>';
-    h+='<div class="es-cards">'+ks.map(function(k){ var L=E.live(k), V=E.check(k), bad=V.filter(function(v){return v.l==='b';}).length, warn=V.filter(function(v){return v.l==='w';}).length, Rl=E.real(k), R=E.reg(), cur=Rl.stints.filter(function(s){return s.cur;})[0];
-      return '<button class="es-card" style="--k:'+E.kcol(k)+'" onclick="FK.est.pick(\''+k+'\')"><div class="es-ch"><b>#'+esc(k)+'</b><span>'+(L?'P'+L.catPos+' '+esc(L.cat)+' · P'+esc(L.pos)+' geral':'sem leitura')+'</span></div>'+
-        '<div class="es-cr"><div><small>NA PISTA</small><b>'+esc((cur&&cur.p)||'—')+'</b></div><div><small>STINT ATUAL</small><b>'+(cur?mm(cur.end-cur.start):'—')+'</b></div><div><small>PARADAS</small><b>'+Rl.nS+'/'+R.nS+(R.nL?' · '+Rl.nL+'/'+R.nL:'')+'</b></div></div>'+
+    h+='<div class="es-cards">'+ks.map(function(k){ var L=E.live(k), V=E.check(k), bad=V.filter(function(v){return v.l==='b';}).length, warn=V.filter(function(v){return v.l==='w';}).length, Rl=E.real(k), R=E.reg(k), cur=Rl.stints.filter(function(s){return s.cur;})[0];
+      return '<button class="es-card" style="--k:'+E.kcol(k)+'" onclick="FK.est.pick(\''+k+'\')"><div class="es-ch"><b>#'+esc(k)+'</b><span>'+(L?'P'+L.catPos+' '+esc(L.cat)+' · P'+esc(L.pos)+' geral':'sem leitura')+'</span>'+(function(){ var Q=E.eq(k); return Q?'<em class="es-eqb" title="Posição equalizada (descontando as paradas que faltam)">EQ P'+Q.me.eqPos+'</em>':''; })()+'</div>'+
+        '<div class="es-cr"><div><small>NA PISTA</small><b>'+esc((cur&&cur.p)||'—')+'</b></div><div><small>STINT ATUAL</small><b>'+(cur?mm(cur.end-cur.start):'—')+'</b></div><div><small>PARADAS</small><b>'+E.done(k).s+'/'+R.nS+(R.nL?' · '+E.done(k).l+'/'+R.nL:'')+'</b></div></div>'+
         '<div class="es-cv '+(bad?'b':warn?'w':'ok')+'">'+(!E.plan(k).length?'Sem plano ainda':bad?'✕ '+bad+' problema(s) no plano':warn?'⚠ '+warn+' aviso(s) no plano':'✓ Plano dentro do regulamento')+'</div></button>'; }).join('')+'</div>';
     return h;
   },
   legend:function(){ var names=[]; E.karts().forEach(function(k){ E.plan(k).forEach(function(s){ if(s.p&&names.indexOf(s.p)<0)names.push(s.p); }); });
     var R=E.reg(); return '<div class="es-leg">'+names.map(function(n){ return '<span><i style="background:'+E.pcol(n)+'"></i>'+esc(n)+'</span>'; }).join('')+'<span><i class="hvl"></i>stint pesado</span><span><i style="background:#fff"></i>parada '+Math.round(R.durS/60)+"'</span>"+(R.nL?'<span><i class="ll"></i>parada '+Math.round(R.durL/60)+"'</span>":'')+'</div>'; },
   htmlKart:function(k){
-    var ed=E.canEdit(), P=E.plan(k), S=E.sched(k), V=E.check(k), ps=E.pilots(k), Rl=E.real(k), el=+FK.state.elapsed||0, R=E.reg();
+    var ed=E.canEdit(), P=E.plan(k), S=E.sched(k), V=E.check(k), ps=E.pilots(k), Rl=E.real(k), el=+FK.state.elapsed||0, R=E.reg(k);
     var h=E.kpis(k);
     h+='<section class="q-sec"><h3><i>⟶</i>LINHA DO TEMPO · KART #'+esc(k)+'<span class="q-mut">plano × real</span></h3><div class="es-tl big">'+E.axis()+E.lanes(k,false)+E.now()+'</div>'+E.legend()+'</section>';
     /* plano */
@@ -9116,6 +9153,28 @@ var E=FK.est={
     h+='</section><section class="q-sec"><h3><i>✓</i>REGULAMENTO<span class="q-mut">validação do plano do kart #'+esc(k)+'</span></h3><div class="es-val">'+(V.length?V.map(function(v){ return '<div class="v-'+v.l+'">'+(v.l==='ok'?'✓':v.l==='w'?'⚠':'✕')+' '+esc(v.t)+'</div>'; }).join(''):'<div class="q-empty">Gere ou monte um plano para validar.</div>')+'</div>';
     if(el>0&&P.length){ var curI=nReal-1, sp=S[curI], cr=Rl.stints[curI]; if(sp&&cr){ var late=(cr.start-sp.start); h+='<div class="es-dev '+(Math.abs(late)<120?'ok':'w')+'">'+(Math.abs(late)<120?'No horário do plano':'Stint atual começou '+mm(Math.abs(late))+(late>0?' depois':' antes')+' do previsto')+(cr.cur?' · troca prevista às '+hm(sp.end+late)+' (em '+mm(Math.max(0,sp.end+late-el))+')':'')+'</div>'; } }
     h+='</section></div>';
+    h+=E.htmlRivals(k);
+    return h;
+  },
+  htmlRivals:function(k){
+    var Q=E.eq(k); if(!Q)return '<section class="q-sec"><h3><i>2</i>RIVAIS · CLASSIFICAÇÃO EQUALIZADA</h3><div class="q-empty">Sem leitura da cronometragem para o kart #'+esc(k)+'.</div></section>';
+    var fs=function(x){ if(x==null||!isFinite(x))return '—'; var a=Math.abs(x), t=a>=60?Math.floor(a/60)+':'+String((a%60).toFixed(1)).padStart(4,'0').replace('.',','):a.toFixed(1).replace('.',','); return (x>0.05?'+':x<-0.05?'−':'±')+t; };
+    var rows=Q.rows, show=rows.filter(function(r,i){ return i<10||r.mine||Math.abs(r.catPos-Q.me.catPos)<=2; });
+    var rs=Math.round(Q.D.s/60), rl=Math.round(Q.D.l/60);
+    var h='<section class="q-sec"><h3><i>2</i>RIVAIS · CLASSIFICAÇÃO EQUALIZADA'+(Q.cat?' · '+esc(Q.cat):'')+'<span class="q-mut">gap para o #'+esc(k)+' · equalizado = descontando as paradas que cada um ainda deve ('+(Q.ru.short||0)+'×'+rs+"'"+(Q.ru.long?' + '+Q.ru.long+'×'+rl+"'":'')+')</span></h3>';
+    h+='<div class="q-tw"><table class="q-tb es-rv"><thead><tr><th>Real</th><th>Kart</th><th>Equipe</th><th>Voltas</th><th>Paradas</th><th>Faltam</th><th>Gap real</th><th>Gap equalizado</th><th>Equalizada</th><th title="Chegada prevista (projeção com ritmo e paradas restantes)">Chegada</th></tr></thead><tbody>'+
+      show.map(function(r){ var me=r===Q.me, dv=r.catPos-r.eqPos;
+        var gr=me?'—':(r.lapsDiff>=1?'+'+r.lapsDiff+' v':r.lapsDiff<=-1?'−'+(-r.lapsDiff)+' v':fs(r.gReal));
+        var falt=(r.remS?r.remS+'×'+rs+"'":'')+(r.remL?(r.remS?' + ':'')+r.remL+'×'+rl+"'":'')||'<span class="es-st-ok">nenhuma</span>';
+        return '<tr class="'+(me?'me':r.mine?'mine':'')+'"><td><b>P'+r.catPos+'</b></td><td><span class="q-k">'+esc(r.d.kart)+'</span></td><td class="es-eqn">'+esc(r.d.equipe||r.d.t||'')+'</td><td>'+(r.d.laps||0)+'</td><td>'+(r.pc.short||0)+(Q.ru.long?' + '+(r.pc.long||0):'')+'</td><td>'+falt+'</td>'+
+          '<td class="q-t">'+gr+'</td><td class="q-t '+(me?'':r.gEq<0?'es-ahead':'es-behind')+'">'+(me?'—':fs(r.gEq))+'</td>'+
+          '<td><b>P'+r.eqPos+'</b> '+(dv>0?'<span class="es-up">▲'+dv+'</span>':dv<0?'<span class="es-dn">▼'+(-dv)+'</span>':'<span class="q-mut">=</span>')+'</td><td>'+(r.proj?'P'+r.proj:'—')+'</td></tr>'; }).join('')+
+      '</tbody></table></div>';
+    var up=rows.filter(function(r){ return r!==Q.me&&r.catPos>Q.me.catPos&&r.eqPos<Q.me.eqPos; }), dn=rows.filter(function(r){ return r!==Q.me&&r.catPos<Q.me.catPos&&r.eqPos>Q.me.eqPos; });
+    var msg='Na pista o #'+esc(k)+' é <b>P'+Q.me.catPos+'</b>; descontando as paradas que faltam, é <b>P'+Q.me.eqPos+'</b>.';
+    if(up.length)msg+=' Atenção: '+up.map(function(r){return '#'+esc(r.d.kart);}).join(', ')+' '+(up.length>1?'estão':'está')+' atrás na pista, mas na frente de verdade (já cumpriram mais paradas).';
+    if(dn.length)msg+=' '+dn.map(function(r){return '#'+esc(r.d.kart);}).join(', ')+' '+(dn.length>1?'estão':'está')+' na frente na pista, mas ainda '+(dn.length>1?'devem':'deve')+' mais box que nós.';
+    h+='<div class="es-read">'+msg+'</div><div class="q-note">Gap equalizado = diferença de tempo de prova + tempo de box que cada kart ainda precisa cumprir. Negativo (verde) = está à frente do #'+esc(k)+' de verdade. "Chegada" é a projeção de posição na bandeirada, com ritmo recente e paradas restantes.</div></section>';
     return h;
   },
   htmlRules:function(ed){
@@ -9167,6 +9226,10 @@ css.textContent=[
 '.es-ch{display:flex;align-items:baseline;gap:10px}.es-ch b{font-size:24px;font-style:italic;color:var(--k)}.es-ch span{font-size:12px;color:#c9d1e0}',
 '.es-cr{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:8px}.es-cr small{display:block;font-size:9px;letter-spacing:1.3px;color:#8f9ab0;font-weight:800}.es-cr b{font-size:14px}',
 '.es-cv{font-size:12px;padding:6px 8px}.es-cv.ok,.es-val .v-ok,.es-dev.ok{background:rgba(47,191,113,.1);color:#8fe3b4}.es-cv.w,.es-val .v-w,.es-dev.w{background:rgba(242,194,48,.1);color:#f5d777}.es-cv.b,.es-val .v-b{background:rgba(255,90,90,.12);color:#ff9a9a}',
+'.es-rv tr.me td{background:rgba(255,143,0,.14);font-weight:800}.es-rv tr.me td:first-child{box-shadow:inset 3px 0 0 #ff8f00}.es-rv tr.mine td{background:rgba(255,255,255,.04)}',
+'.es-eqn{max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.es-ahead{color:#2fbf71;font-weight:800}.es-behind{color:#c9d1e0}.es-up{color:#2fbf71;font-weight:900;font-size:11px}.es-dn{color:#ff6b6b;font-weight:900;font-size:11px}',
+'.es-read{margin-top:10px;font-size:13px;padding:9px 12px;background:rgba(255,143,0,.08);box-shadow:inset 3px 0 0 #ff8f00;line-height:1.45}',
+'.es-eqb{margin-left:auto;font-style:normal;font-size:11px;font-weight:900;background:#ff8f00;color:#000;padding:2px 7px}',
 '.es-g2{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px;align-items:start}.es-g2>section{min-width:0}',
 '.es-tb select,.es-tb input[type=number]{background:#0f1420;border:1px solid rgba(255,255,255,.2);color:#fff;padding:4px 6px;border-radius:2px;font-size:12px}.es-tb input[type=number]{width:62px}.es-tb select{max-width:150px}',
 '.es-tb tr.cur td{background:rgba(255,143,0,.12)}.es-tb tr.done td{opacity:.6}.es-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}',
