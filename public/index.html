@@ -6586,9 +6586,16 @@ var S=FK.sorteio={
     if(b===2)S.st.b1.duplas.forEach(function(d){ S.eachPair(d,function(x,y){S.addP(av,x,y,'s');}); d.forEach(function(p){S.addK(kv,p.n,p.k,'s');}); });
     var hs=S.histFor('qualy',S.st.sid);
     hs.forEach(function(h){ ['b1','b2'].forEach(function(bb){ var r=h[bb]; if(!r)return; r.duplas.forEach(function(d){ S.eachPair(d,function(x,y){S.addP(av,x,y,'h');}); d.forEach(function(p){S.addK(kv,p.n,p.k,'h');}); }); }); });
-    var P=S.pairs(names,av), K=S.assign(names,S.st.karts.slice(),kv);
+    var P=S.pairs(names,av), K, keep=b===2&&!!S.st.rules.keepKart;
+    if(keep){ /* opcao 06/10/2026: cada piloto continua com o kart da Bateria 1, so as duplas mudam */
+      var km={}, used={}; S.st.b1.duplas.forEach(function(d){ d.forEach(function(p){ km[lc(p.n)]=p.k; }); });
+      var map={}, novos=[]; names.forEach(function(n){ var k=km[lc(n)]; if(k!=null&&!used[k]){ map[n]=k; used[k]=1; } else novos.push(n); });
+      if(novos.length){ var livres=S.st.karts.filter(function(k){return !used[k];}); if(livres.length<novos.length){ S.msg('Faltam karts livres para os pilotos que não correram a Bateria 1.'); return; }
+        var K2=S.assign(novos,livres,{}); novos.forEach(function(n){ map[n]=K2.map[n]; }); }
+      K={map:map,repSess:0,repHist:0,novos:novos.length};
+    } else K=S.assign(names,S.st.karts.slice(),kv);
     S.st['b'+b]={at:Date.now(), duplas:P.duplas.map(function(d){ return d.map(function(n){ return {n:n,k:K.map[n]}; }); }),
-      repDuplas:P.repSess, repKarts:K.repSess, repHistD:P.repHist, repHistK:K.repHist, histN:hs.length, pilotos:names.length};
+      repDuplas:P.repSess, repKarts:K.repSess, repHistD:P.repHist, repHistK:keep?0:K.repHist, histN:hs.length, pilotos:names.length, keepKart:keep||undefined, novosK:keep&&K.novos||undefined};
     if(b===1&&S.st.b2){ S.st.b2=null; }
     if(!S.st.title)S.st.title='Treino de Qualy '+dayTxt();
     S.toHist('qualy'); S.seen=S.lastAt(); S.save(); S.render();
@@ -6750,6 +6757,7 @@ var S=FK.sorteio={
   warnHTML:function(r,prova){
     var w='';
     if(r.repDuplas)w+='<div class="st-warn">⚠ '+r.repDuplas+' dupla(s) repetida(s) da Bateria 1 (não havia combinação sem repetir)</div>';
+    if(r.keepKart)w+='<div class="st-hinfo">🔒 Mesmo kart da Bateria 1 para cada piloto · só as duplas foram sorteadas'+(r.novosK?' ('+r.novosK+' piloto(s) novo(s) receberam kart livre)':'')+'</div>';
     if(r.repKarts)w+='<div class="st-warn">⚠ '+r.repKarts+' repetiram kart '+(prova?'de turno anterior':'da Bateria 1')+' (poucos karts disponíveis)</div>';
     var hn=r.histN||0;
     if(hn){ var hd=r.repHistD||0, hk=r.repHistK||0;
@@ -6775,8 +6783,8 @@ var S=FK.sorteio={
     return '<section class="st-sec"><h3><i>'+n+'</i>KARTS DISPONÍVEIS'+(ed?'<span class="st-mini"><button onclick="FK.sorteio.pasteK()">digitar lista</button><button onclick="FK.sorteio.clearK()">limpar</button></span>':'')+'</h3>'+
       '<div class="st-kgrid">'+Array.apply(null,Array(99)).map(function(_,i){ var k=i+1, on=S.st.karts.indexOf(k)>=0; return '<button class="st-kb'+(on?' on':'')+'" '+(ed?'':'disabled')+' onclick="FK.sorteio.toggleK('+k+')">'+pad(k)+'</button>'; }).join('')+'</div></section>';
   },
-  rulesHTML:function(ed){ var r=S.st.rules;
-    return '<div class="st-rules"><label><input type="checkbox" '+(r.hist?'checked':'')+' '+(ed?'':'disabled')+' onchange="FK.sorteio.setRule(\'hist\',this.checked)"> Evitar repetir duplas e karts dos últimos</label> <select '+(ed?'':'disabled')+' onchange="FK.sorteio.setRule(\'histN\',+this.value)">'+[1,2,3,4,5,6,8,10].map(function(n){return '<option'+(n===r.histN?' selected':'')+'>'+n+'</option>';}).join('')+'</select> sorteios do histórico <small>(a regra da Bateria 2 e dos turnos tem prioridade)</small></div>'; },
+  rulesHTML:function(ed,qualy){ var r=S.st.rules;
+    return (qualy?'<div class="st-rules st-keep"><label><input type="checkbox" '+(r.keepKart?'checked':'')+' '+(ed?'':'disabled')+' onchange="FK.sorteio.setRule(\'keepKart\',this.checked)"> <b>Bateria 2 com o mesmo kart da Bateria 1</b> — cada piloto repete o kart, só as duplas mudam</label></div>':'')+'<div class="st-rules"><label><input type="checkbox" '+(r.hist?'checked':'')+' '+(ed?'':'disabled')+' onchange="FK.sorteio.setRule(\'hist\',this.checked)"> Evitar repetir duplas e karts dos últimos</label> <select '+(ed?'':'disabled')+' onchange="FK.sorteio.setRule(\'histN\',+this.value)">'+[1,2,3,4,5,6,8,10].map(function(n){return '<option'+(n===r.histN?' selected':'')+'>'+n+'</option>';}).join('')+'</select> sorteios do histórico <small>(a regra da Bateria 2 e dos turnos tem prioridade)</small></div>'; },
   histHTML:function(ed){
     if(!S.hist.length)return '<div class="st-empty">Nenhum sorteio salvo ainda. Todo sorteio feito aqui entra automaticamente no histórico.</div>';
     return '<div class="st-hlist">'+S.hist.map(function(h){
@@ -6826,9 +6834,9 @@ var S=FK.sorteio={
           '<div class="st-extras-t">Pilotos extras (convidados / fora do cadastro)</div><div class="st-extras">'+S.st.extras.map(function(v,i){ return '<input type="text" placeholder="Nome '+(i+1)+'" value="'+esc(v)+'" '+(ed?'':'disabled')+' oninput="FK.sorteio.setExtra('+i+',this.value)">'; }).join('')+'</div>'+
         '</section>'+S.kartsSec(ed,2)+
         '<section class="st-sec st-res"><h3><i>3</i>SORTEIO</h3><div class="st-trow"><label>NOME</label><input type="text" class="st-ttl" value="'+esc(S.st.title)+'" placeholder="Treino de Qualy '+dayTxt()+'" '+(ed?'':'disabled')+' oninput="FK.sorteio.setTitle(\'qualy\',this.value)"></div>'+
-          '<div class="st-counts" id="st-counts"></div>'+(ed?S.rulesHTML(ed):'')+
+          '<div class="st-counts" id="st-counts"></div>'+(ed?S.rulesHTML(ed,true):'')+
           (ed?'<div class="st-btns"><button class="st-draw b1" onclick="FK.sorteio.draw(1)">🎲 '+(S.st.b1?'Refazer':'Sortear')+' Bateria 1</button><button class="st-draw b2" onclick="FK.sorteio.draw(2)">🎲 '+(S.st.b2?'Refazer':'Sortear')+' Bateria 2</button>'+((S.st.b1||S.st.b2)?'<button class="st-clear" onclick="FK.sorteio.novo(\'qualy\')">novo sorteio</button>':'')+'</div>':'<div class="st-empty">Só quem configura a prova pode sortear. Você está vendo o resultado ao vivo.</div>')+
-          '<div class="st-bats"><div class="st-col"><h4>BATERIA 1</h4>'+S.resultHTML(1)+'</div><div class="st-col"><h4>BATERIA 2 <small>duplas novas · kart diferente</small></h4>'+S.resultHTML(2)+'</div></div>'+
+          '<div class="st-bats"><div class="st-col"><h4>BATERIA 1</h4>'+S.resultHTML(1)+'</div><div class="st-col"><h4>BATERIA 2 <small>duplas novas · '+(S.st.rules.keepKart?'mesmo kart':'kart diferente')+'</small></h4>'+S.resultHTML(2)+'</div></div>'+
         '</section></div>';
     }
     el.innerHTML=html+'<div class="hub-toast" id="st-toast"></div>';
@@ -6875,6 +6883,7 @@ css.textContent=[
 '.st-extras input,.st-ttl,.st-parts,.st-rules select{background:#0f1420;border:1px solid rgba(255,255,255,.15);color:#fff;padding:8px 10px;border-radius:2px;font-size:13px;font-family:inherit}',
 '.st-parts{width:100%;box-sizing:border-box;resize:vertical;line-height:1.5}',
 '.st-trow{display:flex;align-items:center;gap:10px;margin-bottom:10px}.st-trow label{font-size:11px;letter-spacing:1px;color:#9aa4b8;font-weight:800}.st-ttl{flex:1;max-width:380px;min-width:0}',
+'.st-keep{background:rgba(242,169,0,.1);box-shadow:inset 3px 0 0 #f2a900;padding:8px 10px;margin-bottom:8px!important}.st-keep b{color:#fff}',
 '.st-rules{font-size:12px;color:#c9d1e0;margin:0 0 12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}.st-rules small{color:#7f8aa0}.st-rules select{padding:3px 6px}',
 '.st-kgrid{display:grid;grid-template-columns:repeat(10,1fr);gap:4px}',
 '.st-kb{background:#1a2030;color:#7f8aa0;border:1px solid rgba(255,255,255,.08);padding:7px 0;font-weight:800;font-size:13px;border-radius:2px;cursor:pointer;font-variant-numeric:tabular-nums}',
