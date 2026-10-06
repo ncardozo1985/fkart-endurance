@@ -8926,7 +8926,7 @@ var KCOL=['#ff8f00','#4fc3f7','#b06cff','#2fbf71','#ff5a3d','#f2c230'];
 
 var E=FK.est={
   st:null, isOpen:false, sel:'all',
-  DEF_RULES:{minPilotMin:0, maxPilotMin:0, maxStintMin:0, heavyMin:40, requireHeavy:false},
+  DEF_RULES:{minPilotMin:0, maxPilotMin:0, maxStintMin:0, heavyMin:40, requireHeavy:false, laneLossSec:20, boxFull:4},
   load:function(){ try{ E.st=JSON.parse(localStorage.getItem(LS)||'null'); }catch(e){} if(!E.st)E.st={plans:{},rules:{},updatedAt:0}; E.st.plans=E.st.plans||{}; E.st.rules=Object.assign({},E.DEF_RULES,E.st.rules||{}); },
   save:function(){
     E.st.updatedAt=Date.now(); try{ localStorage.setItem(LS,JSON.stringify(E.st)); }catch(e){}
@@ -9060,7 +9060,7 @@ var E=FK.est={
       var cost=remS*D.s+remL*D.l; /* tempo parado que ainda deve (igual para todos: compara so o que falta) */
       var tl=d.totalTimeSec!=null?d.totalTimeSec:((g(d)!=null?g(d):0)+(+d.pos||0)*0.001);
       var raw=-(+d.laps||0)*mp+tl;
-      return {d:d,pc:pc,remS:remS,remL:remL,cost:cost,raw:raw,eq:raw+cost,proj:pj?pj.catPos:null,mine:FK.isMy?FK.isMy(d.kart):false};
+      return {d:d,pc:pc,remS:remS,remL:remL,cost:cost,raw:raw,eq:raw+cost,proj:pj?pj.catPos:null,pace:lap(d),mine:FK.isMy?FK.isMy(d.kart):false};
     });
     var m=out.filter(function(r){return r.d===me;})[0];
     out.slice().sort(function(a,b){return a.eq-b.eq;}).forEach(function(r,i){ r.eqPos=i+1; });
@@ -9068,7 +9068,62 @@ var E=FK.est={
     out.forEach(function(r,i){ r.catPos=+r.d.catPos||i+1; r.gReal=r.raw-m.raw; r.gEq=r.eq-m.eq; r.lapsDiff=(+m.d.laps||0)-(+r.d.laps||0); });
     return {rows:out,me:m,cat:cat,ru:ru,D:D,mp:mp};
   },
-  boxNow:function(){ var n=0; try{ (FK.getData()||[]).forEach(function(x){ if(FK.isKartInBoxNow(x.kart))n++; }); }catch(e){} return n; },
+  /* ---------- Fase 3: simulador "E se...?" ---------- */
+  nextStop:function(k,Q){ var P=E.plan(k), Rl=E.real(k), i=Rl.stints.length-1, me=Q.me;
+    var t=(P[i]&&P[i].stop==='l')?'l':(P[i]&&P[i].stop==='c')?'c':(me.remS>0?'c':(me.remL>0?'l':null));
+    if(t==='l'&&me.remL<=0)t=me.remS>0?'c':null; if(t==='c'&&me.remS<=0)t=me.remL>0?'l':null;
+    var S=E.sched(k), at=null; if(S[i]&&Rl.stints[i]){ var late=Rl.stints[i].start-S[i].start; at=S[i].end+late; }
+    return {type:t, at:at}; },
+  sim:function(k,N){
+    var Q=E.eq(k); if(!Q)return null; var me=Q.me, mp=me.pace||Q.mp, ns=E.nextStop(k,Q); if(!ns.type)return {Q:Q,done:true};
+    var dur=ns.type==='l'?Q.D.l:Q.D.s, loss=dur+(+E.st.rules.laneLossSec||0);
+    var ds=Q.rows.filter(function(r){return r!==me;}).map(function(r){ return {r:r,d:(r.raw-me.raw)+((r.pace||mp)-mp)*N-loss}; });
+    var ah=ds.filter(function(x){return x.d<0;}), bh=ds.filter(function(x){return x.d>=0;});
+    var na=ah.sort(function(a,b){return b.d-a.d;})[0], nb=bh.sort(function(a,b){return a.d-b.d;})[0];
+    var traffic=(na&&-na.d<2.5)||(nb&&nb.d<2.5);
+    var eqs=Q.rows.map(function(r){ return {r:r,v:r.eq+((r.pace||mp)-mp)*N}; }).sort(function(a,b){return a.v-b.v;}), eqPos=1; eqs.forEach(function(x,i){ if(x.r===me)eqPos=i+1; });
+    return {Q:Q,N:N,type:ns.type,dur:dur,loss:loss,pos:ah.length+1,posNow:me.catPos,na:na,nb:nb,traffic:!!traffic,eqPos:eqPos,at:(+FK.state.elapsed||0)+N*mp};
+  },
+  simOpts:function(k){ var Q=E.eq(k); if(!Q)return []; var ns=E.nextStop(k,Q), mp=Q.me.pace||Q.mp, el=+FK.state.elapsed||0, o=[{N:0,lb:'Parar agora'},{N:2,lb:'+2 voltas'},{N:5,lb:'+5 voltas'}];
+    if(ns.at!=null&&ns.at>el+mp){ var n=Math.round((ns.at-el)/mp); if([0,2,5].indexOf(n)<0)o.push({N:n,lb:'No plano ('+hm(ns.at)+')'}); }
+    var box=E.boxNow(), full=+E.st.rules.boxFull||4;
+    o.forEach(function(x){ x.r=E.sim(k,x.N); if(x.r&&!x.r.done)x.score=x.r.pos+(x.r.traffic?0.6:0)+(x.N===0&&box>=full?0.8:0)+x.N*0.01; });
+    var best=o.filter(function(x){return x.score!=null;}).sort(function(a,b){return a.score-b.score;})[0]; if(best)best.best=true;
+    return o; },
+  pickSim:function(k,n){ E._sim=E._sim||{}; E._sim[k]=n; E.render(true); },
+  boxNow:function(){ try{ if(FK.countBoxNow)return FK.countBoxNow(); }catch(e){} var n=0; try{ (FK.getData()||[]).forEach(function(x){ if(FK.isKartInBoxNow(x.kart))n++; }); }catch(e){} return n; },
+  htmlSim:function(k){
+    var O=E.simOpts(k), h='<section class="q-sec"><h3><i>3</i>E SE…?<span class="q-mut">simulação da próxima parada do #'+esc(k)+'</span></h3>';
+    if(!O.length)return h+'<div class="q-empty">Sem leitura da cronometragem para simular.</div></section>';
+    if(O[0].r&&O[0].r.done)return h+'<div class="es-val"><div class="v-ok">✓ O #'+esc(k)+' já cumpriu as paradas obrigatórias — parar de novo só custa tempo.</div></div></section>';
+    E._sim=E._sim||{}; var selN=E._sim[k]!=null?E._sim[k]:(O.filter(function(x){return x.best;})[0]||O[0]).N, S=(O.filter(function(x){return x.N===selN;})[0]||O[0]), r=S.r;
+    var f=function(x){ return x.toFixed(1).replace('.',','); };
+    h+='<div class="es-sb">'+O.map(function(x){ return '<button class="'+(x.N===S.N?'on':'')+(x.best?' best':'')+'" onclick="FK.est.pickSim(\''+k+'\','+x.N+')">'+x.lb+(x.best?' <b>★</b>':'')+'</button>'; }).join('')+'</div>';
+    h+='<div class="es-sr">'+
+      '<div><small>POSIÇÃO NA PISTA AO VOLTAR</small><b>P'+r.pos+'</b><span>'+(r.pos>r.posNow?'perde '+(r.pos-r.posNow):r.pos<r.posNow?'ganha '+(r.posNow-r.pos):'mantém')+' · hoje P'+r.posNow+'</span></div>'+
+      '<div><small>PERDA NO BOX</small><b>'+Math.floor(r.loss/60)+':'+String(Math.round(r.loss%60)).padStart(2,'0')+'</b><span>'+Math.round(r.dur/60)+"' "+(r.type==='l'?'longa':'curta')+' + pitlane</span></div>'+
+      '<div><small>SAI ATRÁS DE</small><b>'+(r.na?'#'+esc(r.na.r.d.kart):'ninguém')+'</b><span>'+(r.na?'por '+f(-r.na.d)+' s':'na frente da categoria')+'</span></div>'+
+      '<div><small>SAI À FRENTE DE</small><b>'+(r.nb?'#'+esc(r.nb.r.d.kart):'ninguém')+'</b><span>'+(r.nb?'com '+f(r.nb.d)+' s':'')+'</span></div>'+
+    '</div>';
+    var box=E.boxNow(), full=+E.st.rules.boxFull||4, best=O.filter(function(x){return x.best;})[0];
+    var notes=[]; if(r.traffic)notes.push('<div class="v-w">⚠ Volta no meio de tráfego (menos de 2,5 s de outro kart)</div>'); if(S.N===0&&box>=full)notes.push('<div class="v-w">⚠ Box cheio: '+box+' equipes paradas agora — risco de fila na troca</div>');
+    notes.push('<div class="v-ok">Equalizado continua P'+r.eqPos+' (a parada só paga o que já era devido)</div>');
+    if(best)notes.push('<div class="es-best">★ Melhor opção agora: <b>'+best.lb+'</b> — volta em P'+best.r.pos+(best.r.traffic?' (com tráfego)':' com pista livre')+'</div>');
+    h+='<div class="es-val" style="margin-top:10px">'+notes.join('')+'</div>';
+    h+='<div class="q-note">Considera o ritmo recente de cada kart e que os rivais não param nas próximas voltas. Perda no box = parada obrigatória + '+(+E.st.rules.laneLossSec||0)+' s de pitlane (ajuste no regulamento).</div></section>';
+    return h;
+  },
+  htmlBox:function(k){
+    var box=E.boxNow(), full=+E.st.rules.boxFull||4, h='<section class="q-sec"><h3><i>⛽</i>BOX AGORA</h3>';
+    h+='<div class="es-bx"><div class="'+(box>=full?'hot':'')+'"><small>EQUIPES NO BOX</small><b>'+box+'</b><span>'+(box>=full?'box cheio':'box livre')+' · alerta a partir de '+full+'</span></div></div>';
+    try{ if(FK.boxAI){ var A=FK.boxAI.analyze(), d=FK.findKartData(FK.getData(),k), V=FK.boxAI.decide(A,k,d); var col={entrar:'#1e9e4a',segurar:'#e5533d',neutro:'#c9a227',aguarde:'#6b7a99',nao:'#6b7a99'}[V.v]||'#6b7a99';
+      h+='<div class="es-ai" style="--c:'+col+'"><small>BOX INTELIGENTE · #'+esc(k)+'</small><b>'+esc(V.title)+'</b><span>'+(V.why||'')+'</span></div>';
+      var T=[['tocha','Tocha','#9b5de5'],['otimo','Ótimo','#1e9e4a'],['bom','Bom','#8bc34a'],['regular','Regular','#f2c230'],['ruim','Ruim','#ef5b3f'],['jaca','Jaca','#8b1e1e']], tot=A.totW||1;
+      h+='<div class="es-comp"><small>COMPOSIÇÃO ESTIMADA DO BOX ('+A.nEvents+' paradas analisadas)</small><div class="es-cb">'+T.map(function(t){ var w=(A.comp[t[0]]||0)/tot*100; return w>0.5?'<i style="width:'+w+'%;background:'+t[2]+'" title="'+t[1]+' '+Math.round(w)+'%"></i>':''; }).join('')+(A.unk/tot*100>0.5?'<i style="width:'+(A.unk/tot*100)+'%;background:#2a303b" title="sem ficha"></i>':'')+'</div><div class="es-cl">'+T.map(function(t){ return '<span><em style="background:'+t[2]+'"></em>'+t[1]+'</span>'; }).join('')+'<span><em style="background:#2a303b"></em>sem ficha</span></div></div>';
+    } }catch(e){ h+='<div class="q-empty">Box Inteligente indisponível ('+esc(e.message)+')</div>'; }
+    return h+'</section>';
+  },
+  boxNowOld:function(){ var n=0; try{ (FK.getData()||[]).forEach(function(x){ if(FK.isKartInBoxNow(x.kart))n++; }); }catch(e){} return n; },
   /* ---------- tela ---------- */
   open:function(k){ var el=document.getElementById('fk-est'); if(!el)return; E.isOpen=true; if(k)E.sel=String(k); el.classList.add('on'); document.body.classList.add('hub-open'); E.listen(); E.render(); E.hash(); clearInterval(E._iv); E._iv=setInterval(function(){ if(E.isOpen&&!(document.activeElement&&/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)))E.render(true); },5000); },
   close:function(){ clearInterval(E._iv); var el=document.getElementById('fk-est'); if(el)el.classList.remove('on'); E.isOpen=false; document.body.classList.remove('hub-open'); if(FK.hub)FK.hub.open(); },
@@ -9153,6 +9208,7 @@ var E=FK.est={
     h+='</section><section class="q-sec"><h3><i>✓</i>REGULAMENTO<span class="q-mut">validação do plano do kart #'+esc(k)+'</span></h3><div class="es-val">'+(V.length?V.map(function(v){ return '<div class="v-'+v.l+'">'+(v.l==='ok'?'✓':v.l==='w'?'⚠':'✕')+' '+esc(v.t)+'</div>'; }).join(''):'<div class="q-empty">Gere ou monte um plano para validar.</div>')+'</div>';
     if(el>0&&P.length){ var curI=nReal-1, sp=S[curI], cr=Rl.stints[curI]; if(sp&&cr){ var late=(cr.start-sp.start); h+='<div class="es-dev '+(Math.abs(late)<120?'ok':'w')+'">'+(Math.abs(late)<120?'No horário do plano':'Stint atual começou '+mm(Math.abs(late))+(late>0?' depois':' antes')+' do previsto')+(cr.cur?' · troca prevista às '+hm(sp.end+late)+' (em '+mm(Math.max(0,sp.end+late-el))+')':'')+'</div>'; } }
     h+='</section></div>';
+    h+='<div class="es-g2">'+E.htmlSim(k)+E.htmlBox(k)+'</div>';
     h+=E.htmlRivals(k);
     return h;
   },
@@ -9190,6 +9246,8 @@ var E=FK.est={
       n('Mínimo por piloto',r.minPilotMin,"FK.est.setRule('minPilotMin',+this.value)",'min · 0 = livre')+
       n('Máximo por piloto',r.maxPilotMin,"FK.est.setRule('maxPilotMin',+this.value)",'min · 0 = livre')+
       n('Stint máximo',r.maxStintMin,"FK.est.setRule('maxStintMin',+this.value)",'min · 0 = livre')+
+      n('Perda no pitlane',r.laneLossSec,"FK.est.setRule('laneLossSec',+this.value)",'s · entrada + saída')+
+      n('Box cheio a partir de',r.boxFull,"FK.est.setRule('boxFull',+this.value)",'equipes')+
       '<label class="es-f"><span>Stint pesado (lastro)</span><div><input type="checkbox" '+(r.requireHeavy?'checked':'')+dis+' onchange="FK.est.setRule(\'requireHeavy\',this.checked)"> obrigatório, mínimo <input type="number" min="0" value="'+r.heavyMin+'"'+dis+' style="width:56px" onchange="FK.est.setRule(\'heavyMin\',+this.value)"><em>min</em></div></label>'+
     '</div></section>';
   }
@@ -9230,6 +9288,12 @@ css.textContent=[
 '.es-eqn{max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.es-ahead{color:#2fbf71;font-weight:800}.es-behind{color:#c9d1e0}.es-up{color:#2fbf71;font-weight:900;font-size:11px}.es-dn{color:#ff6b6b;font-weight:900;font-size:11px}',
 '.es-read{margin-top:10px;font-size:13px;padding:9px 12px;background:rgba(255,143,0,.08);box-shadow:inset 3px 0 0 #ff8f00;line-height:1.45}',
 '.es-eqb{margin-left:auto;font-style:normal;font-size:11px;font-weight:900;background:#ff8f00;color:#000;padding:2px 7px}',
+'.es-sb{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}.es-sb button{flex:1;min-width:110px;background:#171b22;border:1px solid rgba(255,255,255,.18);color:#fff;font-weight:800;padding:9px 8px;font-size:12px;cursor:pointer}.es-sb button.on{background:#ff8f00;border-color:#ff8f00;color:#000}.es-sb button.best:not(.on){border-color:#2fbf71}.es-sb b{color:#2fbf71}.es-sb .on b{color:#000}',
+'.es-sr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.es-sr div{background:#171b22;padding:10px 12px}.es-sr small,.es-bx small,.es-ai small,.es-comp small{display:block;font-size:9px;letter-spacing:1.5px;color:#8f9ab0;font-weight:800}.es-sr b{font-size:24px;font-weight:900}.es-sr span{display:block;font-size:11px;color:#c9d1e0}',
+'.es-best{background:rgba(47,191,113,.12);color:#bff0d3;font-size:13px;padding:9px 12px;box-shadow:inset 3px 0 0 #2fbf71}',
+'.es-bx div{background:#171b22;padding:10px 12px}.es-bx b{font-size:30px;font-weight:900}.es-bx span{display:block;font-size:11px;color:#c9d1e0}.es-bx .hot{box-shadow:inset 0 0 0 1px #f2c230;background:rgba(242,194,48,.1)}.es-bx .hot b{color:#f2c230}',
+'.es-ai{margin-top:10px;background:#171b22;padding:10px 12px;box-shadow:inset 3px 0 0 var(--c)}.es-ai b{display:block;font-size:20px;color:var(--c);font-weight:900;margin:2px 0}.es-ai span{font-size:12px;color:#c9d1e0;line-height:1.45}',
+'.es-comp{margin-top:10px}.es-cb{display:flex;height:16px;margin-top:6px;background:#2a303b}.es-cb i{display:block;height:100%}.es-cl{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font-size:10px;color:#c9d1e0}.es-cl em{display:inline-block;width:10px;height:10px;margin-right:4px;vertical-align:-1px}',
 '.es-g2{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px;align-items:start}.es-g2>section{min-width:0}',
 '.es-tb select,.es-tb input[type=number]{background:#0f1420;border:1px solid rgba(255,255,255,.2);color:#fff;padding:4px 6px;border-radius:2px;font-size:12px}.es-tb input[type=number]{width:62px}.es-tb select{max-width:150px}',
 '.es-tb tr.cur td{background:rgba(255,143,0,.12)}.es-tb tr.done td{opacity:.6}.es-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}',
