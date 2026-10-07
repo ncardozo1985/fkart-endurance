@@ -9503,6 +9503,195 @@ document.head.appendChild(css2);
 A.probe(); A.ui(); A.splash(); setInterval(A.tick,700);
 })();
 </script>
+<script>
+/* =====================================================================================
+   ENDURANCE · VISUAL NOVO (07/10/2026) -- reveste o Dashboard Geral (pane-dashgeral) no
+   estilo pit wall da Estrategia SEM trocar a logica: os mesmos elementos (#dg-krono-grid,
+   #dg-rank-body, #dg-bxi-body, #dg-pace-comp, #dg-laphist-body, #dg-radio-chief) continuam
+   sendo desenhados pelas funcoes de sempre; aqui so muda a disposicao (karts da equipe +
+   classificacao na esquerda, Box/Pace/Voltas na direita, radio fixo no rodape) e o CSS.
+   Botao "Visual classico" volta ao layout antigo na hora (localStorage fk_endvis).
+   ===================================================================================== */
+(function(){
+if(typeof FK==='undefined')return;
+var LS='fk_endvis';
+var V=FK.endv={
+  pref:function(){ try{ return localStorage.getItem(LS)||'novo'; }catch(e){ return 'novo'; } },
+  set:function(v){ try{ localStorage.setItem(LS,v); }catch(e){} V.apply(); },
+  toggle:function(){ V.set(V.pref()==='novo'?'classico':'novo'); },
+  active:function(){ var p=document.getElementById('pane-dashgeral'); return !!(p&&p.classList.contains('on')&&!document.body.classList.contains('theme-light')&&!(FK.hub&&FK.hub.isOpen)); },
+  parts:function(){
+    var root=document.querySelector('#pane-dashgeral .dash-root'); if(!root)return null;
+    var card=function(id){ var e=document.getElementById(id); return e?e.closest('.dash-card'):null; };
+    var cols=root.querySelector('.dash-cols'); if(!cols||cols.children.length<2)return null;
+    return {root:root,cols:cols,c1:cols.children[0],c2:cols.children[1],team:card('dg-krono-grid'),rank:card('dg-rank-body'),hist:card('dg-laphist-body'),pace:card('dg-pace-comp'),box:card('dg-bxi-body'),radio:document.getElementById('dg-radio-chief-card')};
+  },
+  on:false,
+  apply:function(){
+    var want=V.pref()==='novo'&&V.active(), P=V.parts(); if(!P)return;
+    var tg=V.btn(); if(tg){ tg.style.display=(document.getElementById('pane-dashgeral')||{classList:{contains:function(){return false;}}}).classList.contains('on')?'':'none'; tg.textContent=V.pref()==='novo'?'VISUAL CLÁSSICO':'VISUAL NOVO'; }
+    if(want===V.on){ if(want)V.decorate(P); return; }
+    V.on=want; document.documentElement.classList.toggle('evn',want);
+    if(want){
+      if(P.team)P.c1.insertBefore(P.team,P.c1.firstChild);
+      [P.box,P.pace,P.hist].forEach(function(c){ if(c)P.c2.appendChild(c); });
+      [['team',P.team],['rank',P.rank],['hist',P.hist],['pace',P.pace],['box',P.box],['radio',P.radio]].forEach(function(x){ if(x[1])x[1].classList.add('ev-'+x[0]); });
+      V.decorate(P);
+    } else {
+      if(P.team)P.root.insertBefore(P.team,P.cols);
+      [P.hist,P.pace,P.box].forEach(function(c){ if(c)P.c2.appendChild(c); });
+      var sg=document.getElementById('ev-seg'); if(sg)sg.remove();
+      document.querySelectorAll('#dg-krono-grid .ev-next').forEach(function(e){ e.remove(); });
+    }
+  },
+  btn:function(){
+    var b=document.getElementById('ev-tg'); if(b)return b;
+    var host=document.querySelector('.topbar-badges'); if(!host)return null;
+    b=document.createElement('button'); b.id='ev-tg'; b.type='button'; b.title='Alternar entre o visual novo e o clássico do Dashboard';
+    b.onclick=function(e){ e.stopPropagation(); V.toggle(); }; host.appendChild(b); return b;
+  },
+  hm:function(sec){ sec=Math.max(0,Math.round(sec)); return Math.floor(sec/3600)+':'+String(Math.floor(sec%3600/60)).padStart(2,'0'); },
+  next:function(k){
+    var E=FK.est; if(!E||!E.plan)return null;
+    try{ var P=E.plan(k); if(!P.length)return null; var S=E.sched(k), Rl=E.real(k), i=Rl.stints.length-1; if(i<0||!S[i]||!Rl.stints[i]||!P[i+1])return null;
+      var late=Rl.stints[i].start-S[i].start, at=S[i].end+late, el=+FK.state.elapsed||0;
+      return {at:at,inMin:Math.max(0,Math.round((at-el)/60)),p:P[i+1].p||'',stop:P[i].stop}; }catch(e){ return null; }
+  },
+  decorate:function(P){
+    var g=document.getElementById('dg-krono-grid'); if(!g)return;
+    var cards=g.querySelectorAll('.krono-card'); g.setAttribute('data-n',cards.length);
+    cards.forEach(function(c){
+      var k=(c.id||'').replace(/^kcard-/,'').replace(/-dg$/,''); if(!k)return;
+      try{ if(FK.est&&FK.est.kcol)c.style.setProperty('--k',FK.est.kcol(k)); }catch(e){}
+      var b=c.querySelector('.krono-badge'); if(b&&!b.dataset.ev){ b.dataset.ev=1; }
+      var n=V.next(k), el=c.querySelector('.ev-next');
+      if(!n){ if(el)el.remove(); return; }
+      if(!el){ el=document.createElement('div'); el.className='ev-next'; c.appendChild(el); }
+      var s=n.stop==='l'?"longa":n.stop==='c'?'curta':'';
+      var h='<em>PRÓX. TROCA '+V.hm(n.at)+' · EM '+n.inMin+"'</em><span>"+(n.p?String(n.p).replace(/[<>&]/g,''):'')+(s?' · '+s:'')+'</span>';
+      if(el.innerHTML!==h)el.innerHTML=h;
+    });
+    /* radio: botoes por kart no lugar do select */
+    var sel=document.getElementById('dg-radio-target'), rc=document.querySelector('#dg-radio-chief .rc3');
+    if(sel&&rc){
+      var seg=document.getElementById('ev-seg'), opts=[].map.call(sel.options,function(o){ return [o.value,o.textContent.replace(/^Kart /,'#')]; });
+      var sig=opts.map(function(o){return o[0];}).join(',');
+      if(!seg||seg.dataset.sig!==sig||seg.parentNode!==rc){ if(seg)seg.remove(); seg=document.createElement('div'); seg.id='ev-seg'; seg.dataset.sig=sig;
+        seg.innerHTML=opts.map(function(o){ return '<button type="button" data-v="'+o[0]+'">'+(o[0]==='todos'?'TODOS':o[1])+'</button>'; }).join('');
+        seg.onclick=function(e){ var t=e.target.closest('button'); if(!t)return; sel.value=t.getAttribute('data-v'); try{ sel.dispatchEvent(new Event('change')); }catch(x){} V.segSync(); };
+        rc.insertBefore(seg,rc.firstChild); }
+      V.segSync();
+    }
+  },
+  segSync:function(){ var sel=document.getElementById('dg-radio-target'), seg=document.getElementById('ev-seg'); if(!sel||!seg)return; [].forEach.call(seg.children,function(b){ b.classList.toggle('on',b.getAttribute('data-v')===sel.value); }); }
+};
+setInterval(V.apply,700);
+if(document.readyState!=='loading')setTimeout(V.apply,50); else document.addEventListener('DOMContentLoaded',function(){ setTimeout(V.apply,50); });
+
+var css=document.createElement('style');
+css.textContent=[
+'#ev-tg{margin-top:2px;background:transparent;border:1px solid #d7263d;color:#ff8a95;font-size:9px;font-weight:900;letter-spacing:1.2px;padding:3px 8px;cursor:pointer;border-radius:2px}#ev-tg:hover{background:#d7263d;color:#fff}',
+/* ---- fundo e topo ---- */
+'html.evn body{background:radial-gradient(1100px 520px at 85% -10%,rgba(215,38,61,.16),transparent 60%),linear-gradient(180deg,#0b0f18,#121826 60%,#0a0d14)}',
+'html.evn .topbar{background:rgba(8,10,16,.82);border-bottom:1px solid rgba(255,255,255,.08);padding:8px 16px;gap:14px}',
+'html.evn .hdr-stack,html.evn .hdr-leader{flex-direction:row;gap:4px;border-left:0;padding-left:0}',
+'html.evn .hdr-stack-row{flex-direction:column;align-items:flex-start;gap:0;background:#0f1420;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);padding:5px 12px;min-width:104px}',
+'html.evn .hdr-stack-row .hs-lbl{width:auto;font-size:9px;letter-spacing:1.5px;color:#8f9ab0;font-weight:800}',
+'html.evn .hdr-stack-row .hs-val{font-size:22px;line-height:1.1;font-family:inherit;font-weight:900}',
+'html.evn .hdr-stack>.hdr-stack-row:first-child{box-shadow:inset 3px 0 0 #d7263d,inset 0 0 0 1px rgba(255,255,255,.08)}html.evn .hdr-stack>.hdr-stack-row:first-child .hs-val{font-size:26px}',
+'html.evn .hdr-stack-row.acc .hs-val{color:#f2c230}',
+'html.evn .hdr-leader{position:relative}html.evn .hdr-leader .hs-leader{position:absolute;left:12px;bottom:4px;font-size:10px;color:#c9d1e0;font-weight:600;max-width:120px;overflow:hidden;text-overflow:ellipsis}',
+'html.evn .hdr-leader>.hdr-stack-row:first-child{padding-bottom:18px}',
+'html.evn .tabs-wx{border-left:0}',
+/* ---- conteudo ---- */
+'html.evn #pane-dashgeral{padding-bottom:96px}',
+'html.evn #pane-dashgeral .dash-root{gap:14px}',
+'html.evn #pane-dashgeral .dash-cols{display:grid!important;grid-template-columns:minmax(0,1.65fr) minmax(0,1fr)!important;gap:14px!important;align-items:start}',
+'html.evn #pane-dashgeral .dash-col{display:flex!important;flex-direction:column!important;gap:14px!important;min-width:0;height:auto!important}',
+'html.evn #pane-dashgeral .dash-card{background:rgba(17,23,35,.88);border:0;border-radius:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);backdrop-filter:none;overflow:visible;flex:none!important;height:auto!important}',
+'html.evn #pane-dashgeral .dash-card-hdr{background:transparent;border-bottom:0;padding:14px 16px 4px}',
+'html.evn #pane-dashgeral .dash-card-hdr h3{font-size:13px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#fff}',
+'html.evn #pane-dashgeral .dash-card-hdr>span{font-size:9px!important;letter-spacing:1.4px;text-transform:uppercase;color:#8f9ab0!important;font-weight:700}',
+/* ---- karts da equipe ---- */
+'html.evn #dg-krono-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr))!important;gap:10px;padding:8px 16px 16px;container-type:inline-size}',
+'html.evn #dg-krono-grid[data-n="3"]{grid-template-columns:repeat(3,minmax(0,1fr))!important}html.evn #dg-krono-grid[data-n="4"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}',
+'html.evn #dg-krono-grid .krono-card.kc3{--k:#ff8f00;position:relative;overflow:hidden;background:linear-gradient(135deg,rgba(255,255,255,.04),transparent 60%),#0f1420;border:0;border-radius:0;box-shadow:inset 4px 0 0 var(--k),inset 0 0 0 1px rgba(255,255,255,.08);padding:12px 14px 12px 18px;gap:8px;container-type:inline-size}',
+'html.evn #dg-krono-grid .kc3 .krono-badge{background:var(--k);color:#000;font-weight:900;font-style:italic;font-size:20px;border-radius:0;transform:skew(-8deg);width:auto;height:auto;min-width:0;padding:1px 10px;box-shadow:none;border:0}',
+'html.evn #dg-krono-grid .kc3 .krono-badge:before{content:"#"}',
+'html.evn #dg-krono-grid .kc3 .krono-name{font-size:18px;font-weight:900;color:#fff}',
+'html.evn #dg-krono-grid .kc3 .krono-pos-info{font-size:12px;color:#c9d1e0}',
+'html.evn #dg-krono-grid .kc3 .krono-timer{text-align:left;font-size:44px;font-weight:900;letter-spacing:1px;margin:2px 0 0}',
+'html.evn #dg-krono-grid .kc3 .krono-timer:before{content:"VOLTA ATUAL";display:block;font-size:9px;letter-spacing:1.6px;color:#8f9ab0;font-weight:800}',
+'html.evn #dg-krono-grid .kc3 .krono-row{border-top:0;padding-top:0;gap:6px}',
+'html.evn #dg-krono-grid .kc3 .kr-cell{align-items:flex-start;background:#171b22;padding:6px 10px}',
+'html.evn #dg-krono-grid .kc3 .kl{font-size:9px;letter-spacing:1.4px;color:#8f9ab0;font-weight:800;text-transform:uppercase}',
+'html.evn #dg-krono-grid .kc3 .kv{font-size:16px;font-weight:800;color:#fff}html.evn #dg-krono-grid .kc3 .kv.acc{color:#b06cff}',
+'html.evn #dg-krono-grid .kc3 .krono-pits{font-size:11px;color:#c9d1e0;text-align:left;margin:0}',
+'html.evn .ev-next{display:flex;gap:8px;align-items:center;font-size:12px;color:#c9d1e0;min-width:0}html.evn .ev-next em{font-style:normal;background:rgba(255,143,0,.14);color:#ffb74d;font-weight:800;padding:3px 8px;font-size:11px;white-space:nowrap}html.evn .ev-next span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+'@container (max-width:400px){html.evn #dg-krono-grid .kc3 .krono-timer{font-size:34px}html.evn #dg-krono-grid .kc3 .krono-name{font-size:15px}html.evn #dg-krono-grid .kc3 .kv{font-size:13px}html.evn .ev-next span{display:none}}',
+/* 5+ karts: placar em linhas */
+'html.evn #dg-krono-grid[data-n="5"],html.evn #dg-krono-grid[data-n="6"],html.evn #dg-krono-grid[data-n="7"],html.evn #dg-krono-grid[data-n="8"]{grid-template-columns:1fr!important;gap:4px}',
+'html.evn #dg-krono-grid[data-n="5"] .kc3,html.evn #dg-krono-grid[data-n="6"] .kc3,html.evn #dg-krono-grid[data-n="7"] .kc3,html.evn #dg-krono-grid[data-n="8"] .kc3{display:grid;grid-template-columns:minmax(0,1.2fr) auto minmax(0,1.4fr);align-items:center;gap:4px 14px;padding:6px 12px 6px 16px}',
+'html.evn #dg-krono-grid[data-n="5"] .krono-timer,html.evn #dg-krono-grid[data-n="6"] .krono-timer,html.evn #dg-krono-grid[data-n="7"] .krono-timer,html.evn #dg-krono-grid[data-n="8"] .krono-timer{font-size:26px;margin:0}',
+'html.evn #dg-krono-grid[data-n="5"] .krono-timer:before,html.evn #dg-krono-grid[data-n="6"] .krono-timer:before,html.evn #dg-krono-grid[data-n="7"] .krono-timer:before,html.evn #dg-krono-grid[data-n="8"] .krono-timer:before{display:none}',
+'html.evn #dg-krono-grid[data-n="5"] .kr-cell,html.evn #dg-krono-grid[data-n="6"] .kr-cell,html.evn #dg-krono-grid[data-n="7"] .kr-cell,html.evn #dg-krono-grid[data-n="8"] .kr-cell{background:transparent;padding:0 4px}',
+'html.evn #dg-krono-grid[data-n="5"] .krono-pits,html.evn #dg-krono-grid[data-n="6"] .krono-pits,html.evn #dg-krono-grid[data-n="7"] .krono-pits,html.evn #dg-krono-grid[data-n="8"] .krono-pits,html.evn #dg-krono-grid[data-n="5"] .ev-next,html.evn #dg-krono-grid[data-n="6"] .ev-next,html.evn #dg-krono-grid[data-n="7"] .ev-next,html.evn #dg-krono-grid[data-n="8"] .ev-next{grid-column:1/-1;font-size:10px}',
+'html.evn #dg-krono-grid[data-n="5"] .krono-name,html.evn #dg-krono-grid[data-n="6"] .krono-name,html.evn #dg-krono-grid[data-n="7"] .krono-name,html.evn #dg-krono-grid[data-n="8"] .krono-name{font-size:14px}',
+/* ---- classificacao ---- */
+'html.evn #dg-rank-table{width:100%;border-collapse:collapse;font-size:13px;margin:0 0 6px}',
+'html.evn #pane-dashgeral .ev-rank .dash-card-hdr+*{margin:0 16px}html.evn #dg-rank-table{width:calc(100% - 32px);margin:0 16px 12px}',
+'html.evn #dg-rank-table th{font-size:9px;letter-spacing:1.3px;color:#8f9ab0;font-weight:800;text-transform:uppercase;background:transparent;border:0;padding:6px 6px 8px;text-align:left}',
+'html.evn #dg-rank-table td{padding:7px 6px;border:0;border-top:1px solid rgba(255,255,255,.07);background:transparent}',
+'html.evn #dg-rank-table .d-pos{background:transparent!important;color:#fff;font-weight:900;font-style:italic;font-size:15px;box-shadow:none;width:auto;height:auto;border:0}',
+'html.evn #dg-rank-table .d-pos.p1{color:#ffd54f}html.evn #dg-rank-table .d-pos.p2{color:#cfd8dc}html.evn #dg-rank-table .d-pos.p3{color:#ffab76}',
+'html.evn #dg-rank-table .d-kart{background:#e8ecf3;color:#000;font-weight:900;border-radius:0;padding:2px 6px;border:0;box-shadow:none}',
+'html.evn #dg-rank-table tr.my-kart td{background:rgba(255,143,0,.09)!important}html.evn #dg-rank-table tr.my-kart td:first-child{box-shadow:inset 4px 0 0 #ff8f00}html.evn #dg-rank-table .d-kart.my{background:#ff8f00}',
+'html.evn #dg-rank-table .pit6-badge,html.evn #dg-rank-table .pit10-badge{border-radius:2px}',
+'html.evn #pane-dashgeral .dr-mykarts-strip{display:none}',
+/* ---- direita ---- */
+'html.evn #dg-bxi-body,html.evn #dg-pace-comp,html.evn #dg-laphist-body{padding:6px 16px 14px!important}',
+'html.evn #dg-bxi-body .bx3-tile{border-radius:0;background:#171b22}html.evn #dg-bxi-body .bx3-v{border-radius:0;font-weight:900;letter-spacing:1px}',
+'html.evn #dg-pace-comp .pace-cell{border-radius:0}',
+/* ---- radio fixo no rodape ---- */
+'html.evn #dg-radio-chief-card{position:fixed;left:0;right:0;bottom:0;z-index:60;background:rgba(10,13,20,.97)!important;box-shadow:none!important;border-top:2px solid #d7263d!important;padding:8px 16px}',
+'html.evn #dg-radio-chief-card>.dash-card-hdr{display:none}',
+'html.evn #dg-radio-chief .rc3{display:flex;align-items:center;gap:8px;flex-wrap:nowrap}',
+'html.evn #dg-radio-chief .rc3-target{display:none}',
+'html.evn #ev-seg{display:flex;flex:none}html.evn #ev-seg button{background:#171b22;border:1px solid rgba(255,255,255,.1);color:#c9d1e0;font-weight:900;font-size:13px;padding:11px 12px;cursor:pointer}html.evn #ev-seg button.on{background:#ff8f00;border-color:#ff8f00;color:#000}',
+'html.evn #dg-radio-chief .rc3-btn{border-radius:0;font-weight:800;padding:12px 12px;white-space:nowrap}',
+'html.evn #dg-radio-chief .rc3-btn.hot{flex:1.4;font-size:18px;letter-spacing:2px;background:#d7263d;box-shadow:0 0 24px rgba(215,38,61,.35)}',
+'html.evn #dg-radio-chief .rc3-boxn,html.evn #dg-radio-chief .rc3-kart{display:flex;align-items:center;gap:4px;flex:none}',
+'html.evn #dg-radio-chief .rc3-step{border-radius:0}',
+'html.evn #dg-radio-chief .radio-chief-status{font-size:10px;color:#8f9ab0;margin-top:4px;min-height:0}',
+'html.evn #dg-krono-grid[data-n="5"] .kc3,html.evn #dg-krono-grid[data-n="6"] .kc3,html.evn #dg-krono-grid[data-n="7"] .kc3,html.evn #dg-krono-grid[data-n="8"] .kc3{grid-template-columns:minmax(0,1.25fr) auto minmax(0,1.15fr) minmax(0,1.1fr)!important;grid-template-rows:auto auto;gap:0 14px!important;padding:4px 12px 4px 14px!important}',
+'html.evn #dg-krono-grid[data-n="5"] .kc3-head,html.evn #dg-krono-grid[data-n="6"] .kc3-head,html.evn #dg-krono-grid[data-n="7"] .kc3-head,html.evn #dg-krono-grid[data-n="8"] .kc3-head{grid-row:1/3;gap:8px}',
+'html.evn #dg-krono-grid[data-n="5"] .kc3 .krono-badge,html.evn #dg-krono-grid[data-n="6"] .kc3 .krono-badge,html.evn #dg-krono-grid[data-n="7"] .kc3 .krono-badge,html.evn #dg-krono-grid[data-n="8"] .kc3 .krono-badge{font-size:14px!important;padding:0 7px!important}',
+'html.evn #dg-krono-grid[data-n="5"] .kc3-id,html.evn #dg-krono-grid[data-n="6"] .kc3-id,html.evn #dg-krono-grid[data-n="7"] .kc3-id,html.evn #dg-krono-grid[data-n="8"] .kc3-id{display:flex;align-items:baseline;gap:8px;min-width:0}',
+'html.evn #dg-krono-grid[data-n="5"] .kc3 .krono-name,html.evn #dg-krono-grid[data-n="6"] .kc3 .krono-name,html.evn #dg-krono-grid[data-n="7"] .kc3 .krono-name,html.evn #dg-krono-grid[data-n="8"] .kc3 .krono-name{font-size:13px!important}',
+'html.evn #dg-krono-grid[data-n="5"] .kc3-sub,html.evn #dg-krono-grid[data-n="6"] .kc3-sub,html.evn #dg-krono-grid[data-n="7"] .kc3-sub,html.evn #dg-krono-grid[data-n="8"] .kc3-sub{margin:0}',
+'html.evn #dg-krono-grid[data-n="5"] .kc3 .krono-pos-info,html.evn #dg-krono-grid[data-n="6"] .kc3 .krono-pos-info,html.evn #dg-krono-grid[data-n="7"] .kc3 .krono-pos-info,html.evn #dg-krono-grid[data-n="8"] .kc3 .krono-pos-info{font-size:11px!important;white-space:nowrap}',
+'html.evn #dg-krono-grid[data-n="5"] .kc3 .krono-timer,html.evn #dg-krono-grid[data-n="6"] .kc3 .krono-timer,html.evn #dg-krono-grid[data-n="7"] .kc3 .krono-timer,html.evn #dg-krono-grid[data-n="8"] .kc3 .krono-timer{grid-row:1/3;font-size:24px!important}',
+'html.evn #dg-krono-grid[data-n="5"] .kc3 .krono-row,html.evn #dg-krono-grid[data-n="6"] .kc3 .krono-row,html.evn #dg-krono-grid[data-n="7"] .kc3 .krono-row,html.evn #dg-krono-grid[data-n="8"] .kc3 .krono-row{grid-row:1/3;align-self:center}',
+'html.evn #dg-krono-grid[data-n="5"] .kc3 .kl,html.evn #dg-krono-grid[data-n="6"] .kc3 .kl,html.evn #dg-krono-grid[data-n="7"] .kc3 .kl,html.evn #dg-krono-grid[data-n="8"] .kc3 .kl{font-size:8px!important}',
+'html.evn #dg-krono-grid[data-n="5"] .kc3 .kv,html.evn #dg-krono-grid[data-n="6"] .kc3 .kv,html.evn #dg-krono-grid[data-n="7"] .kc3 .kv,html.evn #dg-krono-grid[data-n="8"] .kc3 .kv{font-size:13px!important}',
+'html.evn #dg-krono-grid[data-n="5"] .kc3 .krono-pits,html.evn #dg-krono-grid[data-n="6"] .kc3 .krono-pits,html.evn #dg-krono-grid[data-n="7"] .kc3 .krono-pits,html.evn #dg-krono-grid[data-n="8"] .kc3 .krono-pits{grid-column:4!important;grid-row:1;font-size:10px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;align-self:end}',
+'html.evn #dg-krono-grid[data-n="5"] .ev-next,html.evn #dg-krono-grid[data-n="6"] .ev-next,html.evn #dg-krono-grid[data-n="7"] .ev-next,html.evn #dg-krono-grid[data-n="8"] .ev-next{grid-column:4!important;grid-row:2;font-size:10px!important;align-self:start}',
+'html.evn #dg-krono-grid[data-n="5"] .ev-next em,html.evn #dg-krono-grid[data-n="6"] .ev-next em,html.evn #dg-krono-grid[data-n="7"] .ev-next em,html.evn #dg-krono-grid[data-n="8"] .ev-next em{font-size:9px!important;padding:1px 6px!important}',
+'html.evn #dg-krono-grid[data-n="5"] .ev-next span,html.evn #dg-krono-grid[data-n="6"] .ev-next span,html.evn #dg-krono-grid[data-n="7"] .ev-next span,html.evn #dg-krono-grid[data-n="8"] .ev-next span{display:none}',
+'html.evn #dg-bxi-body .bx3-tiles{grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:4px;padding:2px 0 0}',
+'html.evn #dg-bxi-body .bx3-tile{flex-direction:row;align-items:center;gap:8px;padding:4px 8px;border-width:0 0 0 3px!important}',
+'html.evn #dg-bxi-body .bx3-k{font-size:14px;min-width:34px}',
+'html.evn #dg-bxi-body .bx3-v{font-size:10px;padding:3px 6px;width:auto;flex:1}',
+'html.evn #dg-bxi-body .bx3-s{font-size:9px;white-space:nowrap}',
+'html.evn #dg-bxi-body .bx3-pool{padding:2px 0 8px}',
+'@media(max-width:1500px){html.evn #dg-radio-chief .rc3-kart{display:none}}',
+'@media(max-width:1100px){html.evn #pane-dashgeral .dash-cols{grid-template-columns:1fr!important}html.evn #dg-krono-grid[data-n="3"]{grid-template-columns:1fr!important}}',
+'@media(max-width:760px){html.evn #dg-krono-grid[data-n]{grid-template-columns:1fr!important}html.evn #dg-krono-grid[data-n] .krono-card.kc3{display:flex!important;flex-direction:column;padding:10px 12px 10px 16px}html.evn #dg-krono-grid[data-n] .kc3 .krono-timer{font-size:32px!important}html.evn #dg-krono-grid[data-n] .kc3 .kr-cell{background:#171b22!important;padding:4px 8px!important}html.evn .hdr-stack,html.evn .hdr-leader{flex-wrap:wrap}html.evn .hdr-stack-row{min-width:0;padding:4px 8px}html.evn .hdr-stack-row .hs-val{font-size:17px}html.evn .hdr-stack>.hdr-stack-row:first-child .hs-val{font-size:19px}html.evn #dg-radio-chief .rc3{flex-wrap:wrap}html.evn #dg-radio-chief .rc3-btn.hot{flex:1 1 100%;order:-1}html.evn #dg-radio-chief .rc3>.rc3-btn:not(.hot){display:none}html.evn #pane-dashgeral{padding-bottom:140px}}',
+'@media(min-width:2300px){html.evn{zoom:1.3}}@media(min-width:2800px){html.evn{zoom:1.6}}@media(min-width:3400px){html.evn{zoom:2}}'
+].join('\n');
+document.head.appendChild(css);
+})();
+</script>
 
 </body>
 </html>
