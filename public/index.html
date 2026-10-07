@@ -6538,7 +6538,7 @@ document.head.appendChild(css);
    ===================================================================================== */
 (function(){
 if(typeof FK==='undefined')return;
-var LS='fk_sorteio', LSH='fk_sorteio_hist', EXTRA=10, HMAX=40;
+var LS='fk_sorteio', LSH='fk_sorteio_hist', EXTRA=20, HMAX=40;
 var W_SESS=1000, W_HIST=10; /* peso: repetir na mesma sessao >> repetir de treinos anteriores */
 function rnd(n){ var a=new Uint32Array(1); (window.crypto||window.msCrypto).getRandomValues(a); return a[0]%n; }
 function shuffle(arr){ var a=arr.slice(); for(var i=a.length-1;i>0;i--){ var j=rnd(i+1), t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
@@ -9359,6 +9359,167 @@ document.head.appendChild(css);
 </script>
 <script>
 /* =====================================================================================
+   TRACADOS · base de layouts por local (07/10/2026)
+   Importa o tracado por GPS (GPX, KML, GeoJSON, CSV ou texto "lat, lon"), projeta em metros,
+   fecha a volta, simplifica e guarda normalizado. O usuario marca onde fica a linha de
+   chegada (clicando no desenho ou digitando lat/lon) e o sentido. "Usar nesta prova" grava
+   FK.cfg.tracado='u:<id>' e o Mapa ao vivo passa a usar esse desenho.
+   Dados: localStorage fk_trc + Firestore sync/tracados {json}. Endereco: #tracados
+   ===================================================================================== */
+(function(){
+if(typeof FK==='undefined')return;
+var LS='fk_trc';
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+var T=FK.trc={
+  st:{list:[],updatedAt:0}, sel:null, draft:null, isOpen:false,
+  load:function(){ try{ var o=JSON.parse(localStorage.getItem(LS)||'null'); if(o&&o.list)T.st=o; }catch(e){} },
+  save:function(){ T.st.updatedAt=Date.now(); try{ localStorage.setItem(LS,JSON.stringify(T.st)); }catch(e){}
+    try{ if(typeof firebase!=='undefined'&&FK.state.authUser)firebase.firestore().collection('sync').doc('tracados').set({json:JSON.stringify(T.st),updatedAt:T.st.updatedAt}).catch(function(e){ T.toast('Erro ao salvar na nuvem: '+e.message); }); }catch(e){} },
+  listen:function(){ if(T._un||typeof firebase==='undefined'||!FK.state.authUser)return;
+    try{ T._un=firebase.firestore().collection('sync').doc('tracados').onSnapshot(function(s){ if(!s.exists)return; var o=null; try{ o=JSON.parse((s.data()||{}).json||'null'); }catch(e){} if(!o||!o.list||(o.updatedAt||0)<=(T.st.updatedAt||0))return; T.st=o; try{ localStorage.setItem(LS,JSON.stringify(o)); }catch(e){} if(T.isOpen&&!T.draft)T.render(); },function(){ T._un=null; }); }catch(e){} },
+  get:function(id){ for(var i=0;i<T.st.list.length;i++)if(T.st.list[i].id===id)return T.st.list[i]; return null; },
+  canEdit:function(){ try{ return FK.est&&FK.est.canEdit?FK.est.canEdit():true; }catch(e){ return true; } },
+  /* ---------- leitura de arquivos ---------- */
+  parse:function(txt){
+    txt=String(txt||''); var out=[], m, re;
+    if(/<trkpt|<rtept|<wpt/i.test(txt)){ re=/<(?:trkpt|rtept)[^>]*?lat="([-\d.]+)"[^>]*?lon="([-\d.]+)"|<(?:trkpt|rtept)[^>]*?lon="([-\d.]+)"[^>]*?lat="([-\d.]+)"/gi;
+      while((m=re.exec(txt)))out.push(m[1]!=null?[+m[1],+m[2]]:[+m[4],+m[3]]); if(out.length)return out; }
+    if(/<coordinates>/i.test(txt)){ re=/<coordinates>([\s\S]*?)<\/coordinates>/gi; var best=[];
+      while((m=re.exec(txt))){ var c=m[1].trim().split(/\s+/).map(function(t){ var a=t.split(','); return [+a[1],+a[0]]; }).filter(function(p){ return isFinite(p[0])&&isFinite(p[1]); }); if(c.length>best.length)best=c; } if(best.length)return best; }
+    try{ var j=JSON.parse(txt), coords=null, walk=function(o){ if(!o||coords)return; if(o.type==='LineString')coords=o.coordinates; else if(o.type==='Polygon')coords=o.coordinates[0]; else if(o.type==='MultiLineString')coords=o.coordinates[0]; else if(o.geometry)walk(o.geometry); else if(o.features)o.features.forEach(walk); };
+      walk(j); if(coords)return coords.map(function(c){ return [+c[1],+c[0]]; }); if(Array.isArray(j)&&Array.isArray(j[0]))return j.map(function(c){ return [+c[0],+c[1]]; }); }catch(e){}
+    /* CSV: o cabecalho pode vir depois de linhas de informacao (ex.: export do AiM Race Studio:
+       "Format","AiM CSV File"... e depois "Time","GPS Latitude","GPS Longitude"...) */
+    var lines=txt.split(/\r?\n/), latI=0, lonI=1, sep=/\t/.test(txt)?'\t':(/;/.test(lines.slice(0,40).join(''))?';':','), cells=function(l){ return l.split(sep).map(function(x){ return String(x).replace(/^\s*"|"\s*$/g,'').trim(); }); };
+    for(var hi=0;hi<Math.min(lines.length,80);hi++){ var hc=cells(lines[hi]).map(function(x){ return x.toLowerCase(); }), la=-1, lo=-1;
+      hc.forEach(function(h,i){ if(la<0&&/(^|\s)lat(itude)?\b/.test(h))la=i; if(lo<0&&/(^|\s)(lon(gitude)?|lng|long)\b/.test(h))lo=i; });
+      if(la>=0&&lo>=0){ latI=la; lonI=lo; lines=lines.slice(hi+1); break; } }
+    lines.forEach(function(l){ var c=sep===','?cells(l):cells(l).map(function(x){ return x.replace(',','.'); }); if(sep===','&&c.length<2){ c=l.split(/\s+/); }
+      var la=parseFloat(c[latI]), lo=parseFloat(c[lonI]); if(isFinite(la)&&isFinite(lo)&&Math.abs(la)<=90&&Math.abs(lo)<=180&&(la!==0||lo!==0))out.push([la,lo]); });
+    if(!out.length){ /* texto livre: "lat, lon" por linha */ txt.split(/\r?\n/).forEach(function(l){ var m2=l.match(/(-?\d{1,2}\.\d+)[\s,;]+(-?\d{1,3}\.\d+)/); if(m2)out.push([+m2[1],+m2[2]]); }); }
+    return out;
+  },
+  /* lat/lon -> metros (equiretangular local), fecha a volta e simplifica */
+  build:function(ll){
+    if(!ll||ll.length<10)return null;
+    var lat0=ll.reduce(function(s,p){return s+p[0];},0)/ll.length, lon0=ll.reduce(function(s,p){return s+p[1];},0)/ll.length, R=6371000, kx=Math.cos(lat0*Math.PI/180)*R*Math.PI/180, ky=R*Math.PI/180;
+    var P=ll.map(function(p){ return [(p[1]-lon0)*kx, -(p[0]-lat0)*ky]; });
+    /* varias voltas no arquivo: corta na primeira vez que volta perto do inicio */
+    var acc=0; for(var i=1;i<P.length;i++){ acc+=Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]); if(acc>250&&Math.hypot(P[i][0]-P[0][0],P[i][1]-P[0][1])<12){ P=P.slice(0,i); break; } }
+    var cum=[0]; for(i=1;i<P.length;i++)cum.push(cum[i-1]+Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]));
+    var len=cum[cum.length-1]+Math.hypot(P[0][0]-P[P.length-1][0],P[0][1]-P[P.length-1][1]), N=Math.min(400,Math.max(60,Math.round(len/4))), Q=[], j=0;
+    for(var n=0;n<N;n++){ var s=n/N*cum[cum.length-1]; while(j<cum.length-2&&cum[j+1]<s)j++; var t=(s-cum[j])/((cum[j+1]-cum[j])||1); Q.push([P[j][0]+(P[j+1][0]-P[j][0])*t, P[j][1]+(P[j+1][1]-P[j][1])*t]); }
+    return {m:Q,len:Math.round(len),lat0:lat0,lon0:lon0,kx:kx,ky:ky};
+  },
+  /* desenho final: comeca na linha de chegada, no sentido da prova, girado, normalizado 0..1 */
+  finalize:function(t){
+    var M=t.m.slice(), n=M.length, sf=((t.sf||0)%n+n)%n;
+    M=M.slice(sf).concat(M.slice(0,sf)); if(t.dir===-1)M=[M[0]].concat(M.slice(1).reverse());
+    var r=((t.rot||0)%4+4)%4; M=M.map(function(p){ var x=p[0],y=p[1]; for(var i=0;i<r;i++){ var tx=x; x=-y; y=tx; } return [x,y]; });
+    var xs=M.map(function(p){return p[0];}), ys=M.map(function(p){return p[1];}), x0=Math.min.apply(null,xs), y0=Math.min.apply(null,ys), w=Math.max.apply(null,xs)-x0||1, h=Math.max.apply(null,ys)-y0||1;
+    t.aspect=+(w/h).toFixed(4); t.pts=M.map(function(p){ return [+((p[0]-x0)/w).toFixed(4), +((p[1]-y0)/h).toFixed(4)]; }); t.v=(t.v||0)+1; return t;
+  },
+  nearestLL:function(t,lat,lon){ var x=(lon-t.lon0)*t.kx, y=-(lat-t.lat0)*t.ky, bi=0, bd=1e18; t.m.forEach(function(p,i){ var d=(p[0]-x)*(p[0]-x)+(p[1]-y)*(p[1]-y); if(d<bd){bd=d;bi=i;} }); return {i:bi,dist:Math.sqrt(bd)}; },
+  /* ---------- tela ---------- */
+  open:function(id){ var el=document.getElementById('fk-trc'); if(!el)return; T.isOpen=true; T.listen(); if(id)T.pick(id); else if(!T.sel&&T.st.list.length)T.sel=T.st.list[0].id; el.classList.add('on'); document.body.classList.add('hub-open'); T.render(); try{ history.replaceState(null,'','#tracados'); }catch(e){} try{ FK.endv&&FK.endv.mapPop(false); }catch(e){} },
+  close:function(){ var el=document.getElementById('fk-trc'); if(el)el.classList.remove('on'); T.isOpen=false; T.draft=null; document.body.classList.remove('hub-open'); if(FK.hub&&FK.hub.open)FK.hub.open(); },
+  pick:function(id){ T.sel=id; T.draft=null; T.render(); },
+  novo:function(){ T.draft={id:'t'+Date.now().toString(36),local:'',nome:'',m:null,sf:0,dir:1,rot:0,isNew:true}; T.sel=null; T.render(); },
+  edit:function(){ var t=T.get(T.sel); if(!t)return; T.draft=JSON.parse(JSON.stringify(t)); T.render(); },
+  file:function(inp){ var f=inp.files&&inp.files[0]; if(!f)return; var r=new FileReader(); r.onload=function(){ T.importTxt(String(r.result)); }; r.readAsText(f); },
+  importTxt:function(txt){ var ll=T.parse(txt); var b=T.build(ll); if(!b){ T.toast('Não encontrei coordenadas suficientes ('+ll.length+' pontos). Use GPX, KML, GeoJSON ou linhas "lat, lon".'); return; }
+    if(!T.draft)T.novo(); Object.assign(T.draft,b); T.draft.sf=0; T.draft.dir=1; T.render(); T.toast('Traçado lido: '+ll.length+' pontos GPS · volta de '+b.len+' m. Agora marque a linha de chegada.'); },
+  set:function(k,v){ if(!T.draft)return; T.draft[k]=v; if(k==='dir'||k==='rot')T.render(); },
+  sfLL:function(){ var t=T.draft; if(!t||!t.m)return; var a=(document.getElementById('trc-sfll')||{}).value||'', p=a.split(/[;,\s]+/).map(parseFloat).filter(isFinite);
+    if(p.length<2){ T.toast('Digite latitude e longitude, ex.: -23.1873, -46.8915'); return; } var r=T.nearestLL(t,p[0],p[1]); t.sf=r.i; t.sfLL=[p[0],p[1]]; T.render(); T.toast(r.dist>40?'Atenção: o ponto está a '+Math.round(r.dist)+' m do traçado — confira a coordenada.':'Linha de chegada posicionada (a '+Math.round(r.dist)+' m do traçado).'); },
+  clickSvg:function(ev){ var t=T.draft; if(!t||!t.m)return; var svg=ev.currentTarget, pt=svg.createSVGPoint(); pt.x=ev.clientX; pt.y=ev.clientY; var q=pt.matrixTransform(svg.getScreenCTM().inverse());
+    var V=T._view; if(!V)return; var x=V.x0+q.x/V.s, y=V.y0+q.y/V.s, bi=0, bd=1e18, r=((t.rot||0)%4+4)%4; t.m.forEach(function(p,i){ var px=p[0],py=p[1]; for(var k=0;k<r;k++){ var tx=px; px=-py; py=tx; } var d=(px-x)*(px-x)+(py-y)*(py-y); if(d<bd){bd=d;bi=i;} }); t.sf=bi; t.sfLL=null; T.render(); },
+  salvar:function(){ var t=T.draft; if(!t)return; if(!t.m){ T.toast('Importe o arquivo do traçado primeiro.'); return; }
+    t.local=((document.getElementById('trc-local')||{}).value||'').trim(); t.nome=((document.getElementById('trc-nome')||{}).value||'').trim();
+    if(!t.local||!t.nome){ T.toast('Preencha o local e o nome do traçado.'); return; }
+    var isNew=t.isNew; delete t.isNew; T.finalize(t); var i=T.st.list.findIndex(function(x){return x.id===t.id;}); if(i>=0)T.st.list[i]=t; else T.st.list.push(t);
+    T.save(); T.sel=t.id; T.draft=null; if(FK.cfg.tracado==='u:'+t.id){ try{ FK.endv&&(FK.endv._mapSig='',FK.endv.mapTick()); }catch(e){} } T.render(); T.toast(isNew?'Traçado salvo na base.':'Traçado atualizado.'); },
+  usar:function(id){ FK.cfg.tracado='u:'+id; FK.cfg.mapCal={dir:1,off:0}; try{ localStorage.setItem('fkart_cfg',JSON.stringify(FK.cfg)); }catch(e){} try{ FK.pushCfgToCloud&&FK.pushCfgToCloud(); }catch(e){} T.render(); T.toast('Mapa ao vivo agora usa este traçado.'); },
+  del:function(id){ if(T._delId!==id){ T._delId=id; T.toast('Toque em Excluir de novo para confirmar.'); clearTimeout(T._dt); T._dt=setTimeout(function(){ T._delId=null; },4000); return; }
+    T.st.list=T.st.list.filter(function(x){return x.id!==id;}); T._delId=null; if(T.sel===id)T.sel=null; T.save(); T.render(); T.toast('Traçado excluído.'); },
+  toast:function(m){ var t=document.getElementById('trc-toast'); if(!t)return; t.textContent=m; t.classList.add('on'); clearTimeout(T._tt); T._tt=setTimeout(function(){ t.classList.remove('on'); },3800); },
+  /* desenho: rascunho em metros (com clique) ou traçado salvo normalizado */
+  svg:function(t,editable){
+    var P, W=1000, H, pad=40, view=null;
+    if(editable&&t.m){ var M=t.m.map(function(p){ var x=p[0],y=p[1]; for(var i=0;i<((t.rot||0)%4+4)%4;i++){ var tx=x; x=-y; y=tx; } return [x,y]; });
+      var xs=M.map(function(p){return p[0];}), ys=M.map(function(p){return p[1];}), x0=Math.min.apply(null,xs), y0=Math.min.apply(null,ys), w=(Math.max.apply(null,xs)-x0)||1, h=(Math.max.apply(null,ys)-y0)||1, s=(W-2*pad)/w; H=Math.round(h*s+2*pad);
+      P=M.map(function(p){ return [pad+(p[0]-x0)*s, pad+(p[1]-y0)*s]; });
+      /* clique: guarda a escala para converter de volta (no espaco ja girado) */
+      T._view={x0:x0-pad/s,y0:y0-pad/s,s:s,rot:t.rot||0};
+      var n=P.length, sf=((t.sf||0)%n+n)%n, nx=(sf+(t.dir===-1?-6:6)+n)%n;
+      view={sf:P[sf],nx:P[nx]};
+    } else if(t.pts){ H=Math.round(W/(t.aspect||1.6)); P=t.pts.map(function(p){ return [pad+p[0]*(W-2*pad), pad+p[1]*(H-2*pad)]; }); view={sf:P[0],nx:P[6%P.length]}; }
+    else return '<div class="trc-empty">Sem desenho ainda — importe o arquivo do traçado.</div>';
+    var d=P.map(function(p,i){ return (i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1); }).join('')+'Z';
+    var ang=Math.atan2(view.nx[1]-view.sf[1],view.nx[0]-view.sf[0]), a=ang*180/Math.PI;
+    var arr='<g transform="translate('+(view.sf[0]+Math.cos(ang)*60).toFixed(1)+' '+(view.sf[1]+Math.sin(ang)*60).toFixed(1)+') rotate('+a.toFixed(1)+')"><path d="M-14 -12 L14 0 L-14 12 Z" class="trc-arr"/></g>';
+    return '<svg class="trc-svg'+(editable?' ed':'')+'" viewBox="0 0 '+W+' '+H+'"'+(editable?' onclick="FK.trc.clickSvg(event)"':'')+'><path class="trc-glow" d="'+d+'"/><path class="trc-line" d="'+d+'"/>'+arr+
+      '<g transform="translate('+view.sf[0].toFixed(1)+' '+view.sf[1].toFixed(1)+') rotate('+(a+90).toFixed(1)+')"><rect x="-30" y="-5" width="60" height="10" class="trc-sf"/></g><text x="'+(view.sf[0]+18).toFixed(1)+'" y="'+(view.sf[1]-20).toFixed(1)+'" class="trc-sft">CHEGADA</text></svg>';
+  },
+  render:function(){
+    var el=document.getElementById('fk-trc'); if(!el)return; var ed=T.canEdit(), cur=FK.cfg.tracado||'';
+    var groups={}; T.st.list.forEach(function(t){ (groups[t.local||'Sem local']=groups[t.local||'Sem local']||[]).push(t); });
+    var h='<div class="q-top"><button class="q-back" onclick="FK.trc.close()">‹ MENU</button><div class="q-title"><b>Traçados</b><span>BASE DE LAYOUTS POR LOCAL · '+T.st.list.length+' TRAÇADO'+(T.st.list.length!==1?'S':'')+'</span></div>'+(ed?'<div class="q-mini"><button class="q-btn pri" onclick="FK.trc.novo()">+ Novo traçado</button></div>':'')+'</div><div class="trc-body"><aside class="trc-list">';
+    if(!T.st.list.length)h+='<div class="trc-empty">Nenhum traçado na base ainda.'+(ed?' Toque em <b>+ Novo traçado</b> e importe o arquivo GPS.':'')+'</div>';
+    Object.keys(groups).sort().forEach(function(g){ h+='<div class="trc-g">'+esc(g)+'</div>'+groups[g].map(function(t){ var on='u:'+t.id===cur; return '<button class="trc-it'+(T.sel===t.id&&!T.draft?' sel':'')+'" onclick="FK.trc.pick(\''+t.id+'\')"><b>'+esc(t.nome)+'</b><span>'+(t.len?t.len+' m':'')+(on?' · <i>EM USO</i>':'')+'</span></button>'; }).join(''); });
+    h+='<div class="trc-g">KGV · já no sistema</div><div class="trc-kgv">'+(FK._TRORDER||[]).map(function(k){ return '<span class="'+(cur===k?'on':'')+'">'+esc((FK._TRLBL||{})[k]||k)+'</span>'; }).join('')+'</div><div class="trc-note">Os traçados do KGV continuam escolhidos em Configurar. Os da base aparecem aqui.</div></aside><section class="trc-main">';
+    var t=T.draft||T.get(T.sel);
+    if(!t)h+='<div class="trc-empty big">Escolha um traçado na lista'+(ed?' ou crie um novo':'')+'.</div>';
+    else if(T.draft){
+      h+='<div class="trc-form"><label>Local (kartódromo)<input id="trc-local" value="'+esc(t.local)+'" placeholder="Ex.: KGV Granja Viana"></label><label>Nome do traçado<input id="trc-nome" value="'+esc(t.nome)+'" placeholder="Ex.: 101"></label></div>'+
+        '<div class="trc-imp"><label class="q-btn">Importar arquivo GPS<input type="file" accept=".gpx,.kml,.json,.geojson,.csv,.txt" onchange="FK.trc.file(this)" hidden></label><span>GPX, KML, GeoJSON, CSV ou texto com "latitude, longitude" (uma volta)</span>'+
+        '<details><summary>ou colar coordenadas</summary><textarea id="trc-paste" rows="5" placeholder="-23.18731, -46.89154&#10;-23.18740, -46.89120&#10;..."></textarea><button class="q-btn" onclick="FK.trc.importTxt(document.getElementById(\'trc-paste\').value)">Ler coordenadas</button></details></div>';
+      if(t.m){ h+='<div class="trc-tools"><span>1 · <b>Linha de chegada:</b> toque no desenho onde a volta fecha, ou digite</span><input id="trc-sfll" placeholder="lat, lon" value="'+(t.sfLL?t.sfLL.join(', '):'')+'"><button class="q-btn" onclick="FK.trc.sfLL()">Marcar</button>'+
+        '<span>2 · <b>Sentido:</b></span><button class="q-btn" onclick="FK.trc.set(\'dir\','+(-(t.dir||1))+')">⇄ Inverter</button><span>3 · </span><button class="q-btn" onclick="FK.trc.set(\'rot\','+(((t.rot||0)+1)%4)+')">⟳ Girar 90°</button><span class="trc-len">Volta: <b>'+t.len+' m</b></span></div>'; }
+      h+='<div class="trc-draw">'+T.svg(t,true)+'</div><div class="trc-act"><button class="q-btn pri" onclick="FK.trc.salvar()">Salvar na base</button><button class="q-btn" onclick="FK.trc.draft=null;FK.trc.render()">Cancelar</button></div>';
+    } else {
+      var on='u:'+t.id===cur;
+      h+='<div class="trc-hd"><div><small>'+esc(t.local)+'</small><b>'+esc(t.nome)+'</b><span>Volta de '+t.len+' m'+(on?' · <i>em uso no Mapa ao vivo</i>':'')+'</span></div>'+(ed?'<div class="trc-act"><button class="q-btn pri" onclick="FK.trc.usar(\''+t.id+'\')"'+(on?' disabled':'')+'>'+(on?'✓ Em uso nesta prova':'Usar nesta prova')+'</button><button class="q-btn" onclick="FK.trc.edit()">Editar</button><button class="q-btn" onclick="FK.trc.del(\''+t.id+'\')">Excluir</button></div>':'')+'</div><div class="trc-draw">'+T.svg(t,false)+'</div>';
+    }
+    h+='</section></div><div class="hub-toast" id="trc-toast"></div>';
+    var keep=T.draft?{l:(document.getElementById('trc-local')||{}).value,n:(document.getElementById('trc-nome')||{}).value}:null;
+    el.innerHTML=h;
+    if(keep){ if(keep.l!=null)document.getElementById('trc-local').value=keep.l; if(keep.n!=null)document.getElementById('trc-nome').value=keep.n; }
+  }
+};
+T.load();
+var box=document.createElement('div'); box.id='fk-trc'; document.body.appendChild(box);
+document.addEventListener('keydown',function(e){ if(T.isOpen&&e.key==='Escape'&&!/INPUT|TEXTAREA|SELECT/.test((e.target&&e.target.tagName)||''))T.close(); });
+if(/^#tracados/.test(location.hash))setTimeout(function(){ T.open(); },400);
+var _aui=FK.applyAuthUI; if(_aui)FK.applyAuthUI=function(){ var r=_aui.apply(FK,arguments); try{ if(FK.state.authProfile&&FK.state.authProfile.approved)T.listen(); }catch(e){} return r; };
+var css=document.createElement('style');
+css.textContent=[
+'#fk-trc{position:fixed;inset:0;z-index:9003;display:none;flex-direction:column;color:#fff;background:radial-gradient(1000px 500px at 85% -10%,rgba(79,195,247,.14),transparent 60%),linear-gradient(180deg,#0b0f18,#121826 60%,#0a0d14)}#fk-trc.on{display:flex}',
+'#fk-trc .q-btn.pri{background:#4fc3f7;border-color:#4fc3f7;color:#000}#fk-trc .q-btn[disabled]{opacity:.6;cursor:default}',
+'.trc-body{flex:1;min-height:0;display:grid;grid-template-columns:300px minmax(0,1fr);gap:16px;padding:14px 3vw 20px}',
+'.trc-list{overflow:auto;background:rgba(17,23,35,.85);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);padding:10px}',
+'.trc-g{font-size:10px;letter-spacing:1.8px;color:#8f9ab0;font-weight:800;text-transform:uppercase;margin:12px 4px 6px}',
+'.trc-it{display:block;width:100%;text-align:left;background:#171b22;border:0;border-left:3px solid transparent;color:#fff;padding:8px 10px;margin-bottom:4px;cursor:pointer}.trc-it b{display:block;font-size:14px}.trc-it span{font-size:11px;color:#8f9ab0}.trc-it i{color:#4fc3f7;font-style:normal;font-weight:800}',
+'.trc-it.sel{border-left-color:#4fc3f7;background:rgba(79,195,247,.12)}',
+'.trc-kgv{display:flex;flex-wrap:wrap;gap:4px}.trc-kgv span{font-size:11px;background:#171b22;padding:3px 7px;color:#c9d1e0}.trc-kgv span.on{background:#4fc3f7;color:#000;font-weight:800}',
+'.trc-note{font-size:11px;color:#7f8aa0;margin:8px 4px}',
+'.trc-main{min-width:0;overflow:auto;background:rgba(17,23,35,.85);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);padding:16px}',
+'.trc-empty{color:#8f9ab0;font-size:13px;padding:14px}.trc-empty.big{font-size:15px;padding:60px 20px;text-align:center}',
+'.trc-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.trc-form label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:#9aa4b8}.trc-form input,.trc-tools input,#trc-paste{background:#0f1420;border:1px solid rgba(255,255,255,.2);color:#fff;padding:8px 10px;font-size:14px}',
+'.trc-imp{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:12px 0;font-size:12px;color:#8f9ab0}.trc-imp label.q-btn{cursor:pointer}.trc-imp details{width:100%}.trc-imp summary{cursor:pointer;color:#c9d1e0}#trc-paste{width:100%;margin:6px 0;font-family:monospace;font-size:12px}',
+'.trc-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:12px;color:#c9d1e0;background:#171b22;padding:10px 12px;margin-bottom:10px}.trc-tools input{width:200px;font-size:13px;padding:6px 8px}.trc-len{margin-left:auto}',
+'.trc-draw{background:#0b0f18;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06);padding:8px}.trc-svg{display:block;width:100%;height:auto;max-height:62vh}.trc-svg.ed{cursor:crosshair}',
+'.trc-glow{fill:none;stroke:rgba(79,195,247,.15);stroke-width:34;stroke-linejoin:round}.trc-line{fill:none;stroke:#4fc3f7;stroke-width:9;stroke-linejoin:round}',
+'.trc-sf{fill:#fff;stroke:#000;stroke-width:2}.trc-sft{fill:#fff;font-size:22px;font-weight:900;letter-spacing:2px}.trc-arr{fill:#ff8f00}',
+'.trc-act{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}.trc-hd{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}.trc-hd small{display:block;font-size:11px;letter-spacing:1.6px;color:#8f9ab0;text-transform:uppercase}.trc-hd b{display:block;font-size:26px;font-weight:900}.trc-hd span{font-size:12px;color:#c9d1e0}.trc-hd i{color:#4fc3f7;font-style:normal;font-weight:800}.trc-hd .trc-act{margin:0}',
+'#fk-trc .hub-toast{position:fixed;left:50%;bottom:30px;transform:translate(-50%,20px);background:#fff;color:#000;font-weight:800;font-size:13px;padding:10px 16px;border-radius:3px;opacity:0;transition:all .25s;pointer-events:none;max-width:90vw}#fk-trc .hub-toast.on{opacity:1;transform:translate(-50%,0)}',
+'@media(max-width:900px){.trc-body{grid-template-columns:1fr;overflow:auto}.trc-list{max-height:220px}.trc-form{grid-template-columns:1fr}}'
+].join('\n');
+document.head.appendChild(css);
+})();
+</script>
+<script>
+/* =====================================================================================
    AUDIO (03/10/2026) -- trilha estilo game (gerada no Suno) + efeitos de interface.
    Trilhas (arquivos na pasta public/audio do site; se o arquivo nao existir, fica mudo):
      audio/menu.mp3     -> menu principal
@@ -9531,7 +9692,7 @@ var V=FK.endv={
     var want=V.pref()==='novo'&&V.active(), P=V.parts(); if(!P)return;
     var tg=V.btn(); if(tg){ tg.style.display=(document.getElementById('pane-dashgeral')||{classList:{contains:function(){return false;}}}).classList.contains('on')?'':'none'; tg.textContent=V.pref()==='novo'?'VISUAL CLÁSSICO':'VISUAL NOVO'; }
     if(want===V.on){ if(want)V.decorate(P); return; }
-    V.on=want; document.documentElement.classList.toggle('evn',want);
+    V.on=want; document.documentElement.classList.toggle('evn',want); document.documentElement.classList.toggle('evh',want||V.filaOn||V.tvOn);
     if(want){
       if(P.team)P.c1.insertBefore(P.team,P.c1.firstChild);
       [P.box,P.pace,P.hist].forEach(function(c){ if(c)P.c2.appendChild(c); });
@@ -9586,6 +9747,421 @@ var V=FK.endv={
   segSync:function(){ var sel=document.getElementById('dg-radio-target'), seg=document.getElementById('ev-seg'); if(!sel||!seg)return; [].forEach.call(seg.children,function(b){ b.classList.toggle('on',b.getAttribute('data-v')===sel.value); }); }
 };
 setInterval(V.apply,700);
+/* ---------- FILA DE PILOTOS · visual novo (08/10/2026) ----------
+   Mesmo esquema do Dashboard: os elementos (#dg-pq-body, #dg-pt-body, #dg-pcl-body) continuam
+   sendo desenhados por rPilotQueue/rPilotTotals/rPilotChangeLog; aqui so muda o CSS (vagas em
+   lista vertical por kart) e entram detalhes: cor do kart, minutos do plano da Estrategia em
+   cada vaga e barras no Tempo por Piloto. Mesma preferencia (fk_endvis) do botao do Dashboard. */
+V.filaOn=false;
+V.filaActive=function(){ var p=document.getElementById('pane-filapilotos'); return !!(p&&p.classList.contains('on')&&!document.body.classList.contains('theme-light')&&!(FK.hub&&FK.hub.isOpen)); };
+V.applyFila=function(){
+  var pane=document.getElementById('pane-filapilotos'); if(!pane)return;
+  var want=V.pref()==='novo'&&V.filaActive();
+  var card=document.getElementById('dg-pq-body'); card=card&&card.closest('.dash-card');
+  if(card){ var hd=card.querySelector('.dash-card-hdr'), b=document.getElementById('evf-tg');
+    if(hd&&!b){ b=document.createElement('button'); b.id='evf-tg'; b.type='button'; b.className='ev-tgb'; b.onclick=function(e){ e.stopPropagation(); V.toggle(); }; hd.appendChild(b); }
+    if(b)b.textContent=V.pref()==='novo'?'VISUAL CLÁSSICO':'VISUAL NOVO'; }
+  if(want!==V.filaOn){ V.filaOn=want; document.documentElement.classList.toggle('evf',want); document.documentElement.classList.toggle('evh',want||V.on||V.tvOn); }
+  if(want)V.decorateFila();
+};
+V.pqPos=0;
+V.pqNav=function(){
+  var body=document.getElementById('dg-pq-body'); if(!body)return;
+  var cards=[].slice.call(body.querySelectorAll('.pq-kart-card')), nav=document.getElementById('ev-pqnav');
+  var ks=cards.map(function(c){ var b=c.querySelector('.krono-badge'); return b?b.textContent.trim():''; });
+  var sig=ks.join(',');
+  if(!nav){ nav=document.createElement('div'); nav.id='ev-pqnav'; body.parentNode.insertBefore(nav,body); }
+  if(nav.dataset.sig!==sig){ nav.dataset.sig=sig;
+    nav.innerHTML='<button type="button" class="pv" data-d="-1" aria-label="Kart anterior">‹</button><div class="pk">'+ks.map(function(k,i){ return '<button type="button" data-i="'+i+'" style="--k:'+((FK.est&&FK.est.kcol)?FK.est.kcol(k):'#ff8f00')+'">#'+(parseInt(k,10)||k)+'</button>'; }).join('')+'</div><button type="button" class="pv" data-d="1" aria-label="Próximo kart">›</button>';
+    nav.onclick=function(e){ var t=e.target.closest('button'); if(!t)return; if(t.dataset.i!=null)V.pqGo(+t.dataset.i); else V.pqGo(V.pqCur()+(+t.dataset.d)); };
+    if(!body.dataset.evs){ body.dataset.evs=1; body.addEventListener('scroll',function(){ if(!V._pqRest)V.pqPos=body.scrollLeft; clearTimeout(V._pqT); V._pqT=setTimeout(V.pqMark,80); },{passive:true}); }
+  }
+  /* rPilotQueue refaz o HTML quando a fila muda: volta para o kart em que o usuario estava */
+  if(body.scrollLeft===0&&V.pqPos>0){ V._pqRest=1; body.scrollLeft=V.pqPos; setTimeout(function(){ V._pqRest=0; },50); }
+  nav.style.display=cards.length>1?'':'none'; V.pqMark();
+};
+V.pqW=function(){ var body=document.getElementById('dg-pq-body'), c=body&&body.querySelector('.pq-kart-card'); return c?c.getBoundingClientRect().width+12:1; };
+V.pqCur=function(){ var body=document.getElementById('dg-pq-body'); return body?Math.round(body.scrollLeft/V.pqW()):0; };
+V.pqGo=function(i){ var body=document.getElementById('dg-pq-body'); if(!body)return; var n=body.querySelectorAll('.pq-kart-card').length; i=Math.max(0,Math.min(n-1,i)); body.scrollTo({left:i*V.pqW(),behavior:'smooth'}); };
+V.pqMark=function(){ var body=document.getElementById('dg-pq-body'), nav=document.getElementById('ev-pqnav'); if(!body||!nav)return;
+  var w=V.pqW(), a=body.scrollLeft/w, vis=Math.max(1,Math.round(body.clientWidth/w));
+  [].forEach.call(nav.querySelectorAll('.pk button'),function(b,i){ b.classList.toggle('on',i>=Math.round(a)&&i<Math.round(a)+vis); });
+  var pv=nav.querySelectorAll('.pv'); if(pv.length){ pv[0].disabled=body.scrollLeft<4; pv[1].disabled=body.scrollLeft+body.clientWidth>=body.scrollWidth-4; } };
+document.addEventListener('keydown',function(e){ if(!V.filaOn||/INPUT|SELECT|TEXTAREA/.test((e.target&&e.target.tagName)||''))return; if(e.key==='ArrowRight'){ V.pqGo(V.pqCur()+1); } else if(e.key==='ArrowLeft'){ V.pqGo(V.pqCur()-1); } });
+V.decorateFila=function(){
+  var E=FK.est; V.pqNav();
+  document.querySelectorAll('#dg-pq-body .pq-kart-card').forEach(function(c){
+    var bd=c.querySelector('.krono-badge'), k=bd?bd.textContent.trim():''; if(!k)return;
+    try{ if(E&&E.kcol)c.style.setProperty('--k',E.kcol(k)); }catch(e){}
+    var plan=[]; try{ plan=E&&E.plan?E.plan(k):[]; }catch(e){}
+    c.querySelectorAll('.pq-slot').forEach(function(s,i){
+      var h=s.querySelector('.ev-pl'), st=plan[i];
+      if(!st){ if(h)h.remove(); return; }
+      var txt='plano '+st.min+"'"+(st.p&&st.p!==(s.querySelector('select')||{}).value?' · '+st.p:'');
+      if(!h){ h=document.createElement('span'); h.className='ev-pl'; var sel=s.querySelector('select'); if(sel&&sel.nextSibling)s.insertBefore(h,sel.nextSibling); else s.appendChild(h); }
+      if(h.textContent!==txt)h.textContent=txt;
+      h.classList.toggle('diff',!!(st.p&&st.p!==(s.querySelector('select')||{}).value));
+    });
+  });
+  /* tempo por piloto: barra proporcional ao maior */
+  var rows=[].slice.call(document.querySelectorAll('#dg-pt-body tr')), sec=function(t){ var p=String(t||'').trim().split(':').map(Number); if(p.some(isNaN))return 0; return p.reduce(function(a,v){return a*60+v;},0); };
+  var vals=rows.map(function(r){ return sec(r.cells[1]&&r.cells[1].textContent); }), mx=Math.max.apply(null,vals.concat([1]));
+  var r=(E&&E.st&&E.st.rules)||{}, minP=+r.minPilotMin||0;
+  rows.forEach(function(row,i){ if(row.cells.length<2)return; row.style.setProperty('--w',(vals[i]/mx*100).toFixed(1)+'%'); row.classList.toggle('low',!!(minP&&vals[i]<minP*60)); });
+  /* historico: cor do kart */
+  document.querySelectorAll('#dg-pcl-body .d-kart').forEach(function(s){ try{ if(E&&E.kcol)s.style.setProperty('--k',E.kcol(s.textContent.trim())); }catch(e){} });
+};
+setInterval(V.applyFila,800);
+/* ---------- TV DO BOX · visual novo (07/10/2026) ----------
+   Telona do box, lida de longe: cada kart vira um cartao grande com cronometro + quem esta na
+   pista + PROXIMO piloto e quando troca (fila + plano da Estrategia). A Fila separada some
+   (entrou no cartao); classificacao na direita, voltas da equipe embaixo dos karts.
+   Mesmos elementos de sempre (#tv-krono-grid, #tv-rank-body, #tv-laphist-body, #tv-pq-body). */
+V.tvOn=false;
+V.tvParts=function(){ var pane=document.getElementById('pane-tvpilotos'), root=pane&&pane.querySelector('.tv-dash'); if(!root)return null;
+  var cols=root.querySelector('.dash-cols'); if(!cols||cols.children.length<2)return null;
+  var card=function(id){ var e=document.getElementById(id); return e?e.closest('.dash-card'):null; };
+  return {root:root,cols:cols,c1:cols.children[0],c2:cols.children[1],team:card('tv-krono-grid'),rank:card('tv-rank-body'),hist:card('tv-laphist-body'),pq:card('tv-pq-body')}; };
+V.applyTv=function(){
+  var pane=document.getElementById('pane-tvpilotos'), P=V.tvParts(); if(!pane||!P)return;
+  var want=V.pref()==='novo'&&pane.classList.contains('on')&&!document.body.classList.contains('theme-light')&&!(FK.hub&&FK.hub.isOpen);
+  var hd=P.team&&P.team.querySelector('.dash-card-hdr'), b=document.getElementById('evt-tg');
+  if(hd&&!b){ b=document.createElement('button'); b.id='evt-tg'; b.type='button'; b.className='ev-tgb'; b.onclick=function(e){ e.stopPropagation(); V.toggle(); }; hd.appendChild(b); }
+  if(b)b.textContent=V.pref()==='novo'?'VISUAL CLÁSSICO':'VISUAL NOVO';
+  if(want!==V.tvOn){ V.tvOn=want; document.documentElement.classList.toggle('evt',want); document.documentElement.classList.toggle('evh',want||V.on||V.filaOn);
+    if(want){ P.c2.insertBefore(P.team,P.c2.firstChild); if(P.hist)P.c2.insertBefore(P.hist,P.team.nextSibling); }
+    else { P.root.insertBefore(P.team,P.cols); if(P.hist)P.c2.insertBefore(P.hist,P.c2.firstChild); ['evt-box','evt-pace','evt-map'].forEach(function(id){ var ob=document.getElementById(id); if(ob)ob.remove(); }); document.querySelectorAll('#tv-krono-grid .evt-next,#tv-krono-grid .evt-gp').forEach(function(e){ e.remove(); }); } }
+  if(want){ V.tvBox(P); V.decorateTv(); }
+};
+V.tvBox=function(P){
+  var bx=document.getElementById('evt-box');
+  if(!bx){ bx=document.createElement('div'); bx.className='dash-card'; bx.id='evt-box';
+    bx.innerHTML='<div class="dash-card-hdr"><h3>&#127937; Box Inteligente</h3><span id="tv-bxi-count"></span></div><div id="tv-bxi-body"></div>'; }
+  if(bx.parentNode!==P.c1)P.c1.insertBefore(bx,P.c1.firstChild);
+  var pc=document.getElementById('evt-pace');
+  if(!pc){ pc=document.createElement('div'); pc.className='dash-card'; pc.id='evt-pace'; pc.innerHTML='<div class="dash-card-hdr"><h3>&#9889; Pace · equipe × top 10</h3><span>verde = mais rápido</span></div><div id="tv-pace-comp"></div>'; }
+  if(P.rank&&pc.previousSibling!==P.rank)P.c1.insertBefore(pc,P.rank.nextSibling);
+  var mp=V.mapCard('evt-map'); if(P.hist&&mp.nextSibling!==P.hist)P.c2.insertBefore(mp,P.hist);
+  var t=Date.now(); if(!V._tvBxT||t-V._tvBxT>4000){ V._tvBxT=t; try{ if(FK.boxAI&&FK.boxAI.render)FK.boxAI.render('tv'); }catch(e){} try{ FK.rDashPaceComp&&FK.rDashPaceComp('tv'); }catch(e){} }
+};
+V.decorateTv=function(){
+  var g=document.getElementById('tv-krono-grid'); if(!g)return;
+  var cards=g.querySelectorAll('.krono-card'); g.setAttribute('data-n',cards.length);
+  var Q=FK.state.pilotQueue||{}, A=FK.state.pilotQueueActiveIdx||{}, F=FK.state.pqFlags||{}, esc=function(x){ return String(x==null?'':x).replace(/[<>&"]/g,''); };
+  cards.forEach(function(c){
+    var k=(c.id||'').replace(/^kcard-/,'').replace(/-tv$/,''); if(!k)return;
+    try{ if(FK.est&&FK.est.kcol)c.style.setProperty('--k',FK.est.kcol(k)); }catch(e){}
+    var q=Q[k]||[], ai=A[k]!=null?A[k]:-1, nx=null; for(var i=ai+1;i<q.length;i++){ if(q[i]){ nx=q[i]; break; } }
+    var n=V.next(k), d=null; try{ d=FK.findKartData(FK.getData(),k); }catch(e){}
+    var pc=null, ru=null; try{ if(d&&FK.proj){ pc=FK.proj.pitCounts(d); ru=FK.proj.rulesFor(d.cat); } }catch(e){}
+    var fl=F[k]||{}, longOk=fl.long||(pc&&ru&&ru.long&&pc.long>=ru.long);
+    var stops=pc&&ru?'<b>'+(pc.short||0)+'/'+(ru.short||0)+'</b> curtas · '+(ru.long?(longOk?'<i class="ok">longa ✓</i>':'<i class="pd">longa pendente</i>'):''):'';
+    var when=n?('TROCA '+V.hm(n.at)+' · EM <b>'+n.inMin+"'</b>"):'';
+    var L=null, Qe=null; try{ L=FK.est&&FK.est.live?FK.est.live(k):null; Qe=FK.est&&FK.est.eq?FK.est.eq(k):null; }catch(e){}
+    var gp='<div class="evt-gp"><span><small>À FRENTE'+(L&&L.ah?' #'+esc(parseInt(L.ah.kart,10)||L.ah.kart):'')+'</small><b>'+(L?(L.ah?esc(L.gaT||'—'):'líder'):'—')+'</b></span><span><small>ATRÁS'+(L&&L.bh?' #'+esc(parseInt(L.bh.kart,10)||L.bh.kart):'')+'</small><b>'+(L?(L.bh?esc((L.gbT||'—').replace('+','−')):'último'):'—')+'</b></span><span class="eq"><small>EQUALIZADA</small><b>'+(Qe?'P'+Qe.me.eqPos:'—')+'</b></span></div>';
+    var gEl=c.querySelector('.evt-gp'); if(!gEl){ var tmp=document.createElement('div'); tmp.innerHTML=gp; gEl=tmp.firstChild; var rw=c.querySelector('.krono-row'); if(rw&&rw.nextSibling)c.insertBefore(gEl,rw.nextSibling); else c.appendChild(gEl); } else if(gEl.outerHTML!==gp){ gEl.outerHTML=gp; }
+    var h='<div class="evt-nx"><small>PRÓXIMO</small><b>'+(nx?esc(nx):(n&&n.p?esc(n.p):'—'))+'</b></div><div class="evt-when">'+(when?'<em'+(n&&n.inMin<=5?' class="soon"':'')+'>'+when+'</em>':'')+'<span>'+stops+'</span></div>';
+    var el=c.querySelector('.evt-next'); if(!el){ el=document.createElement('div'); el.className='evt-next'; c.appendChild(el); }
+    if(el.innerHTML!==h)el.innerHTML=h;
+  });
+};
+setInterval(V.applyTv,800);
+
+/* ---------- KARTS PONTEIROS (07/10/2026) ----------
+   FK.cfg.leadKarts = karts que a equipe esta levando para a vitoria. Marcados na Fila de
+   Pilotos (botao ★ PONTEIRO no cartao do kart); sincroniza com os outros aparelhos pelo cfg.
+   Em todas as telas o cartao do cronometro desses karts ganha brilho na cor do kart. */
+V.isLead=function(k){ var n=function(x){ return String(parseInt(x,10)||x); }; return (FK.cfg.leadKarts||[]).map(n).indexOf(n(k))>=0; };
+V.toggleLead=function(k){ var L=(FK.cfg.leadKarts||[]).slice(), n=function(x){ return String(parseInt(x,10)||x); }, i=L.map(n).indexOf(n(k));
+  if(i>=0)L.splice(i,1); else L.push(String(k)); FK.cfg.leadKarts=L;
+  try{ localStorage.setItem('fkart_cfg',JSON.stringify(FK.cfg)); }catch(e){} try{ FK.pushCfgToCloud&&FK.pushCfgToCloud(); }catch(e){} V.leadTick(); };
+V.kOf=function(el){ var id=el.id||''; var m=id.match(/^kcard-(.+?)-(dg|mob|tv)$/); if(m)return m[1]; var b=el.querySelector('.krono-badge'); return b?b.textContent.replace('#','').trim():''; };
+V.leadTick=function(){
+  document.querySelectorAll('#dg-krono-grid .krono-card,#tv-krono-grid .krono-card,#mob-krono-grid .krono-card,#dg-pq-body .pq-kart-card').forEach(function(c){
+    var k=V.kOf(c); if(!k)return; var on=V.isLead(k);
+    if(on){ try{ if(FK.est&&FK.est.kcol&&!c.style.getPropertyValue('--k'))c.style.setProperty('--k',FK.est.kcol(k)); }catch(e){} }
+    c.classList.toggle('ev-lead',on);
+    if(c.classList.contains('pq-kart-card')){
+      var hd=c.querySelector('.pq-kart-hdr'), b=c.querySelector('.ev-lead-btn');
+      if(hd&&!b){ b=document.createElement('button'); b.type='button'; b.className='ev-lead-btn'; b.title='Kart ponteiro: o kart que a equipe está levando para a vitória (fica com brilho em todas as telas)'; b.onclick=function(e){ e.stopPropagation(); V.toggleLead(V.kOf(c)); }; var u=hd.querySelector('.pq-undo-btn'); if(u)hd.insertBefore(b,u); else hd.appendChild(b); }
+      if(b){ b.classList.toggle('on',on); b.innerHTML=on?'★ PONTEIRO':'☆ PONTEIRO'; }
+    }
+  });
+};
+setInterval(V.leadTick,700);
+
+/* ---------- MAPA DA PISTA AO VIVO (07/10/2026) ----------
+   Posicao ESTIMADA de cada kart: tempo desde a ultima passagem pela linha / ritmo recente do
+   kart, colocada ao longo do tracado. Karts no box aparecem na lista "No box". KGV 101 usa o
+   tracado novo (linha azul do mapa oficial); os outros usam os tracados GPS ja do sistema.
+   Calibracao (sentido e ponto da linha de chegada) em FK.cfg.mapCal, ajustavel no cartao. */
+V.KGV101=[[0.066,0.653],[0.0,0.9215],[0.0124,0.9634],[0.0318,0.9861],[0.0514,0.996],[0.071,1.0],[0.0905,1.0],[0.1101,1.0],[0.1297,0.9991],[0.1492,0.996],[0.1688,0.9926],[0.1884,0.9855],[0.208,0.9766],[0.2275,0.9652],[0.2471,0.9483],[0.2667,0.9215],[0.2834,0.8799],[0.2905,0.8337],[0.2886,0.7876],[0.2819,0.7414],[0.2742,0.6952],[0.2672,0.649],[0.2618,0.6028],[0.2581,0.5567],[0.2565,0.5105],[0.2562,0.4643],[0.2579,0.4181],[0.2637,0.3719],[0.2741,0.3257],[0.2902,0.2805],[0.3097,0.2442],[0.3293,0.2177],[0.3489,0.1977],[0.3684,0.1838],[0.388,0.1749],[0.4076,0.1703],[0.4271,0.1687],[0.4467,0.1687],[0.4663,0.1687],[0.4858,0.1718],[0.5054,0.1733],[0.525,0.1733],[0.5446,0.1733],[0.5641,0.1733],[0.5837,0.1733],[0.6033,0.1733],[0.6228,0.1733],[0.6424,0.1733],[0.662,0.1733],[0.6815,0.1733],[0.7011,0.1733],[0.7207,0.1733],[0.7402,0.1733],[0.7598,0.1733],[0.7794,0.1733],[0.799,0.177],[0.8185,0.1897],[0.8376,0.2177],[0.8488,0.2611],[0.8528,0.3073],[0.8566,0.3534],[0.8598,0.3996],[0.8633,0.4458],[0.8664,0.492],[0.8698,0.5382],[0.8735,0.5844],[0.8758,0.6305],[0.8718,0.6767],[0.8591,0.7186],[0.8401,0.7429],[0.8205,0.75],[0.8009,0.7392],[0.7828,0.7072],[0.7692,0.6629],[0.7618,0.6167],[0.7576,0.5705],[0.7533,0.5243],[0.7491,0.4781],[0.7416,0.432],[0.7264,0.3864],[0.707,0.3541],[0.6874,0.3417],[0.6678,0.3436],[0.6483,0.3578],[0.6287,0.3916],[0.6091,0.4347],[0.5896,0.4766],[0.57,0.5197],[0.5504,0.5628],[0.5309,0.5998],[0.5113,0.6139],[0.4928,0.5976],[0.4814,0.5567],[0.4759,0.5105],[0.4697,0.4643],[0.4573,0.4184],[0.4389,0.3839],[0.4193,0.3725],[0.3997,0.3747],[0.3802,0.3904],[0.3631,0.4273],[0.3555,0.4735],[0.3556,0.5197],[0.3636,0.5659],[0.3768,0.6121],[0.3905,0.6583],[0.404,0.7044],[0.4179,0.7506],[0.4321,0.7968],[0.4476,0.843],[0.4647,0.8882],[0.4839,0.9261],[0.5035,0.9507],[0.523,0.9652],[0.5426,0.9717],[0.5622,0.9723],[0.5817,0.9695],[0.6013,0.9677],[0.6209,0.9646],[0.6404,0.9615],[0.66,0.9584],[0.6796,0.9563],[0.6992,0.9538],[0.7187,0.9507],[0.7383,0.9483],[0.7579,0.9452],[0.7774,0.9427],[0.797,0.9397],[0.8166,0.9366],[0.8361,0.9326],[0.8557,0.9261],[0.8753,0.9169],[0.8948,0.9061],[0.9144,0.8929],[0.934,0.8744],[0.9536,0.8494],[0.9729,0.814],[0.988,0.7691],[0.9961,0.7229],[1.0,0.6767],[0.9991,0.6305],[0.9939,0.5844],[0.9825,0.5382],[0.9684,0.492],[0.9546,0.4458],[0.9418,0.3996],[0.9319,0.3534],[0.9288,0.3073],[0.9312,0.2611],[0.9358,0.2149],[0.9413,0.1687],[0.9449,0.1225],[0.9426,0.0764],[0.9312,0.0333],[0.9125,0.0083],[0.8929,0.0003],[0.8733,0.0],[0.8538,0.0025],[0.8342,0.0025],[0.8146,0.0025],[0.795,0.0025],[0.7755,0.0025],[0.7559,0.0034],[0.7363,0.0065],[0.7168,0.0071],[0.6972,0.0071],[0.6776,0.0071],[0.6581,0.0071],[0.6385,0.0071],[0.6189,0.0099],[0.5993,0.0117],[0.5798,0.0117],[0.5602,0.0117],[0.5406,0.0117],[0.5211,0.0117],[0.5015,0.0117],[0.4819,0.0117],[0.4624,0.0117],[0.4428,0.0117],[0.4232,0.0123],[0.4037,0.0154],[0.3841,0.0163],[0.3645,0.0163],[0.3449,0.0163],[0.3254,0.0163],[0.3058,0.0191],[0.2862,0.0209],[0.2667,0.0222],[0.2471,0.0252],[0.2275,0.0289],[0.208,0.0363],[0.1884,0.049],[0.1691,0.0727],[0.1536,0.1133],[0.1459,0.1595],[0.1432,0.2057],[0.1418,0.2518],[0.1421,0.298],[0.1434,0.3442],[0.0853,0.5804]];
+V.mapGeo=function(){
+  var tr=(FK.cfg||{}).tracado||'500_milhas', raw, asp;
+  var ut=(tr.indexOf('u:')===0&&FK.trc&&FK.trc.get)?FK.trc.get(tr.slice(2)):null;
+  if(ut&&ut.pts&&ut.pts.length>3){ raw=ut.pts; asp=ut.aspect||1.6; }
+  else if(tr==='101'){ raw=V.KGV101; asp=2.3599; } else { raw=(FK._tracks&&(FK._tracks[tr]||FK._tracks['500_milhas']))||[]; asp=1.6; }
+  var key=tr+'|'+raw.length+'|'+(ut?ut.v||0:0); if(V._geo&&V._geo.key===key)return V._geo;
+  var W=1000, H=Math.round(W/asp), pad=30, P=raw.map(function(p){ return [pad+p[0]*(W-2*pad), pad+p[1]*(H-2*pad)]; });
+  var cum=[0]; for(var i=1;i<=P.length;i++){ var a=P[i-1], b=P[i%P.length]; cum.push(cum[i-1]+Math.hypot(b[0]-a[0],b[1]-a[1])); }
+  V._geo={key:key,P:P,cum:cum,len:cum[cum.length-1],W:W,H:H,d:P.map(function(p,i){ return (i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1); }).join('')+'Z'};
+  return V._geo;
+};
+V.mapAt=function(f){ var G=V.mapGeo(), c=FK.cfg.mapCal||{}, dir=c.dir===-1?-1:1, off=+c.off||0;
+  f=((dir*f+off)%1+1)%1; var s=f*G.len, i=1; while(i<G.cum.length-1&&G.cum[i]<s)i++;
+  var a=G.P[i-1], b=G.P[i%G.P.length], seg=(G.cum[i]-G.cum[i-1])||1, t=(s-G.cum[i-1])/seg; return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t]; };
+V.mapCal=function(k,v){ var c=FK.cfg.mapCal=Object.assign({dir:1,off:0},FK.cfg.mapCal||{}); if(k==='dir')c.dir=-c.dir; else c.off=((c.off+v)%1+1)%1;
+  try{ localStorage.setItem('fkart_cfg',JSON.stringify(FK.cfg)); }catch(e){} try{ FK.pushCfgToCloud&&FK.pushCfgToCloud(); }catch(e){} V._mapSig=''; V.mapTick(); };
+V.mapFrac=function(d){
+  var logs=FK.state.lapLog||{}, key=FK.findKartKey?FK.findKartKey(logs,d.kart):d.kart, L=key!=null?logs[key]:null, el=+FK.state.elapsed||0;
+  var last=L&&L.length?L[L.length-1]:null, lt=L?L.filter(function(x){ return !x.pit&&!x.out&&x.lt>0&&x.lt<400; }).slice(-5).map(function(x){ return x.lt; }).sort(function(a,b){return a-b;}):[];
+  var pace=lt.length?lt[Math.floor(lt.length/2)]:(FK.parseT(d.best)<999?FK.parseT(d.best):(FK.parseT(d.last)<999?FK.parseT(d.last):60));
+  var t0=last&&last.t!=null?last.t:(d.totalTimeSec!=null?d.totalTimeSec:null);
+  if(t0==null){ var g=0; try{ g=FK.parseGapSec(d.gap)||0; }catch(e){} return ((el/pace)-(d.laps||0)+1)%1; }
+  return Math.max(0,Math.min(0.985,(el-t0)/pace));
+};
+V.BOXH=150;
+V.mapBuild=function(host){
+  var G=V.mapGeo(), sf=V.mapAt(0), sf2=V.mapAt(0.006), ang=Math.atan2(sf2[1]-sf[1],sf2[0]-sf[0])*180/Math.PI+90, H=G.H+V.BOXH;
+  host.innerHTML='<svg viewBox="0 0 '+G.W+' '+H+'" preserveAspectRatio="xMidYMid meet"><path class="mt-glow" d="'+G.d+'"/><path class="mt-base" d="'+G.d+'"/>'+
+    '<g transform="translate('+sf[0].toFixed(1)+' '+sf[1].toFixed(1)+') rotate('+ang.toFixed(1)+')"><rect class="mt-sf" x="-26" y="-4" width="52" height="8"/></g><text class="mt-sfl" x="'+(sf[0]+16).toFixed(1)+'" y="'+(sf[1]-16).toFixed(1)+'">LARGADA</text>'+
+    '<g class="mt-boxz"><rect x="20" y="'+(G.H+18)+'" width="'+(G.W-40)+'" height="'+(V.BOXH-30)+'" rx="10"/><text x="40" y="'+(G.H+52)+'">BOX</text><text class="mt-bxn" x="'+(G.W-40)+'" y="'+(G.H+52)+'" text-anchor="end"></text></g>'+
+    '<g class="mt-field"></g><g class="mt-team"></g></svg>';
+  host.dataset.sig=V._mapKey();
+};
+V._mapKey=function(){ var G=V.mapGeo(); return G.key+'|'+JSON.stringify(FK.cfg.mapCal||{}); };
+V.mapTick=function(){
+  var hosts=document.querySelectorAll('.ev-map-host'); if(!hosts.length)return;
+  var G=V.mapGeo(), data=[]; try{ data=FK.getData()||[]; }catch(e){}
+  var my=(FK.cfg.myKarts||[]).map(function(x){ return String(parseInt(x,10)||x); });
+  /* posicoes calculadas uma vez e aplicadas em todos os mapas abertos */
+  var pos=[], boxF=0, boxT=0;
+  data.forEach(function(d){
+    var k=String(parseInt(d.kart,10)||d.kart), mine=my.indexOf(k)>=0, inBox=false;
+    try{ inBox=FK.isKartInBoxNow&&FK.isKartInBoxNow(d.kart); }catch(e){}
+    var xy;
+    if(inBox){ var n=mine?boxT++:boxF++; xy=mine?[60+n*64, G.H+102]:[150+n*26, G.H+52]; if(!mine&&xy[0]>G.W-160){ xy=[150+((n*26)%(G.W-320)), G.H+52+Math.floor(n*26/(G.W-320))*24]; } }
+    else xy=V.mapAt(V.mapFrac(d));
+    pos.push({k:k,d:d,mine:mine,box:inBox,xy:xy});
+  });
+  [].forEach.call(hosts,function(host){
+    if(host.dataset.sig!==V._mapKey()||!host.querySelector('svg'))V.mapBuild(host);
+    var svg=host.querySelector('svg'), gf=svg.querySelector('.mt-field'), gt=svg.querySelector('.mt-team'), seen={};
+    pos.forEach(function(o){
+      seen[o.k]=1; var g=svg.querySelector('[data-k="'+o.k+'"]');
+      if(!g){ g=document.createElementNS('http://www.w3.org/2000/svg','g'); g.setAttribute('data-k',o.k); g.setAttribute('class',o.mine?'mt-k me':'mt-k');
+        var col=o.mine&&FK.est&&FK.est.kcol?FK.est.kcol(o.d.kart):'#8f9ab0';
+        g.innerHTML=o.mine?'<circle class="mt-ring" r="32" fill="none" stroke="'+col+'"/><circle class="mt-dot" r="23" fill="'+col+'" stroke="#000" stroke-width="2"/><text text-anchor="middle" dy="8">'+o.k+'</text>':'<circle class="mt-dot" r="9" fill="#6b7590"/><title>#'+o.k+'</title>';
+        (o.mine?gt:gf).appendChild(g); }
+      g.classList.toggle('lead',o.mine&&V.isLead(o.d.kart)); g.classList.toggle('leader',+o.d.pos===1); g.classList.toggle('inbox',o.box);
+      g.setAttribute('transform','translate('+o.xy[0].toFixed(1)+' '+o.xy[1].toFixed(1)+')'+(o.box?' scale(.62)':''));
+    });
+    [].forEach.call(svg.querySelectorAll('[data-k]'),function(g){ if(!seen[g.getAttribute('data-k')])g.remove(); });
+    var bn=svg.querySelector('.mt-bxn'); if(bn)bn.textContent=(boxF+boxT)?(boxF+boxT)+' no box':'box vazio';
+  });
+};
+V.mapCard=function(id){
+  id=id||'evt-map'; var m=document.getElementById(id); if(m)return m;
+  m=document.createElement('div'); m.className='dash-card ev-mapcard'; m.id=id;
+  var ed=FK.est&&FK.est.canEdit?FK.est.canEdit():true;
+  m.innerHTML='<div class="dash-card-hdr"><h3>&#128506; Mapa ao vivo</h3><span class="mt-cal">'+(ed?'<button onclick="FK.endv.mapCal(\'off\',-0.01)" title="Mover a linha de largada para trás">◂</button><button onclick="FK.endv.mapCal(\'off\',0.01)" title="Mover a linha de largada para frente">▸</button><button onclick="FK.endv.mapCal(\'dir\')" title="Inverter o sentido da pista">⇄</button>':'')+'<button onclick="FK.trc&&FK.trc.open()" title="Base de traçados">TRAÇADOS</button></span></div><div class="ev-map-host"></div><div class="mt-foot"><span>posição estimada pelo ritmo de cada kart · <i class="mt-lg"></i> equipe · <i class="mt-lg f"></i> demais · no box: menores, na faixa BOX</span></div>';
+  return m;
+};
+/* mapa no painel do Endurance: botao MAPA abre como janela por cima */
+V.mapPop=function(open){
+  var o=document.getElementById('ev-map-pop');
+  if(open===false||(open==null&&o)){ if(o)o.remove(); return; }
+  o=document.createElement('div'); o.id='ev-map-pop'; o.onclick=function(e){ if(e.target===o)V.mapPop(false); };
+  var c=V.mapCard('ev-map-popcard'); var x=document.createElement('button'); x.className='ev-mp-x'; x.textContent='✕'; x.title='Fechar'; x.onclick=function(){ V.mapPop(false); };
+  c.querySelector('.dash-card-hdr').appendChild(x); o.appendChild(c); document.body.appendChild(o); V.mapTick();
+};
+V.mapBtn=function(){
+  var g=document.getElementById('dg-krono-grid'), hd=g&&g.closest('.dash-card')&&g.closest('.dash-card').querySelector('.dash-card-hdr'); if(!hd||document.getElementById('ev-map-btn'))return;
+  var b=document.createElement('button'); b.id='ev-map-btn'; b.type='button'; b.className='ev-tgb ev-mapb'; b.innerHTML='&#128506; MAPA'; b.title='Abrir o mapa da pista ao vivo'; b.onclick=function(e){ e.stopPropagation(); V.mapPop(); }; hd.appendChild(b);
+};
+document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&document.getElementById('ev-map-pop'))V.mapPop(false); });
+setInterval(function(){ V.mapBtn(); if(document.querySelector('.ev-map-host'))V.mapTick(); },500);
+var cssL=document.createElement('style');
+cssL.textContent=[
+/* brilho dos ponteiros (todas as telas) */
+'.krono-card.ev-lead,.pq-kart-card.ev-lead{--k:#ff8f00;position:relative;animation:evLead 2.2s ease-in-out infinite;z-index:1}',
+'@keyframes evLead{0%,100%{box-shadow:inset 4px 0 0 var(--k),0 0 0 2px var(--k),0 0 18px color-mix(in srgb,var(--k) 45%,transparent)}50%{box-shadow:inset 4px 0 0 var(--k),0 0 0 2px var(--k),0 0 34px color-mix(in srgb,var(--k) 70%,transparent)}}',
+'.krono-card.ev-lead:after{content:"★ PONTEIRO";position:absolute;top:0;right:0;background:var(--k);color:#000;font-size:10px;font-weight:900;letter-spacing:1.2px;padding:3px 8px;z-index:2}',
+'#tv-krono-grid .krono-card.ev-lead:after{font-size:12px;padding:4px 10px}',
+'.ev-lead-btn{background:transparent;border:1px solid rgba(255,255,255,.25);color:#c9d1e0;font-weight:900;font-size:11px;letter-spacing:1.2px;padding:6px 10px;cursor:pointer;margin-left:auto;white-space:nowrap}',
+'.ev-lead-btn.on{background:var(--k,#ff8f00);border-color:var(--k,#ff8f00);color:#000}',
+'.pq-kart-hdr .ev-lead-btn+.pq-undo-btn{margin-left:6px}',
+/* clima na TV */
+'html.evt body.tv-mode #wx-topbar-forecast{display:flex!important}',
+'html.evt body.tv-mode .tabs-wx{display:flex!important;min-width:260px}',
+/* mapa na TV: karts em cima, mapa + voltas lado a lado embaixo */
+'html.evt #pane-tvpilotos .dash-cols>.dash-col:last-child{display:grid!important;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);align-content:start}',
+'html.evt #pane-tvpilotos .dash-cols>.dash-col:last-child>.dash-card:has(#tv-krono-grid){grid-column:1/-1}',
+'.ev-map-host{padding:0 10px}.ev-map-host svg{display:block;width:100%;height:auto;max-height:300px}',
+'#ev-map-pop{position:fixed;inset:0;z-index:9005;background:rgba(5,7,12,.75);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:24px}',
+'#ev-map-pop .ev-mapcard{width:min(1300px,100%);background:#111723;box-shadow:0 0 0 1px rgba(255,255,255,.12),0 20px 60px rgba(0,0,0,.6);border-top:3px solid #d7263d}',
+'#ev-map-pop .ev-map-host svg{max-height:calc(100vh - 170px)}#ev-map-pop .dash-card-hdr{display:flex;align-items:center;padding:12px 16px}#ev-map-pop .dash-card-hdr h3{font-size:14px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#fff;margin:0}',
+'.ev-mp-x{margin-left:10px;background:transparent;border:0;color:#c9d1e0;font-size:20px;cursor:pointer}',
+'.ev-mapb{border-color:#4fc3f7!important;color:#8fd8ff!important}.ev-mapb:hover{background:#4fc3f7!important;color:#000!important}',
+'.ev-mapcard .mt-boxz rect{fill:rgba(255,255,255,.04);stroke:rgba(255,183,77,.45);stroke-width:2;stroke-dasharray:10 8}.ev-mapcard .mt-boxz text{fill:#ffb74d;font-size:22px;font-weight:900;letter-spacing:3px}.ev-mapcard .mt-boxz .mt-bxn{fill:#8f9ab0;font-size:18px;letter-spacing:1px;font-weight:700}',
+'.ev-mapcard .mt-k.inbox .mt-ring{display:none}',
+'.ev-mapcard .mt-glow{fill:none;stroke:rgba(79,195,247,.14);stroke-width:34;stroke-linejoin:round;stroke-linecap:round}',
+'.ev-mapcard .mt-base{fill:none;stroke:#4fc3f7;stroke-width:9;stroke-linejoin:round;stroke-linecap:round}',
+'.ev-mapcard .mt-sf{fill:#fff;stroke:#000;stroke-width:2}.ev-mapcard .mt-sfl{fill:#fff;font-size:22px;font-weight:900;letter-spacing:2px}',
+'.ev-mapcard .mt-k{transition:transform .5s linear}',
+'.ev-mapcard .mt-k.leader circle{fill:#ffd54f}',
+'.ev-mapcard .mt-k.me text{fill:#000;font-size:24px;font-weight:900}.ev-mapcard .mt-ring{stroke-width:3;opacity:0}',
+'.ev-mapcard .mt-k.lead .mt-ring{opacity:1;animation:mtRing 1.4s ease-in-out infinite}@keyframes mtRing{50%{stroke-width:8;opacity:.4}}',
+'.ev-mapcard .mt-cal{display:flex;gap:4px}.ev-mapcard .mt-cal button{background:#171b22;border:1px solid rgba(255,255,255,.15);color:#c9d1e0;font-size:12px;padding:2px 8px;cursor:pointer}',
+'.ev-mapcard .mt-foot{display:flex;justify-content:space-between;gap:10px;padding:2px 14px 10px;font-size:11px;color:#8f9ab0}.ev-mapcard .mt-foot b{color:#ffb74d;margin-left:4px}',
+'.ev-mapcard .mt-lg{display:inline-block;width:9px;height:9px;border-radius:50%;background:#ff8f00;vertical-align:-1px;margin:0 2px 0 6px}.ev-mapcard .mt-lg.f{background:#5b6478}'
+].join('\n');
+document.head.appendChild(cssL);
+
+var cssT=document.createElement('style');
+cssT.textContent=[
+'html.evt body{background:radial-gradient(1200px 600px at 85% -10%,rgba(215,38,61,.16),transparent 60%),linear-gradient(180deg,#0b0f18,#121826 60%,#0a0d14)}',
+'html.evt #pane-tvpilotos .tv-dash{gap:10px;height:100%}',
+'html.evt #pane-tvpilotos .dash-cols{display:grid!important;grid-template-columns:minmax(0,1.4fr) minmax(0,1.1fr)!important;gap:10px!important;height:100%;min-height:0}',
+'html.evt #pane-tvpilotos .dash-cols>.dash-col:first-child{order:2}',
+'html.evt #pane-tvpilotos .dash-col{display:flex!important;flex-direction:column;gap:10px!important;min-width:0;min-height:0}',
+'html.evt #pane-tvpilotos .dash-card{background:rgba(17,23,35,.9);border:0;border-radius:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);backdrop-filter:none}',
+'html.evt #pane-tvpilotos .dash-card-hdr{background:transparent;border-bottom:0;padding:10px 16px 4px}',
+'html.evt #pane-tvpilotos .dash-card-hdr h3{font-size:16px;font-weight:900;letter-spacing:2.5px;text-transform:uppercase;color:#fff}',
+'html.evt #pane-tvpilotos .dash-card-hdr>span{font-size:11px!important;letter-spacing:1.4px;text-transform:uppercase;color:#8f9ab0!important}',
+'html.evt #tv-pq-body{display:none!important}html.evt #pane-tvpilotos .dash-card:has(#tv-pq-body){display:none}',
+/* cartoes dos karts */
+'html.evt #tv-krono-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px;padding:6px 14px 14px}',
+'html.evt #tv-krono-grid[data-n="1"]{grid-template-columns:1fr!important}',
+'html.evt #tv-krono-grid[data-n="5"],html.evt #tv-krono-grid[data-n="6"]{grid-template-columns:repeat(3,minmax(0,1fr))!important}',
+'html.evt #tv-krono-grid .krono-card{--k:#ff8f00;position:relative;overflow:hidden;display:flex;flex-direction:column;gap:6px;background:linear-gradient(135deg,rgba(255,255,255,.04),transparent 60%),#0f1420;border:0;border-radius:0;box-shadow:inset 6px 0 0 var(--k),inset 0 0 0 1px rgba(255,255,255,.08);padding:14px 16px 14px 24px}',
+'html.evt #tv-krono-grid .kc3-head{gap:14px}',
+'html.evt #tv-krono-grid .krono-badge{width:auto!important;height:auto!important;background:var(--k);color:#000;font-weight:900;font-style:italic;font-size:30px!important;border-radius:0;transform:skew(-8deg);padding:2px 14px;border:0;box-shadow:none}',
+'html.evt #tv-krono-grid .krono-badge:before{content:"#"}',
+'html.evt #tv-krono-grid .krono-name{font-size:30px!important;font-weight:900;color:#fff}',
+'html.evt #tv-krono-grid .krono-pos-info{font-size:17px!important;color:#c9d1e0;font-weight:700}',
+'html.evt #tv-krono-grid .krono-timer{text-align:left;font-size:64px!important;font-weight:900;line-height:1;margin:4px 0;color:#fff}',
+'html.evt #tv-krono-grid .krono-row{border-top:0;padding-top:0;gap:8px;grid-template-columns:repeat(3,1fr)}',
+'html.evt #tv-krono-grid .kr-cell{align-items:flex-start;background:#171b22;padding:6px 12px}',
+'html.evt #tv-krono-grid .kl{font-size:12px!important;letter-spacing:1.4px;color:#8f9ab0;font-weight:800;text-transform:uppercase}',
+'html.evt #tv-krono-grid .kv{font-size:24px!important;font-weight:900;color:#fff}html.evt #tv-krono-grid .kv.acc{color:#c9a0ff}',
+'html.evt #tv-krono-grid .krono-pits{display:none}',
+'html.evt .evt-next{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px 14px;background:rgba(255,255,255,.04);border-top:2px solid var(--k);margin:4px -16px -14px -24px;padding:10px 16px 12px 24px}',
+'html.evt .evt-nx small{display:block;font-size:12px;letter-spacing:2px;color:#8f9ab0;font-weight:800}',
+'html.evt .evt-nx b{display:block;font-size:28px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+'html.evt .evt-when{text-align:right}',
+'html.evt .evt-when em{display:inline-block;font-style:normal;background:rgba(255,143,0,.16);color:#ffb74d;font-weight:900;font-size:17px;padding:5px 10px;letter-spacing:.5px}',
+'html.evt .evt-when em b{font-size:22px}html.evt .evt-when em.soon{background:#d7263d;color:#fff;animation:evtBl 1s ease-in-out infinite}@keyframes evtBl{50%{opacity:.6}}',
+'html.evt .evt-when span{display:block;margin-top:6px;font-size:15px;color:#c9d1e0}html.evt .evt-when span b{color:#fff}html.evt .evt-when i{font-style:normal;font-weight:800}html.evt .evt-when i.ok{color:#2fbf71}html.evt .evt-when i.pd{color:#f2c230}',
+/* 3+ karts: compactar */
+'html.evt #tv-krono-grid:is([data-n="3"],[data-n="4"]) .krono-timer{font-size:52px!important}',
+'html.evt #tv-krono-grid:is([data-n="5"],[data-n="6"]) .krono-card{padding:10px 12px 10px 18px;gap:4px}',
+'html.evt #tv-krono-grid:is([data-n="5"],[data-n="6"]) .krono-badge{font-size:22px!important;padding:1px 10px}',
+'html.evt #tv-krono-grid:is([data-n="5"],[data-n="6"]) .krono-name{font-size:20px!important}',
+'html.evt #tv-krono-grid:is([data-n="5"],[data-n="6"]) .krono-pos-info{font-size:14px!important}',
+'html.evt #tv-krono-grid:is([data-n="5"],[data-n="6"]) .krono-timer{font-size:40px!important}',
+'html.evt #tv-krono-grid:is([data-n="5"],[data-n="6"]) .kv{font-size:18px!important}html.evt #tv-krono-grid:is([data-n="5"],[data-n="6"]) .kr-cell{padding:4px 8px}',
+'html.evt #tv-krono-grid:is([data-n="5"],[data-n="6"]) .evt-next{grid-template-columns:1fr;margin:4px -12px -10px -18px;padding:8px 12px 10px 18px}',
+'html.evt #tv-krono-grid:is([data-n="5"],[data-n="6"]) .evt-nx b{font-size:22px}html.evt #tv-krono-grid:is([data-n="5"],[data-n="6"]) .evt-when{text-align:left}html.evt #tv-krono-grid:is([data-n="5"],[data-n="6"]) .evt-when em{font-size:14px}html.evt #tv-krono-grid:is([data-n="5"],[data-n="6"]) .evt-when span{font-size:13px}',
+/* classificacao */
+'html.evt #tv-rank-table{width:calc(100% - 28px);margin:0 14px 10px;border-collapse:collapse}',
+'html.evt #tv-rank-table th{font-size:11px!important;letter-spacing:1.3px;color:#8f9ab0;font-weight:800;background:transparent;border:0;padding:4px 6px!important;text-transform:uppercase}',
+'html.evt #tv-rank-table td{font-size:17px!important;padding:6px 6px!important;border:0;border-top:1px solid rgba(255,255,255,.07);background:transparent}',
+'html.evt #tv-rank-table th:nth-child(4),html.evt #tv-rank-table td:nth-child(4),html.evt #tv-rank-table th:nth-child(9),html.evt #tv-rank-table td:nth-child(9),html.evt #tv-rank-table th:nth-child(11),html.evt #tv-rank-table td:nth-child(11){display:none}',
+'html.evt #tv-rank-table td:nth-child(3) span+br+span{display:none}',
+'html.evt #tv-rank-table .d-pos{background:transparent!important;color:#fff;font-weight:900;font-style:italic;font-size:20px!important;box-shadow:none;width:auto!important;height:auto!important;border:0}',
+'html.evt #tv-rank-table .d-pos.p1{color:#ffd54f}html.evt #tv-rank-table .d-pos.p2{color:#cfd8dc}html.evt #tv-rank-table .d-pos.p3{color:#ffab76}',
+'html.evt #tv-rank-table .d-kart{background:#e8ecf3;color:#000;font-weight:900;border-radius:0;width:auto!important;height:auto!important;padding:2px 8px;font-size:16px!important;border:0;box-shadow:none}',
+'html.evt #tv-rank-table tr.my-kart td{background:rgba(255,143,0,.12)!important}html.evt #tv-rank-table tr.my-kart td:first-child{box-shadow:inset 5px 0 0 #ff8f00}html.evt #tv-rank-table .d-kart.my{background:#ff8f00}',
+'html.evt #pane-tvpilotos .dr-mykarts-strip{display:none}',
+/* voltas */
+'html.evt #tv-laphist-body{padding:0 14px 10px}',
+'html.evt #tv-krono-grid .krono-card{display:grid!important;grid-template-columns:auto minmax(0,1fr);grid-template-areas:"hd hd" "tm rw" "gp gp" "nx nx";align-items:center;gap:6px 14px!important;padding:10px 14px 10px 20px!important}',
+'html.evt #tv-krono-grid .kc3-head{grid-area:hd}html.evt #tv-krono-grid .krono-timer{grid-area:tm}html.evt #tv-krono-grid .krono-row{grid-area:rw}html.evt #tv-krono-grid .evt-gp{grid-area:gp}html.evt #tv-krono-grid .evt-next{grid-area:nx}',
+'html.evt #tv-krono-grid .krono-badge{font-size:22px!important;padding:1px 10px!important}',
+'html.evt #tv-krono-grid .krono-name{font-size:22px!important}html.evt #tv-krono-grid .krono-pos-info{font-size:14px!important}',
+'html.evt #tv-krono-grid .krono-timer{font-size:40px!important;margin:0!important}',
+'html.evt #tv-krono-grid .kv{white-space:nowrap}html.evt #tv-krono-grid .kr-cell{padding:4px 10px!important;min-width:0}html.evt #tv-krono-grid .kl{font-size:10px!important}html.evt #tv-krono-grid .kv{font-size:18px!important}',
+'html.evt .evt-gp{display:grid;grid-template-columns:1fr 1fr auto;gap:6px}',
+'html.evt .evt-gp span{background:#171b22;padding:4px 10px}html.evt .evt-gp small{display:block;font-size:10px;letter-spacing:1.3px;color:#8f9ab0;font-weight:800}html.evt .evt-gp b{font-size:18px;font-weight:900;color:#fff}',
+'html.evt .evt-gp .eq{background:rgba(255,143,0,.12);box-shadow:inset 3px 0 0 #ff8f00}html.evt .evt-gp .eq b{color:#ffb74d}',
+'html.evt .evt-next{margin:2px -14px -10px -20px!important;padding:8px 14px 9px 20px!important}',
+'html.evt .evt-nx b{font-size:22px!important}html.evt .evt-when em{font-size:14px!important;padding:4px 8px!important}html.evt .evt-when em b{font-size:17px!important}html.evt .evt-when span{font-size:13px!important;margin-top:4px!important}',
+'html.evt #tv-krono-grid:is([data-n="5"],[data-n="6"]) .krono-card{grid-template-columns:1fr;grid-template-areas:"hd" "tm" "rw" "gp" "nx"}',
+'html.evt #tv-krono-grid:is([data-n="5"],[data-n="6"]) .krono-timer{font-size:34px!important}',
+'html.evt #tv-krono-grid:is([data-n="5"],[data-n="6"]) .evt-gp b{font-size:15px}',
+'html.evt #tv-krono-grid:is([data-n="5"],[data-n="6"]) .evt-next{grid-template-columns:minmax(0,1fr) auto!important}html.evt #tv-krono-grid:is([data-n="5"],[data-n="6"]) .evt-when{text-align:right!important}',
+'html.evt #tv-krono-grid:is([data-n="5"],[data-n="6"]) .evt-nx b{font-size:18px!important}',
+/* classificacao completa de novo (1 m de distancia) */
+'html.evt #tv-rank-table th:nth-child(4),html.evt #tv-rank-table td:nth-child(4),html.evt #tv-rank-table th:nth-child(9),html.evt #tv-rank-table td:nth-child(9),html.evt #tv-rank-table th:nth-child(11),html.evt #tv-rank-table td:nth-child(11){display:table-cell!important}',
+'html.evt #tv-rank-table{table-layout:auto}html.evt #tv-rank-table td{font-size:14px!important;padding:5px 5px!important;white-space:nowrap}html.evt #tv-rank-table th{padding:4px 5px!important}html.evt #tv-rank-table td:nth-child(3) div{max-width:190px;overflow:hidden;text-overflow:ellipsis}html.evt #tv-rank-table td:nth-child(3) br,html.evt #tv-rank-table td:nth-child(3) span+br+span{display:none!important}html.evt #tv-rank-table td:nth-child(3) span:first-child{white-space:nowrap}html.evt #tv-rank-table .d-kart{font-size:14px!important;padding:1px 6px!important}html.evt #tv-rank-table .d-pos{font-size:17px!important}',
+/* box inteligente na TV */
+'html.evt #tv-pace-comp{padding:2px 14px 12px;overflow-x:auto}html.evt #tv-pace-comp .pace-cell{border-radius:0;font-size:13px}html.evt #tv-pace-comp th{font-size:11px;color:#8f9ab0}html.evt #tv-pace-comp .row-kart{font-size:14px}',
+'html.evt #tv-bxi-body{padding:2px 14px 12px}html.evt #tv-bxi-count{font-size:11px!important;color:#8f9ab0}',
+'html.evt #tv-bxi-body .bx3-s{overflow:hidden;text-overflow:ellipsis;min-width:0}html.evt #tv-bxi-body .bx3-tiles{grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:4px;padding:2px 0 0}',
+'html.evt #tv-bxi-body .bx3-tile{flex-direction:row;align-items:center;gap:8px;padding:5px 8px;border-radius:0;border-width:0 0 0 3px!important;background:#171b22}',
+'html.evt #tv-bxi-body .bx3-k{font-size:16px;min-width:38px}html.evt #tv-bxi-body .bx3-v{font-size:11px;padding:4px 6px;width:auto;flex:1;border-radius:0;font-weight:900}html.evt #tv-bxi-body .bx3-s{font-size:10px;white-space:nowrap}',
+'html.evt #tv-bxi-body .bx3-pool{padding:2px 0 8px}',
+'html.evt #tv-bxi-body .bx2-row{display:grid;grid-template-columns:auto auto 1fr;gap:8px;align-items:center;margin-bottom:4px}html.evt #tv-bxi-body .bx2-verdict{color:#fff;font-weight:900;padding:3px 8px;font-size:12px}html.evt #tv-bxi-body .bx2-why{font-size:12px;color:#c9d1e0}'
+].join('\n');
+document.head.appendChild(cssT);
+
+var cssF=document.createElement('style');
+cssF.textContent=[
+'@media(min-width:760px){body:not(.tv-mode) .topbar{position:sticky;top:0;z-index:70}}',
+'.ev-tgb{margin-left:10px;flex:none;background:transparent;border:1px solid #d7263d;color:#ff8a95;font-size:10px;font-weight:900;letter-spacing:1.2px;padding:4px 10px;cursor:pointer;border-radius:2px}.ev-tgb:hover{background:#d7263d;color:#fff}',
+'html.evf body{background:radial-gradient(1100px 520px at 85% -10%,rgba(79,195,247,.12),transparent 60%),linear-gradient(180deg,#0b0f18,#121826 60%,#0a0d14)}',
+'html.evf #pane-filapilotos .dash-root{gap:14px}',
+'html.evf #pane-filapilotos .dash-card{background:rgba(17,23,35,.88);border:0;border-radius:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);backdrop-filter:none}',
+'html.evf #pane-filapilotos .dash-card-hdr{background:transparent;border-bottom:0;padding:14px 16px 6px}',
+'html.evf #pane-filapilotos .dash-card-hdr h3{font-size:13px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#fff}',
+'html.evf #pane-filapilotos .dash-card-hdr>span{font-size:9px!important;letter-spacing:1.4px;text-transform:uppercase;color:#8f9ab0!important;font-weight:700}',
+/* cartoes de kart lado a lado */
+'html.evf #dg-pq-body{display:flex!important;flex-direction:row!important;gap:12px;padding:6px 16px 16px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-padding:0 16px;scrollbar-width:none;-webkit-overflow-scrolling:touch}html.evf #dg-pq-body::-webkit-scrollbar{display:none}',
+'html.evf #dg-pq-body .pq-kart-card{flex:0 0 min(620px,calc(100% - 4px));scroll-snap-align:start}',
+'#ev-pqnav{display:none}html.evf #ev-pqnav{display:flex;align-items:center;gap:6px;padding:0 16px 6px}',
+'html.evf #ev-pqnav .pk{display:flex;gap:4px;flex-wrap:wrap}',
+'html.evf #ev-pqnav button{background:#171b22;border:1px solid rgba(255,255,255,.12);color:#c9d1e0;font-weight:900;font-size:13px;padding:7px 12px;cursor:pointer}',
+'html.evf #ev-pqnav .pk button{box-shadow:inset 0 -3px 0 var(--k)}html.evf #ev-pqnav .pk button.on{background:var(--k);color:#000;border-color:var(--k)}',
+'html.evf #ev-pqnav .pv{font-size:18px;padding:3px 12px}html.evf #ev-pqnav .pv:disabled{opacity:.3;cursor:default}',
+'html.evf .pq-kart-card{--k:#ff8f00;background:#0f1420;border:0;border-radius:0;box-shadow:inset 4px 0 0 var(--k),inset 0 0 0 1px rgba(255,255,255,.08);padding:14px 16px 14px 20px}',
+'html.evf .pq-kart-hdr{gap:12px;margin-bottom:10px}',
+'html.evf .pq-kart-hdr .krono-badge{width:auto!important;height:auto!important;font-size:22px!important;background:var(--k);color:#000;font-weight:900;font-style:italic;border-radius:0;transform:skew(-8deg);padding:1px 12px;border:0;box-shadow:none}',
+'html.evf .pq-kart-hdr .krono-badge:before{content:"#"}',
+'html.evf .pq-current .pq-lbl{font-size:9px;letter-spacing:1.6px;color:#8f9ab0;font-weight:800}',
+'html.evf .pq-current-name{font-size:22px;font-weight:900;color:#fff}',
+'html.evf .pq-undo-btn{border-radius:0;font-size:10px;padding:6px 10px;color:#ffb74d;border-color:rgba(255,183,77,.5)}',
+'html.evf .pq-flags{gap:6px;padding:0 0 12px}',
+'html.evf .pq-flag-chip{border-radius:0;font-size:11px;padding:6px 10px;background:#171b22}',
+'html.evf .pq-flag-chip.on{background:rgba(47,191,113,.16);border-color:rgba(47,191,113,.6);color:#8fe3b4}',
+/* vagas: lista vertical */
+'html.evf .pq-slots{display:flex!important;flex-direction:column;gap:4px}',
+'html.evf .pq-slot{display:grid!important;grid-template-columns:88px minmax(0,1fr) auto auto;align-items:center;gap:10px;border:0;border-radius:0;background:#171b22;padding:7px 10px;min-height:42px}',
+'html.evf .pq-slot-num{font-size:12px;font-weight:900;color:#c9d1e0;text-align:left;letter-spacing:.5px}',
+'html.evf .pq-slot.required .pq-slot-num:after{content:" obrig.";font-size:8px;color:#8f9ab0;font-weight:700;letter-spacing:1px}',
+'html.evf .pq-slot:first-child .pq-slot-num:after{content:""}html.evf .pq-slot.extra .pq-slot-num{color:#8f9ab0}html.evf .pq-slot.extra .pq-slot-num:after{content:" extra";font-size:8px;color:#6b7590;font-weight:700;letter-spacing:1px}',
+'html.evf .pq-slot select{width:100%;min-width:0;background:#0f1420;border:1px solid rgba(255,255,255,.18);color:#fff;font-size:14px;font-weight:700;padding:6px 8px;border-radius:0}',
+'html.evf .ev-pl{font-size:10px;color:#8f9ab0;white-space:nowrap}html.evf .ev-pl.diff{color:#ffb74d}',
+'html.evf .pq-slot-status{font-size:11px;color:#8fe3b4;font-weight:700}',
+'html.evf .pq-slot.done{opacity:.62}html.evf .pq-slot.done .pq-slot-num:before{content:"✓ ";color:#2fbf71}',
+'html.evf .pq-slot.active{background:rgba(255,143,0,.12);box-shadow:inset 3px 0 0 #ff8f00}',
+'html.evf .pq-slot.active .pq-slot-num{color:#ffb74d}',
+'html.evf .pq-slot-timer{font-size:18px;color:#ff8f00;font-family:inherit;font-variant-numeric:tabular-nums}',
+'html.evf .pq-activate-btn{border-radius:0;background:#d7263d;font-size:12px;font-weight:900;letter-spacing:1.5px;padding:9px 16px;text-transform:uppercase;box-shadow:0 0 18px rgba(215,38,61,.35)}',
+/* tempo por piloto e historico */
+'html.evf #pane-filapilotos .dash-cols{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:14px!important;align-items:start}',
+'html.evf #pane-filapilotos .dash-col{min-width:0;height:auto!important}',
+'html.evf #pane-filapilotos .dr-table{width:calc(100% - 32px)!important;margin:0 16px 14px;border-collapse:separate;border-spacing:0 4px}',
+'html.evf #pane-filapilotos .dr-table th{font-size:9px;letter-spacing:1.3px;color:#8f9ab0;font-weight:800;text-transform:uppercase;background:transparent;border:0;padding:2px 10px}',
+'html.evf #pane-filapilotos .dr-table td{border:0;padding:9px 10px;font-size:14px;background:#171b22}',
+'html.evf #dg-pt-body tr td:first-child{font-weight:800;background:linear-gradient(90deg,rgba(79,195,247,.28) 0 var(--w,0%),#171b22 var(--w,0%))}',
+'html.evf #dg-pt-body tr.low td:first-child{background:linear-gradient(90deg,rgba(242,194,48,.28) 0 var(--w,0%),#171b22 var(--w,0%))}',
+'html.evf #dg-pt-body td:last-child{font-weight:900;width:90px}',
+'html.evf #dg-pcl-body .d-kart{--k:#ff8f00;background:var(--k)!important;color:#000!important;border-radius:0;font-weight:900;font-style:italic;transform:skew(-8deg);border:0;box-shadow:none}',
+'@media(max-width:900px){html.evf #pane-filapilotos .dash-cols{grid-template-columns:1fr!important}html.evf .pq-slot{grid-template-columns:60px minmax(0,1fr) auto}html.evf .ev-pl{display:none}}'
+].join('\n');
+document.head.appendChild(cssF);
+
 if(document.readyState!=='loading')setTimeout(V.apply,50); else document.addEventListener('DOMContentLoaded',function(){ setTimeout(V.apply,50); });
 
 var css=document.createElement('style');
@@ -9593,16 +10169,16 @@ css.textContent=[
 '#ev-tg{margin-left:10px;flex:none;background:transparent;border:1px solid #d7263d;color:#ff8a95;font-size:10px;font-weight:900;letter-spacing:1.2px;padding:4px 10px;cursor:pointer;border-radius:2px}#ev-tg:hover{background:#d7263d;color:#fff}',
 /* ---- fundo e topo ---- */
 'html.evn body{background:radial-gradient(1100px 520px at 85% -10%,rgba(215,38,61,.16),transparent 60%),linear-gradient(180deg,#0b0f18,#121826 60%,#0a0d14)}',
-'html.evn .topbar{background:rgba(8,10,16,.82);border-bottom:1px solid rgba(255,255,255,.08);padding:8px 16px;gap:14px}',
-'html.evn .hdr-stack,html.evn .hdr-leader{flex-direction:row;gap:4px;border-left:0;padding-left:0}',
-'html.evn .hdr-stack-row{flex-direction:column;align-items:flex-start;gap:0;background:#0f1420;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);padding:5px 12px;min-width:104px}',
-'html.evn .hdr-stack-row .hs-lbl{width:auto;font-size:9px;letter-spacing:1.5px;color:#8f9ab0;font-weight:800}',
-'html.evn .hdr-stack-row .hs-val{font-size:22px;line-height:1.1;font-family:inherit;font-weight:900}',
-'html.evn .hdr-stack>.hdr-stack-row:first-child{box-shadow:inset 3px 0 0 #d7263d,inset 0 0 0 1px rgba(255,255,255,.08)}html.evn .hdr-stack>.hdr-stack-row:first-child .hs-val{font-size:26px}',
-'html.evn .hdr-stack-row.acc .hs-val{color:#f2c230}',
-'html.evn .hdr-leader{position:relative}html.evn .hdr-leader .hs-leader{position:absolute;left:12px;bottom:4px;font-size:10px;color:#c9d1e0;font-weight:600;max-width:120px;overflow:hidden;text-overflow:ellipsis}',
-'html.evn .hdr-leader>.hdr-stack-row:first-child{padding-bottom:18px}',
-'html.evn .tabs-wx{border-left:0}',
+'html.evh .topbar{background:rgba(8,10,16,.82);border-bottom:1px solid rgba(255,255,255,.08);padding:8px 16px;gap:14px}',
+'html.evh .hdr-stack,html.evh .hdr-leader{flex-direction:row;gap:4px;border-left:0;padding-left:0}',
+'html.evh .hdr-stack-row{flex-direction:column;align-items:flex-start;gap:0;background:#0f1420;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);padding:5px 12px;min-width:104px}',
+'html.evh .hdr-stack-row .hs-lbl{width:auto;font-size:9px;letter-spacing:1.5px;color:#8f9ab0;font-weight:800}',
+'html.evh .hdr-stack-row .hs-val{font-size:22px;line-height:1.1;font-family:inherit;font-weight:900}',
+'html.evh .hdr-stack>.hdr-stack-row:first-child{box-shadow:inset 3px 0 0 #d7263d,inset 0 0 0 1px rgba(255,255,255,.08)}html.evh .hdr-stack>.hdr-stack-row:first-child .hs-val{font-size:26px}',
+'html.evh .hdr-stack-row.acc .hs-val{color:#f2c230}',
+'html.evh .hdr-leader{position:relative}html.evh .hdr-leader .hs-leader{position:absolute;left:12px;bottom:4px;font-size:10px;color:#c9d1e0;font-weight:600;max-width:120px;overflow:hidden;text-overflow:ellipsis}',
+'html.evh .hdr-leader>.hdr-stack-row:first-child{padding-bottom:18px}',
+'html.evh .tabs-wx{border-left:0}',
 /* ---- conteudo ---- */
 'html.evn #pane-dashgeral{padding-bottom:96px}',
 'html.evn #pane-dashgeral .dash-root{gap:14px}',
@@ -9686,7 +10262,7 @@ css.textContent=[
 'html.evn #dg-bxi-body .bx3-pool{padding:2px 0 8px}',
 '@media(max-width:1500px){html.evn #dg-radio-chief .rc3-kart{display:none}}',
 '@media(max-width:1100px){html.evn #pane-dashgeral .dash-cols{grid-template-columns:1fr!important}html.evn #dg-krono-grid[data-n="3"]{grid-template-columns:1fr!important}}',
-'@media(max-width:760px){html.evn #dg-krono-grid[data-n]{grid-template-columns:1fr!important}html.evn #dg-krono-grid[data-n] .krono-card.kc3{display:flex!important;flex-direction:column;padding:10px 12px 10px 16px}html.evn #dg-krono-grid[data-n] .kc3 .krono-timer{font-size:32px!important}html.evn #dg-krono-grid[data-n] .kc3 .kr-cell{background:#171b22!important;padding:4px 8px!important}html.evn .hdr-stack,html.evn .hdr-leader{flex-wrap:wrap}html.evn .hdr-stack-row{min-width:0;padding:4px 8px}html.evn .hdr-stack-row .hs-val{font-size:17px}html.evn .hdr-stack>.hdr-stack-row:first-child .hs-val{font-size:19px}html.evn #dg-radio-chief .rc3{flex-wrap:wrap}html.evn #dg-radio-chief .rc3-btn.hot{flex:1 1 100%;order:-1}html.evn #dg-radio-chief .rc3>.rc3-btn:not(.hot){display:none}html.evn #pane-dashgeral{padding-bottom:140px}}',
+'@media(max-width:760px){html.evn #dg-krono-grid[data-n]{grid-template-columns:1fr!important}html.evn #dg-krono-grid[data-n] .krono-card.kc3{display:flex!important;flex-direction:column;padding:10px 12px 10px 16px}html.evn #dg-krono-grid[data-n] .kc3 .krono-timer{font-size:32px!important}html.evn #dg-krono-grid[data-n] .kc3 .kr-cell{background:#171b22!important;padding:4px 8px!important}html.evh .hdr-stack,html.evh .hdr-leader{flex-wrap:wrap}html.evh .hdr-stack-row{min-width:0;padding:4px 8px}html.evh .hdr-stack-row .hs-val{font-size:17px}html.evh .hdr-stack>.hdr-stack-row:first-child .hs-val{font-size:19px}html.evn #dg-radio-chief .rc3{flex-wrap:wrap}html.evn #dg-radio-chief .rc3-btn.hot{flex:1 1 100%;order:-1}html.evn #dg-radio-chief .rc3>.rc3-btn:not(.hot){display:none}html.evn #pane-dashgeral{padding-bottom:140px}}',
 '@media(min-width:2300px){html.evn{zoom:1.3}}@media(min-width:2800px){html.evn{zoom:1.6}}@media(min-width:3400px){html.evn{zoom:2}}'
 ].join('\n');
 document.head.appendChild(css);
