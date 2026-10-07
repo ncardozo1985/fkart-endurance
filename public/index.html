@@ -9546,7 +9546,7 @@ var V=FK.endv={
   },
   btn:function(){
     var b=document.getElementById('ev-tg'); if(b)return b;
-    var host=document.querySelector('.topbar-badges'); if(!host)return null;
+    var g=document.getElementById('dg-krono-grid'), card=g&&g.closest('.dash-card'), host=card&&card.querySelector('.dash-card-hdr'); if(!host)return null;
     b=document.createElement('button'); b.id='ev-tg'; b.type='button'; b.title='Alternar entre o visual novo e o clássico do Dashboard';
     b.onclick=function(e){ e.stopPropagation(); V.toggle(); }; host.appendChild(b); return b;
   },
@@ -9590,7 +9590,7 @@ if(document.readyState!=='loading')setTimeout(V.apply,50); else document.addEven
 
 var css=document.createElement('style');
 css.textContent=[
-'#ev-tg{margin-top:2px;background:transparent;border:1px solid #d7263d;color:#ff8a95;font-size:9px;font-weight:900;letter-spacing:1.2px;padding:3px 8px;cursor:pointer;border-radius:2px}#ev-tg:hover{background:#d7263d;color:#fff}',
+'#ev-tg{margin-left:10px;flex:none;background:transparent;border:1px solid #d7263d;color:#ff8a95;font-size:10px;font-weight:900;letter-spacing:1.2px;padding:4px 10px;cursor:pointer;border-radius:2px}#ev-tg:hover{background:#d7263d;color:#fff}',
 /* ---- fundo e topo ---- */
 'html.evn body{background:radial-gradient(1100px 520px at 85% -10%,rgba(215,38,61,.16),transparent 60%),linear-gradient(180deg,#0b0f18,#121826 60%,#0a0d14)}',
 'html.evn .topbar{background:rgba(8,10,16,.82);border-bottom:1px solid rgba(255,255,255,.08);padding:8px 16px;gap:14px}',
