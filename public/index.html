@@ -6676,13 +6676,18 @@ var S=FK.sorteio={
     pr.res.forEach(function(r){ r.map.forEach(function(x){ S.addK(kv,x.n,x.k,'s'); }); });
     var hs=S.histFor('prova',pr.sid);
     hs.forEach(function(h){ (h.res||[]).forEach(function(r){ r.map.forEach(function(x){ S.addK(kv,x.n,x.k,'h'); }); }); });
-    var K=S.assign(names,S.st.karts.slice(),kv);
+    var pool=S.st.karts.slice(), resv=S.qualyKarts(), nres=0;
+    if(S.st.rules.skipQualy!==false&&Object.keys(resv).length){ pool=pool.filter(function(k){ var x=!resv[String(k)]; if(!x)nres++; return x; }); }
+    if(pool.length<names.length){ S.msg('Faltam karts: '+names.length+' participantes e '+pool.length+' karts livres'+(nres?' ('+nres+' reservados para o Treino de Qualy)':'')+'.'); return; }
+    var K=S.assign(names,pool,kv);
     var r={at:Date.now(), map:names.map(function(n){return {n:n,k:K.map[n]};}), repKarts:K.repSess, repHistK:K.repHist, histN:hs.length};
     pr.res.push(r);
     if(!pr.title)pr.title='Karts da prova '+dayTxt();
     S.toHist('prova'); S.seen=S.lastAt(); S.save(); S.render();
     if(S.animOn())S.reveal(S.provaRv(pr.res.length-1));
   },
+  /* karts ja usados no Treino de Qualy atual (B1 e B2): o sorteio de karts da prova pode pular esses (07/10/2026) */
+  qualyKarts:function(){ var o={}; ['b1','b2'].forEach(function(b){ var r=S.st[b]; if(r&&r.duplas)r.duplas.forEach(function(d){ d.forEach(function(p){ if(p.k!=null)o[String(p.k)]=1; }); }); }); return o; },
   provaRv:function(i){ var pr=S.st.prova, r=pr.res[i]; return {title:(pr.res.length>1?'TURNO '+(i+1):'KARTS DA PROVA'), sub:pr.title, color:'#f2a900', groups:r.map.map(function(x){return [x];}), label:'', kartOnly:true}; },
   undoProva:function(){ if(!S.canEdit())return; var pr=S.st.prova; if(!pr.res.length)return; if(!confirm('Apagar o turno '+pr.res.length+'?'))return; pr.res.pop(); S.toHist('prova'); S.save(); S.render(true); },
   /* grava/atualiza o sorteio atual no historico */
@@ -6813,8 +6818,8 @@ var S=FK.sorteio={
   renderCounts:function(){
     var el=document.getElementById('st-counts'), pc=document.getElementById('st-pcount'); if(pc)pc.textContent=S.parts().length+' participante(s)';
     if(!el)return; var k=S.st.karts.length, ok;
-    if(S.tab==='prova'){ var n=S.parts().length; ok=n>=1&&k>=n;
-      el.innerHTML='<span><b>'+n+'</b> participantes</span><span class="'+(k>=n?'ok':'bad')+'"><b>'+k+'</b> karts'+(k<n?' — faltam '+(n-k):'')+'</span>'+(S.st.prova.res.length?'<span><b>'+S.st.prova.res.length+'</b> turno(s) sorteado(s)</span>':'');
+    if(S.tab==='prova'){ var n=S.parts().length, rv=S.qualyKarts(); if(S.st.rules.skipQualy!==false){ var kk=S.st.karts.filter(function(x){ return !rv[String(x)]; }).length; if(kk!==k){ el.dataset.rv=(k-kk); k=kk; } else delete el.dataset.rv; } ok=n>=1&&k>=n;
+      el.innerHTML='<span><b>'+n+'</b> participantes</span><span class="'+(k>=n?'ok':'bad')+'"><b>'+k+'</b> karts livres'+(k<n?' — faltam '+(n-k):'')+'</span>'+(el.dataset.rv?'<span><b>'+el.dataset.rv+'</b> reservados p/ Treino de Qualy</span>':'')+(S.st.prova.res.length?'<span><b>'+S.st.prova.res.length+'</b> turno(s) sorteado(s)</span>':'');
     }else{ var n2=S.present().length; ok=n2>=2&&k>=n2;
       el.innerHTML='<span><b>'+n2+'</b> pilotos</span><span><b>'+Math.floor(n2/2)+'</b> duplas'+(n2%2?' (1 trio)':'')+'</span><span class="'+(k>=n2?'ok':'bad')+'"><b>'+k+'</b> karts'+(k<n2?' — faltam '+(n2-k):'')+'</span>'; }
     document.querySelectorAll('.st-draw').forEach(function(b){ b.disabled=!ok; });
@@ -6888,7 +6893,7 @@ var S=FK.sorteio={
           '<textarea class="st-parts" rows="12" placeholder="Um por linha, ex.:&#10;FKART Azul&#10;FKART Vermelha&#10;Equipe Convidada" '+(ed?'':'disabled')+' oninput="FK.sorteio.setParts(this.value)">'+esc(pr.txt)+'</textarea><div class="st-at" id="st-pcount"></div>'+
         '</section>'+S.kartsSec(ed,2)+
         '<section class="st-sec st-res"><h3><i>3</i>SORTEIO</h3><div class="st-trow"><label>NOME</label><input type="text" class="st-ttl" value="'+esc(pr.title)+'" placeholder="Karts da prova '+dayTxt()+'" '+(ed?'':'disabled')+' oninput="FK.sorteio.setTitle(\'prova\',this.value)"></div>'+
-          '<div class="st-counts" id="st-counts"></div>'+(ed?S.rulesHTML(ed):'')+
+          '<div class="st-counts" id="st-counts"></div>'+(Object.keys(S.qualyKarts()).length?'<div class="st-rules st-keep"><label><input type="checkbox" '+(S.st.rules.skipQualy!==false?'checked':'')+' '+(ed?'':'disabled')+' onchange="FK.sorteio.setRule(\'skipQualy\',this.checked)"> <b>Não usar os karts já sorteados no Treino de Qualy</b> — '+Object.keys(S.qualyKarts()).length+' karts ficam reservados para as duplas</label></div>':'')+(ed?S.rulesHTML(ed):'')+
           (ed?'<div class="st-btns"><button class="st-draw b3" onclick="FK.sorteio.drawProva()">🎲 Sortear '+(pr.res.length?'turno '+(pr.res.length+1)+' <small>(kart diferente do anterior)</small>':'karts')+'</button>'+(pr.res.length?'<button class="st-clear" onclick="FK.sorteio.undoProva()">apagar último turno</button><button class="st-clear" onclick="FK.sorteio.novo(\'prova\')">novo sorteio</button>':'')+'</div>':'<div class="st-empty">Só quem configura a prova pode sortear. Você está vendo o resultado ao vivo.</div>')+
           S.provaRes()+
         '</section></div>';
