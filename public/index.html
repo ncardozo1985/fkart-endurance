@@ -7911,7 +7911,9 @@ Object.assign(Q,{
       var A=mem[0], TBa=[]; mem.slice(1).forEach(function(o){ TBa=TBa.concat(o.T); }); TBa.sort(function(a,c){return a-c;});
       var reg=A?Q.regOf(A,TBa):null;
       var bests=mem.filter(function(m){return m.best!=null;}), fast=bests.slice().sort(function(a,c){return a.best-c.best;})[0];
-      return {i:i,mem:mem,gaps:gaps,gap:gok.length===mem.length&&mem.length>=2?r2(meanOf(gok)):null,reg:reg?reg.v:null,regN:reg?reg.n:0,regAll:reg?reg.all:[],
+      /* b.dupOv[i]={gap,reg} (ms): resultado de GAP/Regularidade vindo de analise externa (sem horas de passagem no app) */
+      var ov=(b.dupOv||[])[i]||{};
+      return {i:i,mem:mem,gaps:gaps,gap:ov.gap!=null?ov.gap:(gok.length===mem.length&&mem.length>=2?r2(meanOf(gok)):null),reg:ov.reg!=null?ov.reg:(reg?reg.v:null),regN:reg?reg.n:0,regAll:reg?reg.all:[],
         dq:mem.some(dqf),inG:grp!=='fkart'||mem.some(function(m){return !Q.isGuest(m.nome);}),fast:fast,
         diff:bests.length>=2?Math.max.apply(null,bests.map(function(m){return m.best;}))-Math.min.apply(null,bests.map(function(m){return m.best;})):null,
         meanBest:bests.length?meanOf(bests.map(function(m){return m.best;})):null, avg:meanOf(mem.filter(function(m){return m.avg!=null;}).map(function(m){return m.avg;})), c:{}};
