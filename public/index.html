@@ -5362,6 +5362,44 @@ var P=FK.proj={
     return v?{short:v.short||0,long:v.long||0}:{short:d.pit6||0,long:d.pit10||0};
   },
 
+  /* fator de ritmo por piloto para um kart da equipe: pondera o piloto atual (pelas voltas que
+     faltam no stint em curso) e os pilotos dos proximos stints (fila de pilotos). Devolve null se a
+     fila nao bate com o log de voltas (ex.: reload no meio da prova) ou faltam dados. */
+  pilotAdjust:function(d,L,remStops,timeLeft){
+    var Q=FK.state.pilotQueue||{}, key=FK.findKartKey?FK.findKartKey(Q,d.kart):d.kart;
+    var q=Q[key]; if(!q||!q.length)return null;
+    var A=FK.state.pilotQueueActiveIdx||{}, ai=A[key]; if(ai==null||ai<0)return null;
+    var nm=function(x){return typeof x==='string'?x:((x&&(x.piloto||x.nome||x.name))||'');};
+    var D=P.durs(), stints=[[]], pitsDone=0;
+    L.forEach(function(x){
+      if(x.pit){pitsDone++;stints.push([]);return;}
+      if(x.out||x.skip||x.lt>=D.s*0.9)return;
+      stints[stints.length-1].push(x.lt);
+    });
+    if(ai!==pitsDone)return null;
+    var all=[]; stints.forEach(function(s){s.forEach(function(v){all.push(v);});});
+    if(all.length<20)return null;
+    var minL=Math.min.apply(null,all); all=all.filter(function(v){return v<minL*1.4;});
+    var base=med(all), byP={};
+    stints.forEach(function(s,i){
+      var n=nm(q[i]); if(!n||s.length<6)return;
+      (byP[n]=byP[n]||[]).push.apply(byP[n],s.filter(function(v){return v<minL*1.4;}));
+    });
+    function ratio(n){var a=n&&byP[n]; return (a&&a.length>=8)?med(a)/base:null;}
+    var rc=ratio(nm(q[ai])), futs=[], anyKnown=(rc!=null);
+    for(var i=1;i<=remStops;i++){var r=ratio(nm(q[ai+i])); if(r!=null)anyKnown=true; futs.push(r==null?1:r);}
+    if(!anyKnown)return null;
+    if(rc==null)rc=1;
+    var done=stints.slice(0,-1).map(function(s){return s.length;});
+    var avg=done.length?mean(done):all.length/(pitsDone+1);
+    var curRem=Math.max(0,avg-stints[stints.length-1].length);
+    var nTot=Math.max(1,timeLeft/base);
+    var wCur=remStops>0?Math.min(1,curRem/nTot):1;
+    var rf=futs.length?mean(futs):1;
+    var f=Math.max(0.97,Math.min(1.03,wCur*rc+(1-wCur)*rf));
+    return {f:f,base:base,cur:nm(q[ai]),rc:rc,rf:rf,wCur:wCur};
+  },
+
   projectFinish:function(data){
     data=data||FK.getData();
     var out={}; if(!data||!data.length)return out;
@@ -5388,13 +5426,39 @@ var P=FK.proj={
       pace*=P.TRAFFIC;
       var pc=P.pitCounts(d), rules=P.rulesFor(d.cat);
       var remS=Math.max(0,rules.short-pc.short), remL=Math.max(0,rules.long-pc.long);
+      /* ritmo por piloto (so karts da equipe, com fila de pilotos consistente com o log de voltas).
+         Nao validado contra a prova de 19/09 (nao ha piloto por volta nos dados dos adversarios);
+         fator limitado a +-3% e mostrado no tooltip pra conferir. */
+      var pilotNote=null;
+      try{
+        if(FK.cfg.myKarts&&FK.cfg.myKarts.some(function(k){return String(k)===String(d.kart);})){
+          var adj=P.pilotAdjust(d,L,remS+remL,end-tl);
+          if(adj){ pace=adj.base*P.TRAFFIC*adj.f; pilotNote=adj; }
+        }
+      }catch(e){ pilotNote=null; }
+      /* aviso de projecao instavel: o backtest da prova de 19/09 mostrou que os erros grandes
+         (15 a 27 voltas) vem de karts com paradas a mais ou voltas anormais */
+      var unst=[];
+      try{
+        if((rules.short+rules.long)>0&&(pc.short+pc.long)>(rules.short+rules.long))unst.push('paradas a mais que a regra');
+        if(L.filter(function(x){return !x.pit&&x.lt>pace*1.6&&x.lt<D.s*0.9;}).length>=2)unst.push('voltas anormais (kart parado/problema)');
+        var okL=L.filter(function(x){return !x.pit&&!x.out&&!x.skip&&x.lt<D.s*0.9;});
+        if(okL.length>=12){
+          var allm=med(okL.map(function(x){return x.lt;}));
+          if(okL.slice(-12).filter(function(x){return x.lt>1.12*allm;}).length>=3)unst.push('voltas lentas seguidas (amarela/problema)');
+          else if(Math.abs(med(okL.slice(-10).map(function(x){return x.lt;}))/allm-1)>0.02)unst.push('ritmo mudou mais de 2%');
+        }
+      }catch(e){}
       var exs=L.filter(function(x){return x.pit;}).map(function(x){return Math.min(P.EXC_CAP,Math.max(0,x.lt-(x.long?D.l:D.s)-ov));});
       var exc=exs.length?mean(exs):P.EXC_DEFAULT;
       var cost=remS*Math.max(0,D.s+ov+exc-pace)+remL*Math.max(0,D.l+ov+exc-pace);
       var n=end>0?Math.max(0,Math.ceil((end-tl-cost)/pace)):0;
       var remT=end-el;
       return {kart:d.kart,cat:d.cat,pos:d.pos,laps:d.laps+n,finishSec:tl+n*pace+cost,pace:pace,
-        stopsLeft:remS+remL,exc:exc,cost:cost,band:remT>12600?3:remT>9000?2:remT>0?1:0};
+        stopsLeft:remS+remL,exc:exc,cost:cost,unstable:unst,pilot:pilotNote,
+        /* faixa calibrada no backtest da prova de 6h de 19/09/2026: erro mediano 2 voltas, p75 3, p90 5;
+           karts instaveis (paradas a mais, voltas anormais) chegaram a 15-27 */
+        band:unst.length?6:(remT>1800?3:remT>600?2:remT>0?1:0)};
     });
     var byCat={};
     rows.forEach(function(r){(byCat[r.cat]=byCat[r.cat]||[]).push(r);});
@@ -5409,10 +5473,14 @@ var P=FK.proj={
     if(!pj)return {pos:'—',laps:'—'};
     var cur=d.catPos||pj.catPos, delta=cur-pj.catPos;
     var cls=delta>0?'proj-up':delta<0?'proj-dn':'proj-eq';
-    var tip='Chegada prevista na categoria. Ritmo '+pj.pace.toFixed(3)+'s · faltam '+pj.stopsLeft+' parada(s) · excesso medio de box '+Math.round(pj.exc)+'s';
+    var tip='Chegada prevista na categoria. Ritmo '+pj.pace.toFixed(3)+'s · faltam '+pj.stopsLeft+' parada(s) · excesso medio de box '+Math.round(pj.exc)+'s'
+      +' · faixa ± = erro tipico em voltas (75% dos casos)';
+    if(pj.pilot)tip+=' · ritmo por piloto: atual '+pj.pilot.cur+' (x'+pj.pilot.rc.toFixed(3)+'), proximos x'+pj.pilot.rf.toFixed(3);
+    var unst=(pj.unstable&&pj.unstable.length)?pj.unstable:null;
+    if(unst)tip+=' · PROJECAO INSTAVEL: '+unst.join('; ');
     return {
       pos:'<span class="proj-arrow '+cls+'" title="'+tip+'">P'+pj.catPos+'</span>',
-      laps:'<span class="proj-laps" title="'+tip+'">'+pj.laps+(pj.band?'<small> ±'+pj.band+'</small>':'')+'</span>'
+      laps:'<span class="proj-laps" title="'+tip+'">'+pj.laps+(pj.band?'<small> ±'+pj.band+(unst?' ⚠':'')+'</small>':'')+'</span>'
     };
   }
 };
