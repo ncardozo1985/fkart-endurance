@@ -5019,6 +5019,15 @@ var R=FK.radio={
       }catch(e){}
     }
     R.listenChief();
+    /* tela bloqueada/bolso: o setInterval da pagina (poll de 1s) e freado pelo celular e voltas passavam sem dados
+       (so falava nas voltas lentas, quando o poll atrasado "alcancava"). Um Web Worker nao e freado do mesmo jeito:
+       enquanto o radio esta ligado ele bate a cada 1s e forca o poll quando a pagina esta oculta. */
+    try{
+      if(R.worker){R.worker.terminate();R.worker=null;}
+      var wb=new Blob(['setInterval(function(){postMessage(1)},1000)'],{type:'application/javascript'});
+      R.worker=new Worker(URL.createObjectURL(wb));
+      R.worker.onmessage=function(){ if(R.on&&document.hidden){ try{FK.fetchLive();}catch(e){} } };
+    }catch(e){R.skipLog('worker indisponivel: '+e.message);}
     if(R.warnTimer)clearInterval(R.warnTimer);
     R.warnTimer=setInterval(R.checkWarnings,5000);
     R.engine='servidor (MP3)';
@@ -5030,6 +5039,7 @@ var R=FK.radio={
     R.on=false;R.queue=[];R.speaking=false;
     if(R.el){R.el.pause();R.el.removeAttribute('src');R.el.load();}
     if(R.warnTimer){clearInterval(R.warnTimer);R.warnTimer=null;}
+    if(R.worker){try{R.worker.terminate();}catch(e){}R.worker=null;}
     if(R.testTimer){clearInterval(R.testTimer);R.testTimer=null;}
     if(R.unsub){try{R.unsub();}catch(e){}R.unsub=null;}
     if(window.speechSynthesis)try{speechSynthesis.cancel();}catch(e){}
@@ -5100,6 +5110,8 @@ var R=FK.radio={
     }
     return txt+'.';
   },
+  skiplog:[],
+  skipLog:function(why){ var s=new Date().toTimeString().slice(0,8)+' '+why; R.skiplog.push(s); if(R.skiplog.length>30)R.skiplog.shift(); try{console.warn('radio:',s);}catch(e){} },
   buildLapMsg:function(data,me){
     var same=data.filter(function(d){return d.cat===me.cat;}).sort(function(a,b){return a.pos-b.pos;});
     var i=same.indexOf(me), cat=R.catName(me.cat);
@@ -5111,9 +5123,12 @@ var R=FK.radio={
   },
   onData:function(data){
     if(!R.on||!R.kart||!data||!data.length)return;
-    var me=FK.findKartData(data,R.kart); if(!me)return;
+    var me=FK.findKartData(data,R.kart); if(!me){R.skipLog('kart '+R.kart+' nao encontrado nos dados');return;}
     if(R.lastLaps==null){R.lastLaps=me.laps;return;}
+    /* contagem de voltas recuou (correcao do cronometro): re-sincroniza, senao o radio ficaria mudo ate passar do maior valor antigo */
+    if(me.laps<R.lastLaps){R.skipLog('contagem recuou '+R.lastLaps+'→'+me.laps);R.lastLaps=me.laps;return;}
     if(me.laps<=R.lastLaps)return;
+    if(me.laps-R.lastLaps>1)R.skipLog('pulou '+(me.laps-R.lastLaps-1)+' volta(s) sem dados');
     R.lastLaps=me.laps;
     var lt=R.lapSec(me), best=FK.parseT(me.best)||lt, minDur=FK.cfg.minPitDurationSec>0?FK.cfg.minPitDurationSec:300;
     if(lt>=minDur*0.9){ /* volta que conteve parada */
@@ -5123,7 +5138,12 @@ var R=FK.radio={
       },1500);
       return;
     }
-    if(lt>best*1.5)return; /* volta de saida/incidente: nao fala gap distorcido */
+    if(lt>best*1.5){ /* volta lenta/saida/incidente: nao fala gap distorcido, mas AVISA a posicao (antes ficava calado e parecia falha) */
+      R.skipLog('volta lenta '+lt.toFixed(1)+'s (melhor '+best.toFixed(1)+'s)');
+      var sm=data.filter(function(d){return d.cat===me.cat;}).sort(function(a,b){return a.pos-b.pos;}), si=sm.indexOf(me), sc=R.catName(me.cat);
+      R.say('Volta lenta. '+(sc&&si>=0?('Posição '+(si+1)+' na '+sc+'.'):('Posição '+me.pos+'.')));
+      return;
+    }
     R.lapCount++;
     var every=parseInt((document.getElementById('radio-every')||{}).value||'1',10)||1;
     if(R.lapCount%every!==0)return;
