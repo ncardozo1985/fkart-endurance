@@ -7854,7 +7854,13 @@ Object.assign(Q,{
     var valid=L.filter(function(x){return x.lap>=2&&!v[x.lap];});
     var bestL=valid.slice().sort(function(a,c){return a.ms-c.ms;})[0]||null, best=bestL?bestL.ms:null; /* milesimos, como o cronometro */
     var l1=L.filter(function(x){return x.lap===1;})[0], roub=null, roubAprox=false;
-    if(l1&&l1.s2&&l1.s3)roub=l1.s2+l1.s3; else if(l1){ roub=l1.ms; roubAprox=true; }
+    if(b.roubCompleta){
+      /* tracado invertido (07/10/2026): a volta 1 de quem sai do box e parcial (passa a linha no meio).
+         Volta roubada = 1a volta COMPLETA (tempo >= 75% da mediana das voltas do kart), tempo total da volta. */
+      var ms0=L.map(function(x){return x.ms;}).sort(function(a,c){return a-c;}), med=ms0.length?ms0[Math.floor(ms0.length/2)]:0;
+      var lc=L.filter(function(x){return x.ms>=med*0.75;}).sort(function(a,c){return a.lap-c.lap;})[0];
+      if(lc&&!v[lc.lap])roub=lc.ms; else if(lc){ var lc2=L.filter(function(x){return x.lap>lc.lap&&x.ms>=med*0.75&&!v[x.lap];})[0]; if(lc2)roub=lc2.ms; }
+    }else if(l1&&l1.s2&&l1.s3)roub=l1.s2+l1.s3; else if(l1){ roub=l1.ms; roubAprox=true; }
     var clean=best?valid.filter(function(x){return x.ms<=best*1.5;}).map(function(x){return x.ms;}):[];
     var tr=clean.slice().sort(function(a,c){return a-c;}); if(tr.length>=3)tr=tr.slice(1,-1);
     var T=L.filter(function(x){return x.t!=null;}).map(function(x){return x.t;}).sort(function(a,c){return a-c;});
@@ -8022,6 +8028,7 @@ Object.assign(Q,{
           '<details class="q-det"><summary>Colar tempos manualmente</summary><textarea id="q-paste-'+bi+'" placeholder="Uma linha por kart:\n12: 1:02.345 1:01.980 1:01.870\n\nou uma tabela com os números dos karts no cabeçalho e uma volta por linha"></textarea><button class="q-btn pri" onclick="FK.qualy.pasteLaps('+bi+')">Usar estes tempos</button></details>'+
           (has?'<button class="q-btn" onclick="FK.qualy.clearLaps('+bi+')">Apagar tempos</button>':'')+'</div>';
         h+='<details class="q-det"'+(ev.tipo!=='duplas'&&!b.mapTxt?' open':'')+'><summary>Mapa kart → piloto'+(ev.tipo==='duplas'?' (só se precisar corrigir o do Sorteio)':'')+'</summary><textarea placeholder="Um por linha:\n12 = Rapha Cardozo\n7 = Marcos Takuma" onchange="FK.qualy.setB('+bi+',\'mapTxt\',this.value);FK.qualy.render(true)">'+esc(b.mapTxt||'')+'</textarea></details>';
+        h+='<label class="q-chk"><input type="checkbox" '+(b.roubCompleta?'checked':'')+' '+(Q.canEdit()?'':'disabled')+' onchange="FK.qualy.setB('+bi+',\'roubCompleta\',this.checked);FK.qualy.render(true)"> Volta roubada = 1ª volta completa (traçado invertido: a volta 1 de quem sai do box é parcial)</label>';
         h+='<details class="q-det"'+(b.voidTxt?' open':'')+'><summary>Voltas anuladas'+(b.voidTxt?' ('+String(b.voidTxt).split(/\n/).filter(function(l){return l.trim();}).length+')':'')+'</summary><textarea placeholder="kart: volta(s) motivo — um por linha, ex.:\n12: 2 CONE\n7: 2, 9 corte de pista" onchange="FK.qualy.setB('+bi+',\'voidTxt\',this.value);FK.qualy.render(true)">'+esc(b.voidTxt||'')+'</textarea></details>';
       }
       if(ev.tipo==='duplas'&&!(b.duplas||[]).length)h+='<div class="q-warn">Sem duplas nesta bateria. Use "Puxar duplas do Sorteio".</div>';
