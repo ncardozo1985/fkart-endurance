@@ -887,8 +887,19 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
 <!-- Dashboard Celular (27/08/2026): vista compacta pra quem acompanha pelo celular, longe
      da telona do box -- so o essencial pra uma decisao rapida numa parada. -->
 <div class="pane" id="pane-mobile">
-<div class="mob-root">
-  <div class="dash-card">
+<div class="mob-app" id="mob-app" data-sec="cron">
+  <header class="mob-top">
+    <button type="button" class="mob-back" onclick="FK.hub&&FK.hub.open()">&lsaquo; MENU</button>
+    <div class="mob-live">
+      <div><small>DECORRIDO</small><b id="mob-live-el">--</b></div>
+      <div><small>RESTANTE</small><b id="mob-live-rem">--</b></div>
+      <div><small>FECHA O BOX</small><b id="mob-live-pit">--</b></div>
+      <div><small>VOLTA</small><b id="mob-live-lap">--</b></div>
+    </div>
+  </header>
+  <main class="mob-main mob-root">
+    <section class="mob-sec" data-sec="cron">
+<div class="dash-card">
     <div class="dash-card-hdr">
       <h3>&#9201; Cronômetros da Equipe</h3>
       <span style="font-size:9px;color:var(--mut)">Volta atual</span>
@@ -896,7 +907,9 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
     <div class="mob-krono-picker" id="mob-krono-picker"></div>
     <div class="krono-grid grid-mob" id="mob-krono-grid"></div>
   </div>
-  <div class="dash-card" id="mob-audio-card">
+    </section>
+    <section class="mob-sec" data-sec="radio">
+<div class="dash-card" id="mob-audio-card">
     <div class="dash-card-hdr">
       <h3>&#128251; Rádio do Piloto</h3>
       <span style="font-size:9px;color:var(--mut)">fone + tela bloqueada</span>
@@ -912,13 +925,20 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
       <div class="radio-hint">Fala a posição na categoria e o gap para o kart da frente e de trás a cada volta, avisa stint, stint pesado, box fechando e paradas faltando, e toca as chamadas do chefe. Ligue <b>aqui no celular do piloto</b>, com o fone conectado, e só depois bloqueie a tela. Android: tire o Chrome da economia de bateria. Use sempre fkart-endurance.web.app.</div>
     </div>
   </div>
-  <div class="dash-card" id="mob-radio-chief-card">
+    </section>
+    <section class="mob-sec" data-sec="chief">
+<div class="dash-card" id="mob-radio-chief-card">
     <div class="dash-card-hdr"><h3>&#128226; Chamadas para o piloto</h3><span style="font-size:9px;color:var(--mut)">chefe de equipe</span></div>
     <div id="mob-radio-chief"></div>
   </div>
-  <div class="dash-card" id="mob-kperf-card">
-    <button type="button" class="kp-open" onclick="FK.kperf&&FK.kperf.open()">&#128202; PERFIL DOS KARTS &mdash; quais estão bons hoje</button>
-  </div>
+    </section>
+  </main>
+  <nav class="mob-nav">
+    <button type="button" data-go="cron" onclick="FK.mob.go('cron')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 13.5V9M9.5 3h5"/></svg><span>CRONÔMETROS</span></button>
+    <button type="button" data-go="radio" onclick="FK.mob.go('radio')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 9a8 8 0 0 1 0 6M8 7a12 12 0 0 1 0 10M12 5v14M16 7a12 12 0 0 1 0 10M20 9a8 8 0 0 1 0 6"/></svg><span>RÁDIO</span></button>
+    <button type="button" data-go="chief" onclick="FK.mob.go('chief')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4h4l7 4V6L7 10H3zM17.5 9a4 4 0 0 1 0 6"/></svg><span>CHAMADAS</span></button>
+    <button type="button" class="kp" onclick="FK.kperf&&FK.kperf.open()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>KARTS</span></button>
+  </nav>
 </div>
 </div>
 <!-- TV Pilotos (15/09/2026): dashboard fixo pra telona do box, resolucao 1920x1080, visao
@@ -6641,6 +6661,61 @@ css.textContent=[
 ' grid-template-areas:"end end" "qua qua" "sor pil" "ana ana" "tv fila" "trc trc" "plt est" "cfg usr"}.hub-tile.hero{min-height:170px}.hub-tile.big{min-height:130px}',
 ' .hub-badge{top:auto;bottom:10px}.hub-keys{display:none}.hub-news{min-width:0;flex:1}.hub-top:after{display:none}.hub-name b{font-size:22px}.hub-season{font-size:26px}',
 ' .hub-top{flex-wrap:wrap;gap:8px}.hub-status{justify-content:flex-start;gap:6px}.hs-clock,.hub-tag{display:none}.hs-user span small{display:none}.hub-track{width:140%;right:-30%;opacity:.1}.hub-hud{gap:10px}.hub-hud b{font-size:14px}}'
+].join('\n');
+document.head.appendChild(css);
+})();
+</script>
+<script>
+/* =====================================================================================
+   CELULAR DO PILOTO -- visual novo (10/10/2026): tela cheia no estilo do menu, faixa ao vivo no
+   topo e barra de abas embaixo (Cronometros / Radio / Chamadas / Karts = Perfil dos karts).
+   Os elementos antigos (ids mob-*, radio-*) continuam os mesmos -- so mudou a casca.
+   ===================================================================================== */
+(function(){
+if(typeof FK==='undefined')return;
+function lsGet(k,d){ try{ var v=localStorage.getItem(k); return v==null?d:v; }catch(e){ return d; } }
+var M=FK.mob={
+  sec:lsGet('fk_mob_sec','cron'),
+  go:function(s){ M.sec=s; try{ localStorage.setItem('fk_mob_sec',s); }catch(e){} M.apply(); },
+  apply:function(){ var a=document.getElementById('mob-app'); if(!a)return; if(!/^(cron|radio|chief)$/.test(M.sec))M.sec='cron'; a.setAttribute('data-sec',M.sec);
+    [].forEach.call(a.querySelectorAll('.mob-nav button[data-go]'),function(b){ b.classList.toggle('on',b.getAttribute('data-go')===M.sec); });
+    var m=a.querySelector('.mob-main'); if(m)m.scrollTop=0; },
+  sync:function(){ var p=document.getElementById('pane-mobile'); if(!p||!p.classList.contains('on'))return;
+    [['mob-live-el','elapsed'],['mob-live-rem','remaining'],['mob-live-pit','hdr-cd-pitclose'],['mob-live-lap','hdr-lap-num']].forEach(function(x){
+      var d=document.getElementById(x[0]), s=document.getElementById(x[1]); if(!d||!s)return; var t=(s.textContent||'').replace(/\s+/g,' ').trim()||'--'; if(d.textContent!==t)d.textContent=t; }); }
+};
+M.apply(); setInterval(M.sync,500);
+var css=document.createElement('style');
+css.textContent=[
+'#pane-mobile.on{display:flex;position:fixed;inset:0;z-index:8900;background:radial-gradient(900px 420px at 85% -10%,rgba(215,38,61,.22),transparent 62%),radial-gradient(700px 500px at -10% 110%,rgba(40,90,180,.12),transparent 60%),#080A0E}',
+'.mob-app{display:flex;flex-direction:column;width:100%;height:100%;color:#fff}',
+'.mob-top{display:flex;align-items:stretch;gap:10px;padding:max(8px,env(safe-area-inset-top)) 10px 8px;border-bottom:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.35);flex-shrink:0}',
+'.mob-back{background:#fff;color:#000;border:0;font-weight:900;letter-spacing:1px;padding:0 12px;font-size:12px;cursor:pointer;border-radius:2px;flex-shrink:0}',
+'.mob-live{flex:1;display:grid;grid-template-columns:repeat(4,1fr);gap:4px;min-width:0}',
+'.mob-live div{display:flex;flex-direction:column;justify-content:center;padding:4px 6px;background:rgba(16,19,24,.85);box-shadow:0 0 0 1px rgba(255,255,255,.07);min-width:0}',
+'.mob-live small{font-size:7.5px;letter-spacing:1.2px;color:#8f9ab0;font-weight:800;white-space:nowrap}',
+'.mob-live b{font-size:14px;font-weight:900;font-variant-numeric:tabular-nums;font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+'.mob-live div:nth-child(3) b{color:#ff8a65}',
+'.mob-main{flex:1;overflow:auto;padding:10px 10px 14px;max-width:none!important;margin:0!important;display:block!important;-webkit-overflow-scrolling:touch}',
+'.mob-sec{display:none}',
+'#mob-app[data-sec=cron] .mob-sec[data-sec=cron],#mob-app[data-sec=radio] .mob-sec[data-sec=radio],#mob-app[data-sec=chief] .mob-sec[data-sec=chief]{display:block}',
+'.mob-app .dash-card{background:rgba(16,19,24,.92);border:0;border-radius:2px;box-shadow:0 0 0 1px rgba(255,255,255,.08);margin:0}',
+'.mob-app .dash-card-hdr{border-bottom:1px solid rgba(255,255,255,.08);padding:10px 12px}',
+'.mob-app .dash-card-hdr h3{font-style:italic;font-weight:900;letter-spacing:2px;font-size:13px;color:#fff;text-transform:uppercase}',
+'.mob-app .dash-card-hdr h3:before{content:"";display:inline-block;width:8px;height:8px;background:#d7263d;margin-right:8px;vertical-align:1px}',
+'.mob-app .krono-card{border-radius:2px}',
+'.mob-krono-chip{border-radius:2px;border:1px solid rgba(255,255,255,.3);background:transparent;color:#c9d1e0;font-style:italic}',
+'.mob-krono-chip.on{background:#fff;border-color:#fff;color:#000;box-shadow:none}',
+'.mob-krono-picker-lbl{letter-spacing:2px;color:#8f9ab0}',
+'.mob-app .mob-audio-btn{border-radius:2px;background:linear-gradient(90deg,#d7263d,#ff7043);font-style:italic;letter-spacing:2px;padding:16px;font-size:15px}',
+'.mob-app .mob-audio-btn.on{background:transparent;box-shadow:inset 0 0 0 2px #d7263d;color:#fff}',
+'.mob-app select,.mob-app input[type=number]{background:#0f1420;border:1px solid rgba(255,255,255,.18);border-radius:2px;color:#fff;font-size:14px;padding:10px 8px}',
+'.mob-nav{display:grid;grid-template-columns:repeat(4,1fr);flex-shrink:0;background:#05060a;border-top:1px solid rgba(255,255,255,.1);padding-bottom:env(safe-area-inset-bottom)}',
+'.mob-nav button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;height:60px;background:transparent;border:0;border-top:3px solid transparent;color:#8f9ab0;font-weight:900;font-style:italic;letter-spacing:1px;font-size:9.5px;cursor:pointer;-webkit-appearance:none;appearance:none}',
+'.mob-nav button svg{width:22px;height:22px}',
+'.mob-nav button.on{color:#fff;border-top-color:#d7263d;background:linear-gradient(180deg,rgba(215,38,61,.18),transparent)}',
+'.mob-nav button.kp{color:#8fd3ff}',
+'@media(min-width:760px){.mob-main{padding:16px 6vw}.mob-nav button{height:64px;font-size:11px}}'
 ].join('\n');
 document.head.appendChild(css);
 })();
