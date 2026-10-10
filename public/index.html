@@ -6644,6 +6644,182 @@ document.head.appendChild(css);
 </script>
 <script>
 /* =====================================================================================
+   PERFIL DOS KARTS (10/10/2026) -- inspirado na analise de karts do DriverOne
+   Fonte: Race Monitor (raceId 26021 = KGV), todas as sessoes do dia de corrida (04h->04h Brasilia),
+   via proxy /api/live?kartday=AAAA-MM-DD (se a function ainda nao foi atualizada, cai no
+   passthrough ?rm=Results/SessionsForRace + SessionDetails e filtra a data aqui).
+   Por sessao, cada kart recebe um PERCENTIL (0 = mais rapido, 1 = mais lento) pela melhor volta
+   (e, no outro botao, pela posicao final). Percentil e nao posicao bruta: 8o de 10 != 8o de 25.
+   Nota do kart = media dos percentis das sessoes, puxada para 0.5 com peso de 2 sessoes
+   (poucas corridas = nota morna, nao sorte). Dia encerrado fica em cache no aparelho.
+   ===================================================================================== */
+(function(){
+if(typeof FK==='undefined')return;
+var RID='26021', PRIOR=2, MINN=6, MINLAPS=3;
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function pad(k){ k=parseInt(k,10); return (k<10?'0':'')+k; }
+function rday(ms){ return new Date(ms-7*3600e3).toISOString().slice(0,10); }
+function shift(d,n){ return new Date(Date.parse(d+'T12:00:00Z')+n*86400e3).toISOString().slice(0,10); }
+function dtxt(d){ var p=d.split('-'); return p[2]+'/'+p[1]; }
+function lsGet(k,d){ try{ var v=localStorage.getItem(k); return v==null?d:JSON.parse(v); }catch(e){ return d; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+function fmt(ms){ if(!ms)return '—'; var m=Math.floor(ms/60000), s=(ms%60000)/1000; return m+':'+(s<10?'0':'')+s.toFixed(3); }
+function mine(k){ try{ return (FK.cfg.myKarts||[]).some(function(m){return parseInt(m,10)===k;}); }catch(e){ return false; } }
+
+var K=FK.kperf={ day:rday(Date.now()), span:1, metric:'mv', data:{}, loading:0, err:'', sel:null, isOpen:false, res:null, view:'grid',
+  /* ---------- dados ---------- */
+  fetchJSON:function(url){ return fetch(url).then(function(r){ return r.text().then(function(t){ var j; try{ j=JSON.parse(t); }catch(e){ throw new Error('resposta inválida ('+r.status+')'); } return j; }); }); },
+  sessList:function(){
+    if(K._sl&&Date.now()-K._sl.at<10*60e3)return Promise.resolve(K._sl.list);
+    return K.fetchJSON('/api/live?rm=Results/SessionsForRace&raceID='+RID).then(function(j){
+      if(!j||!j.Successful)throw new Error((j&&j.Message)||'Race Monitor não respondeu');
+      K._sl={at:Date.now(), list:j.Sessions||[]}; return K._sl.list; });
+  },
+  fetchDay:function(day){
+    if(window.__FKDEMO)return Promise.resolve(K.demoDay(day));
+    var closed=day<rday(Date.now()), ck='fk_kday_'+day;
+    if(closed){ var c=lsGet(ck,null); if(c&&c.sessions)return Promise.resolve(c); }
+    return K.fetchJSON('/api/live?kartday='+day+'&raceId='+RID).then(function(j){
+      if(j&&j.Successful&&j.kartday===day&&Array.isArray(j.sessions))return j;
+      /* function antiga (sem a rota kartday): monta pelo passthrough */
+      var t0=Date.parse(day+'T07:00:00Z')/1000, t1=t0+86400;
+      return K.sessList().then(function(list){
+        var sel=list.filter(function(s){ var e=Number(s.SessionStartDateEpoc); return e>=t0&&e<t1; }).slice(0,60), out=[], i=0;
+        var work=function(){ var s=sel[i++]; if(!s)return Promise.resolve();
+          return K.fetchJSON('/api/live?rm=Results/SessionDetails&sessionID='+s.ID+'&includeLapTimes=false').then(function(jj){
+            if(jj&&jj.Successful&&jj.Session)out.push({id:s.ID,name:s.Name,t:Number(s.SessionStartDateEpoc),
+              rows:(jj.Session.SortedCompetitors||[]).map(function(c){ var m=/^(?:(\d+):)?(?:(\d+):)?(\d+(?:\.\d+)?)$/.exec(String(c.BestLapTime||'').trim()), ms=null;
+                if(m){ var p=String(c.BestLapTime).split(':').map(Number); ms=Math.round(p.reduce(function(a,x){return a*60+x;},0)*1000); }
+                return [parseInt(c.Number,10)||0, Number(c.Position)||0, ms, Number(c.Laps)||0]; })});
+          }).catch(function(){}).then(work); };
+        return Promise.all([work(),work(),work(),work()]).then(function(){ return {Successful:true,kartday:day,sessions:out,total:sel.length}; });
+      });
+    }).then(function(d){ if(closed&&d.sessions&&d.sessions.length&&d.sessions.length===d.total)lsSet(ck,d); return d; });
+  },
+  days:function(){ var a=[]; for(var i=0;i<K.span;i++)a.push(shift(K.day,-i)); return a; },
+  load:function(cb){
+    var ds=K.days(), n=ds.length, my=++K._tok; K.loading=n; K.err='';
+    ds.forEach(function(d){ K.fetchDay(d).then(function(r){ K.data[d]=r; },function(e){ K.err=e&&e.message||String(e); }).then(function(){
+      if(K._tok!==my)return; K.loading--; if(K.loading<=0){ K.compute(); if(cb)cb(); if(K.isOpen)K.render(); } else if(K.isOpen)K.render(); }); });
+    if(K.isOpen)K.render();
+  },
+  _tok:0,
+  /* ---------- calculo ---------- */
+  compute:function(){
+    var karts={}, nsess=0, days=K.days();
+    days.forEach(function(d){ var D=K.data[d]; if(!D||!D.sessions)return;
+      D.sessions.forEach(function(s){
+        var rows=s.rows.filter(function(r){ return r[0]>=1&&r[0]<=99&&r[3]>=MINLAPS; });
+        var mv=rows.filter(function(r){return r[2]>0;}), ps=rows.filter(function(r){return r[1]>0;});
+        if(mv.length<MINN)return; nsess++;
+        var rk=function(arr,idx){ var o={}, sorted=arr.slice().sort(function(a,b){return a[idx]-b[idx];}), last=null, r=1;
+          sorted.forEach(function(x,i){ if(last===null||x[idx]!==last){ r=i+1; last=x[idx]; } o[x[0]]={rank:r,n:arr.length,pct:arr.length>1?(r-1)/(arr.length-1):0}; }); return o; };
+        var A=rk(mv,2), B=rk(ps,1);
+        rows.forEach(function(r){ var k=r[0], o=karts[k]||(karts[k]={k:k,items:[]}); if(o.items.some(function(x){return x.sid===s.id;}))return;
+          o.items.push({day:d,sid:s.id,name:s.name,t:s.t,best:r[2],pos:r[1],laps:r[3],mv:A[k],ps:B[k]}); });
+      }); });
+    var res={karts:karts,nsess:nsess,order:{mv:[],ps:[]}};
+    ['mv','ps'].forEach(function(m){
+      var list=[]; Object.keys(karts).forEach(function(k){ var o=karts[k], v=o.items.filter(function(x){return x[m];}).map(function(x){return x[m].pct;});
+        if(!v.length){ o[m+'s']=null; return; } var sum=v.reduce(function(a,b){return a+b;},0); o[m+'n']=v.length; o[m+'raw']=sum/v.length; o[m+'s']=(sum+PRIOR*0.5)/(v.length+PRIOR); list.push(o); });
+      list.sort(function(a,b){return a[m+'s']-b[m+'s'];}); var last=null, r=1;
+      list.forEach(function(o,i){ if(last===null||Math.abs(o[m+'s']-last)>1e-9){ r=i+1; last=o[m+'s']; } o[m+'r']=r; o[m+'N']=list.length; });
+      res.order[m]=list; });
+    K.res=res; return res;
+  },
+  conf:function(n){ return n>=4?'alta':n>=2?'média':'baixa'; },
+  color:function(k,m){ m=m||K.metric; var o=K.res&&K.res.karts[k]; if(!o||o[m+'s']==null)return ''; var N=o[m+'N'], t=N>1?(o[m+'r']-1)/(N-1):0; return 'hsl('+Math.round(120*(1-t))+',100%,'+(48+Math.round(t*0))+'%)'; },
+  /* bolinha de cor usada no Sorteio (carrega em silencio uma vez) */
+  dot:function(k){ return K.res?K.color(k):''; },
+  silent:function(cb){ if(K._silent||K.loading)return; K._silent=1; K.load(cb); },
+  /* ---------- demo ---------- */
+  demoDay:function(day){ var seed=0; for(var i=0;i<day.length;i++)seed=(seed*31+day.charCodeAt(i))>>>0; var rnd=function(){ seed=(seed*1664525+1013904223)>>>0; return seed/4294967296; };
+    var good={}; for(var k=1;k<=70;k++)good[k]=rnd(); var out=[];
+    for(var s=0;s<8;s++){ var rows=[], n=14+Math.floor(rnd()*10), used={};
+      for(var j=0;j<n;j++){ var kk; do{ kk=1+Math.floor(rnd()*70); }while(used[kk]); used[kk]=1; rows.push([kk,0,Math.round((52+good[kk]*3+rnd()*1.5)*1000),20]); }
+      rows.slice().sort(function(a,b){return a[2]-b[2];}).forEach(function(r,i){ r[1]=i+1; });
+      out.push({id:'d'+day+s,name:'DEMO / PROVA '+(s+1),t:Date.parse(day+'T22:00:00Z')/1000+s*1800,rows:rows}); }
+    return {Successful:true,kartday:day,sessions:out,total:out.length}; },
+  /* ---------- tela ---------- */
+  open:function(){ var el=document.getElementById('fk-kperf'); if(!el)return; K.isOpen=true; el.classList.add('on'); K.sel=null; if(!K.res||K._dirty){ K._dirty=0; K.load(); } else K.render(); },
+  close:function(){ K.isOpen=false; var el=document.getElementById('fk-kperf'); if(el)el.classList.remove('on'); },
+  setDay:function(d){ if(!/^\d{4}-\d{2}-\d{2}$/.test(d))return; K.day=d; K.sel=null; K.load(); },
+  setSpan:function(n){ K.span=n; K.sel=null; K.load(); },
+  setMetric:function(m){ K.metric=m; K.render(); },
+  setView:function(v){ K.view=v; K.render(); },
+  pick:function(k){ K.sel=K.sel===k?null:k; K.render(); },
+  detail:function(){
+    var k=K.sel; if(!k)return ''; var o=K.res&&K.res.karts[k], m=K.metric;
+    if(!o||o[m+'s']==null)return '<section class="kp-det"><h3>KART '+pad(k)+'</h3><div class="kp-mut">Sem dados neste período.</div></section>';
+    var items=o.items.filter(function(x){return x[m];}).sort(function(a,b){return b.t-a.t;});
+    return '<section class="kp-det"><h3>KART '+pad(k)+(mine(k)?' <span class="kp-mine">da equipe</span>':'')+'</h3>'+
+      '<div class="kp-kv"><span>Ranking <b>'+o[m+'r']+'º</b> de '+o[m+'N']+'</span><span>Nota <b>'+Math.round((1-o[m+'s'])*100)+'</b>/100</span><span>Sessões <b>'+o[m+'n']+'</b> · confiança <b>'+K.conf(o[m+'n'])+'</b></span><span>Média do percentil <b>'+Math.round(o[m+'raw']*100)+'%</b> <small>(0% = sempre o mais rápido)</small></span></div>'+
+      '<table class="kp-t"><tr><th>Dia</th><th>Sessão</th><th>Melhor volta</th><th>Pos. na melhor volta</th><th>Pos. final</th></tr>'+items.map(function(x){
+        return '<tr><td>'+dtxt(x.day)+' '+new Date(x.t*1000).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'</td><td>'+esc(String(x.name||'').replace(/\s+/g,' '))+'</td><td>'+fmt(x.best)+'</td><td>'+(x.mv?x.mv.rank+'º de '+x.mv.n:'—')+'</td><td>'+(x.ps?x.ps.rank+'º de '+x.ps.n:'—')+'</td></tr>'; }).join('')+'</table></section>';
+  },
+  render:function(){
+    var el=document.getElementById('fk-kperf'); if(!el)return; var m=K.metric, R=K.res;
+    var spans=[[1,'1 dia'],[3,'3 dias'],[7,'7 dias'],[14,'14 dias'],[30,'30 dias']];
+    var head='<div class="kp-top"><button class="kp-back" onclick="FK.kperf.close()">‹ VOLTAR</button><div class="kp-title"><b>PERFIL DOS KARTS</b><span>KGV · RACE MONITOR '+RID+' · '+(K.span>1?dtxt(shift(K.day,-(K.span-1)))+' a ':'')+dtxt(K.day)+'</span></div></div>';
+    var bar='<div class="kp-bar"><div class="kp-grp"><button onclick="FK.kperf.setDay(\''+shift(K.day,-1)+'\')">‹</button><input type="date" value="'+K.day+'" onchange="FK.kperf.setDay(this.value)"><button onclick="FK.kperf.setDay(\''+shift(K.day,1)+'\')">›</button></div>'+
+      '<div class="kp-grp">'+spans.map(function(s){ return '<button class="'+(K.span===s[0]?'on':'')+'" onclick="FK.kperf.setSpan('+s[0]+')">'+s[1]+'</button>'; }).join('')+'</div>'+
+      '<div class="kp-grp"><button class="'+(m==='mv'?'on':'')+'" onclick="FK.kperf.setMetric(\'mv\')">Melhor volta</button><button class="'+(m==='ps'?'on':'')+'" onclick="FK.kperf.setMetric(\'ps\')">Posição final</button></div>'+
+      '<div class="kp-grp"><button class="'+(K.view==='grid'?'on':'')+'" onclick="FK.kperf.setView(\'grid\')">▦</button><button class="'+(K.view==='list'?'on':'')+'" onclick="FK.kperf.setView(\'list\')">☰</button></div></div>';
+    var body='';
+    if(K.loading>0)body='<div class="kp-mut">Buscando sessões no Race Monitor… ('+K.loading+' dia(s) restante(s))</div>';
+    else if(K.err&&(!R||!R.nsess))body='<div class="kp-err">Não consegui buscar os dados: '+esc(K.err)+'</div>';
+    else if(!R||!R.nsess)body='<div class="kp-mut">Nenhuma sessão com dados (mínimo '+MINN+' karts e '+MINLAPS+' voltas) neste período.</div>';
+    else{
+      var ord=R.order[m], top=ord.filter(function(o){return o[m+'n']>=2;}).slice(0,5).map(function(o){return pad(o.k);}), bot=ord.filter(function(o){return o[m+'n']>=2;}).slice(-5).reverse().map(function(o){return pad(o.k);});
+      var sum='<div class="kp-sum"><span><b>'+R.nsess+'</b> sessões</span><span><b>'+ord.length+'</b> karts com dados</span>'+(top.length?'<span class="g">Melhores: <b>'+top.join(' · ')+'</b></span><span class="r">Piores: <b>'+bot.join(' · ')+'</b></span>':'')+'</div>';
+      if(K.view==='list'){
+        body=sum+'<table class="kp-t kp-rank"><tr><th>#</th><th>Kart</th><th>Nota</th><th>Sessões</th><th>Confiança</th><th>Média do percentil</th></tr>'+ord.map(function(o){
+          return '<tr onclick="FK.kperf.pick('+o.k+')" class="'+(mine(o.k)?'mine':'')+'"><td>'+o[m+'r']+'º</td><td><span class="kp-chip" style="background:'+K.color(o.k)+'">'+pad(o.k)+'</span></td><td>'+Math.round((1-o[m+'s'])*100)+'</td><td>'+o[m+'n']+'</td><td>'+K.conf(o[m+'n'])+'</td><td>'+Math.round(o[m+'raw']*100)+'%</td></tr>'; }).join('')+'</table>';
+      } else {
+        var max=70; Object.keys(R.karts).forEach(function(k){ if(+k>max)max=+k; });
+        var cells=''; for(var k=1;k<=max;k++){ var o=R.karts[k], has=o&&o[m+'s']!=null, c=has?K.color(k):'';
+          var star=has&&o[m+'r']<=3&&o[m+'n']>=2;
+          cells+='<button class="kp-c'+(has?'':' no')+(K.sel===k?' sel':'')+(mine(k)?' mine':'')+'" '+(has?'style="background:'+c+'"':'')+' onclick="FK.kperf.pick('+k+')" title="'+(has?o[m+'r']+'º · '+o[m+'n']+' sessão(ões)':'sem dados')+'">'+(star?'<i>★</i>':'')+'<b>'+k+'</b>'+(has?'<small>'+o[m+'n']+'×</small>':'')+'</button>'; }
+        body=sum+'<div class="kp-grid">'+cells+'</div><div class="kp-leg"><span class="g">■ melhor</span><span class="r">■ pior</span><span>★ top 3 com 2+ sessões</span><span>borda dourada = kart da equipe</span><span>número pequeno = sessões usadas</span></div>';
+      }
+      body+=K.detail();
+    }
+    el.innerHTML=head+bar+'<div class="kp-body">'+body+'</div>';
+  }
+};
+var box=document.createElement('div'); box.id='fk-kperf'; document.body.appendChild(box);
+document.addEventListener('keydown',function(e){ if(K.isOpen&&e.key==='Escape'&&!/INPUT|SELECT/.test((e.target&&e.target.tagName)||''))K.close(); });
+var css=document.createElement('style');
+css.textContent=[
+'#fk-kperf{position:fixed;inset:0;z-index:9003;display:none;flex-direction:column;color:#fff;background:radial-gradient(900px 500px at 90% -10%,rgba(21,101,192,.28),transparent 60%),linear-gradient(180deg,#0b0f18,#121826 60%,#0a0d14)}',
+'#fk-kperf.on{display:flex}',
+'.kp-top{display:flex;align-items:center;gap:16px;padding:14px 3vw;border-bottom:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.35)}',
+'.kp-back{background:#fff;color:#000;border:0;font-weight:900;letter-spacing:1px;padding:8px 14px;border-radius:2px;cursor:pointer}',
+'.kp-title{display:flex;flex-direction:column;line-height:1.05}.kp-title b{font-size:24px;font-style:italic;letter-spacing:3px}.kp-title span{font-size:10px;letter-spacing:2.5px;color:#9aa4b8}',
+'.kp-bar{display:flex;gap:12px;flex-wrap:wrap;padding:10px 3vw;background:rgba(0,0,0,.25);border-bottom:1px solid rgba(255,255,255,.08)}',
+'.kp-grp{display:flex;gap:0}.kp-grp button,.kp-grp input{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.3);padding:7px 12px;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit;margin-left:-1px}',
+'.kp-grp input{background:#0f1420;cursor:text}.kp-grp button.on{background:#fff;color:#000}',
+'.kp-body{flex:1;overflow:auto;padding:16px 3vw 60px}',
+'.kp-sum{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:#c9d1e0;margin-bottom:12px}.kp-sum b{color:#fff}.kp-sum .g b{color:#6bff7a}.kp-sum .r b{color:#ff7a6b}',
+'.kp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px;max-width:900px}',
+'.kp-c{position:relative;aspect-ratio:1/1;border:2px solid transparent;color:#000;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:inherit;padding:0}',
+'.kp-c b{font-size:20px;line-height:1}.kp-c small{font-size:10px;font-weight:700;opacity:.7}.kp-c i{position:absolute;top:1px;left:3px;font-style:normal;font-size:12px}',
+'.kp-c.no{background:#1a1f2b;color:#6b7488}.kp-c.mine{border-color:#ffd54a;box-shadow:inset 0 0 0 2px #ffd54a}.kp-c.sel{outline:3px solid #fff;outline-offset:1px}',
+'.kp-leg{display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:#9aa4b8;margin:12px 0}.kp-leg .g{color:#6bff7a}.kp-leg .r{color:#ff7a6b}',
+'.kp-det{margin-top:18px;background:rgba(5,6,8,.75);box-shadow:0 0 0 1px rgba(255,255,255,.1);padding:14px 16px;max-width:900px}',
+'.kp-det h3{margin:0 0 8px;font-size:16px;letter-spacing:2px}.kp-mine{font-size:10px;background:#ffd54a;color:#000;padding:2px 6px;letter-spacing:1px;vertical-align:middle}',
+'.kp-kv{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:#c9d1e0;margin-bottom:10px}.kp-kv b{color:#fff}.kp-kv small{color:#7f8aa0}',
+'.kp-t{width:100%;border-collapse:collapse;font-size:12px;max-width:900px}.kp-t th{text-align:left;color:#9aa4b8;font-weight:700;letter-spacing:1px;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.15)}',
+'.kp-t td{padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.06)}.kp-rank tr{cursor:pointer}.kp-rank tr:hover td{background:rgba(255,255,255,.05)}.kp-rank tr.mine td:first-child{box-shadow:inset 3px 0 #ffd54a}',
+'.kp-chip{display:inline-block;min-width:32px;text-align:center;color:#000;font-weight:900;padding:2px 6px}',
+'.kp-mut{color:#9aa4b8;padding:24px 0}.kp-err{color:#ff8a8a;padding:24px 0}',
+'.st-kb .kd{display:block;height:3px;margin-top:2px}'
+].join('\n');
+document.head.appendChild(css);
+})();
+</script>
+<script>
+/* =====================================================================================
    SORTEIO v2 (03/10/2026)
    Modos:
    - TREINO DE QUALY: pilotos presentes -> duplas + kart por piloto, 2 baterias
@@ -6997,6 +7173,7 @@ var S=FK.sorteio={
   /* ---------- tela ---------- */
   open:function(tv){
     var el=document.getElementById('fk-sorteio'); if(!el)return;
+    if(!tv&&FK.kperf&&!FK.kperf.res)try{ FK.kperf.silent(function(){ if(S.isOpen&&!S._rv)S.render(true); }); }catch(e){}
     S.isOpen=true; S.tv=!!tv; if(!S.tab)S.tab=S.st.mode||'qualy'; el.classList.add('on'); document.body.classList.add('hub-open'); S.render();
     try{ history.replaceState(null,'',location.pathname+location.search+'#sorteio'+(tv?'/tv':'')); }catch(e){}
   },
@@ -7055,7 +7232,7 @@ var S=FK.sorteio={
   },
   kartsSec:function(ed,n){
     return '<section class="st-sec"><h3><i>'+n+'</i>KARTS DISPONÍVEIS'+(ed?'<span class="st-mini"><button onclick="FK.sorteio.pasteK()">digitar lista</button><button onclick="FK.sorteio.clearK()">limpar</button></span>':'')+'</h3>'+
-      '<div class="st-kgrid">'+Array.apply(null,Array(99)).map(function(_,i){ var k=i+1, on=S.st.karts.indexOf(k)>=0; return '<button class="st-kb'+(on?' on':'')+'" '+(ed?'':'disabled')+' onclick="FK.sorteio.toggleK('+k+')">'+pad(k)+'</button>'; }).join('')+'</div></section>';
+      '<div class="st-kgrid">'+Array.apply(null,Array(99)).map(function(_,i){ var k=i+1, on=S.st.karts.indexOf(k)>=0, dc=FK.kperf&&FK.kperf.dot(k); return '<button class="st-kb'+(on?' on':'')+'" '+(ed?'':'disabled')+' onclick="FK.sorteio.toggleK('+k+')">'+pad(k)+(dc?'<span class="kd" style="background:'+dc+'"></span>':'')+'</button>'; }).join('')+'</div>'+(FK.kperf&&FK.kperf.res?'<div class="st-at">barra colorida = desempenho do kart no período do <a onclick="FK.kperf.open()">Perfil dos karts</a> (verde = bom, vermelho = ruim)</div>':'')+'</section>';
   },
   rulesHTML:function(ed,qualy,swap){ var r=S.st.rules;
     var sw=swap?'<div class="st-rules st-keep"><label><input type="checkbox" '+(r.swapReq?'checked':'')+' '+(ed?'':'disabled')+' onchange="FK.sorteio.setRule(\'swapReq\',this.checked)"> <b>Piloto pode pedir troca de kart</b> — ao revelar o kart, aparece o botão PEDIR TROCA por</label> <select '+(ed?'':'disabled')+' onchange="FK.sorteio.setRule(\'swapSec\',+this.value)">'+[3,4,5,6,8,10].map(function(n){return '<option value="'+n+'"'+(n===(r.swapSec||3)?' selected':'')+'>'+n+'</option>';}).join('')+'</select> s <small>quem pedir sorteia de novo, depois dos demais, entre os karts livres (os recusados voltam para a lista)</small></div>':'';
@@ -7081,7 +7258,7 @@ var S=FK.sorteio={
     var ed=S.canEdit(), cad=S.cadastro(), tab=S.tab||'qualy';
     var subs={qualy:'TREINO DE QUALY · DUPLAS E KARTS', prova:'KARTS DA PROVA · UM KART POR EQUIPE/PILOTO', hist:'HISTÓRICO DE SORTEIOS'};
     var head='<div class="st-top"><button class="st-back" onclick="FK.sorteio.close()">‹ MENU</button><div class="st-title"><b>SORTEIO</b><span>'+(S.tv?'MODO TV':subs[tab])+'</span></div>'+
-      '<div class="st-actions">'+(tab!=='hist'||S.tv?'<button onclick="FK.sorteio.copy()">Copiar p/ WhatsApp</button>':'')+'<button onclick="FK.sorteio.toggleAnim()" title="Animação de revelação">'+(S.animOn()?'✦ Animação ligada':'✧ Animação desligada')+'</button><button onclick="FK.sorteio.open('+(!S.tv)+')">'+(S.tv?'Sair do modo TV':'Modo TV')+'</button></div></div>';
+      '<div class="st-actions">'+(!S.tv&&FK.kperf?'<button onclick="FK.kperf.open()" title="Quais karts estão bons hoje (dados do Race Monitor)">📊 Perfil dos karts</button>':'')+(tab!=='hist'||S.tv?'<button onclick="FK.sorteio.copy()">Copiar p/ WhatsApp</button>':'')+'<button onclick="FK.sorteio.toggleAnim()" title="Animação de revelação">'+(S.animOn()?'✦ Animação ligada':'✧ Animação desligada')+'</button><button onclick="FK.sorteio.open('+(!S.tv)+')">'+(S.tv?'Sair do modo TV':'Modo TV')+'</button></div></div>';
     var tabs='<div class="st-tabs">'+[['qualy','TREINO DE QUALY'],['prova','KARTS DA PROVA'],['hist','HISTÓRICO']].map(function(t){ return '<button class="'+(tab===t[0]?'on':'')+'" onclick="FK.sorteio.setTab(\''+t[0]+'\')">'+t[1]+(t[0]==='hist'&&S.hist.length?' <small>'+S.hist.length+'</small>':'')+'</button>'; }).join('')+'</div>';
     var html;
     if(S.tv){
