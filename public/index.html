@@ -2115,7 +2115,7 @@ var fl=document.getElementById('flag-status');if(fl)fl.textContent=FK.cfg.source
 resumeLiveIfNeeded:function(){
 if(FK.cfg.source==='live'&&FK.cfg.raceId&&!FK.state.liveInterval){
 FK.updateSrcBadge();FK.fetchLive();
-FK.state.liveInterval=setInterval(FK.fetchLive,1000);
+FK.state.liveInterval=setInterval(FK.liveTick,1000);
 if(!FK.state.racerInterval){FK.state.racerInterval=setInterval(FK.pollRacerLaps,20000);FK.pollRacerLaps();}
 FK.startLiveStream();
 }
@@ -2132,7 +2132,7 @@ if(FK.state.liveInterval)clearInterval(FK.state.liveInterval);
    pagamento cadastrada na conta do Race Monitor e ainda nao foi implementado
    aqui (ver functions/index.js). Por enquanto isso aqui (poll mais rapido) e
    o que da pra fazer sem depender de mudar de plano la. */
-FK.state.liveInterval=setInterval(FK.fetchLive,1000);
+FK.state.liveInterval=setInterval(FK.liveTick,1000);
 if(FK.state.racerInterval)clearInterval(FK.state.racerInterval);
 /* GetRacer (historico oficial de voltas, so pros karts da equipe) -- 20s e mais
    que suficiente (nao precisa da urgencia do placar geral) e mantem a cota bem
@@ -2148,6 +2148,10 @@ if(sb)sb.innerHTML='<span style="color:#ffb300">&#8987; Conectando...</span>';
 /* Chama nosso proxy (Cloud Function /api/live) em vez da API do Race Monitor direto,
    pois a api.race-monitor.com nao aceita chamadas via browser (sem CORS) e o token
    fica guardado so no servidor, nunca no client. */
+/* prova ENCERRADA (TimeToGo<=0): consulta o Race Monitor so a cada 5s e ignora resposta identica
+   (antes seguia reconstruindo a tela inteira 1x/s sem dado novo -> CPU alta na TV) */
+raceOver:function(){ try{ if(FK.cfg.source!=='live'||FK.state.timeToGoSec==null)return false; return FK.state.timeToGoSec<=0&&(FK.state.elapsed||0)>0; }catch(e){ return false; } },
+liveTick:function(){ if(FK.raceOver()){ FK._ovT=(FK._ovT||0)+1; if(FK._ovT%5)return; } else FK._ovT=0; FK.fetchLive(); },
 fetchLive:function(){
 var url='/api/live?raceId='+encodeURIComponent(FK.cfg.raceId);
 var xhr=new XMLHttpRequest();
@@ -2155,6 +2159,8 @@ xhr.open('GET',url);
 xhr.onload=function(){
 var sb=document.getElementById('config-status-body');
 try{
+if(FK.raceOver()&&xhr.responseText===FK._lastLiveTxt)return;
+FK._lastLiveTxt=xhr.responseText;
 var r=JSON.parse(xhr.responseText);
 if(r.Successful&&r.Session){
 FK.parseSession(r.Session);
@@ -10039,6 +10045,8 @@ V.mapFrac=function(d){
    modelo 3D da pista (pista3d.html, em iframe, so carrega quando o mapa esta visivel).
    Disponivel para o tracado 500 Milhas (KGV, com altimetria real); demais tracados seguem no mapa 2D.
    Clima: dia/noite/chuva vem do mesmo Open-Meteo do cabecalho (FK.wx4). Karts no box saem da pista. */
+/* modo leve: ?lite=1 na URL do app, ou sempre na TV do box (15 fps, sem antialias, sem rotacao automatica) */
+V.lite=function(host){ return /[?&]lite=1/.test(location.search+location.hash)||!!(host&&host.closest&&host.closest('#pane-tvpilotos')); };
 V.use3d=function(){ return ((FK.cfg||{}).tracado||'500_milhas')==='500_milhas'; };
 V._lane=function(k){ var n=parseInt(k,10)||0; return (((n*37)%100)/100-.5)*1.1; };
 V._hex=function(s){ if(typeof s==='string'&&/^#[0-9a-f]{6}$/i.test(s))return parseInt(s.slice(1),16); return null; };
@@ -10048,10 +10056,14 @@ V.tick3d=function(host,pos,boxN){
   if(!fr){
     if(!host.offsetParent)return;
     host.innerHTML=''; fr=document.createElement('iframe'); fr.className='m3d-fr'; fr.title='Traçado 3D'; fr._ok=false;
-    fr.onload=function(){ fr._ok=true; fr._sig=''; }; fr.src='pista3d.html?embed=1'; host.appendChild(fr); return;
+    fr.onload=function(){ fr._ok=true; fr._sig=''; }; fr.src='pista3d.html?embed=1'+(V.lite(host)?'&lite=1':''); host.appendChild(fr); return;
   }
-  if(!fr._ok||!host.offsetParent)return;
+  if(!fr._ok)return;
   var w; try{ w=fr.contentWindow; }catch(e){ return; } if(!w||!w.FK3D||!w.FK3D.update)return;
+  /* pausa o desenho (GPU ~0) com a aba oculta, mapa fora da tela ou prova encerrada */
+  var stop=!host.offsetParent||document.hidden||FK.raceOver(); try{ w.FK3D.setPaused(stop&&fr._drew); }catch(e){}
+  if(!host.offsetParent||document.hidden)return;
+  if(FK.raceOver()&&fr._drew)return; fr._drew=true;
   var list=[], boxT=[];
   pos.forEach(function(o){
     if(o.box){ if(o.mine)boxT.push(o.k); return; }
@@ -10147,6 +10159,10 @@ cssL.textContent=[
 'html.evt #pane-tvpilotos .dash-cols>.dash-col:last-child{display:grid!important;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);align-content:start}',
 'html.evt #pane-tvpilotos .dash-cols>.dash-col:last-child>.dash-card:has(#tv-krono-grid){grid-column:1/-1}',
 '.ev-map-host{padding:0 10px}.ev-map-host svg{display:block;width:100%;height:auto;max-height:300px}',
+/* TV leve: sem blur de fundo e sem animacoes infinitas (repintavam a tela inteira) */
+'body.tv-mode .dash-card,body.tv-mode .krono-card,body.tv-mode .topbar,body.tv-mode .tabs{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}',
+'body.tv-mode .krono-card.ev-lead,html.evt .krono-card.ev-lead{animation:none!important;box-shadow:inset 4px 0 0 var(--k),0 0 0 2px var(--k)!important}',
+'body.tv-mode .krono-card.in-box{animation:none!important;box-shadow:0 0 0 2px #ffc107!important}',
 '.ev-map-host.m3d{padding:0;height:clamp(320px,44vh,520px);background:#0b0e14}.m3d-fr{display:block;width:100%;height:100%;border:0}',
 'html.evt #pane-tvpilotos .ev-map-host.m3d{height:clamp(230px,29vh,330px)}',
 /* TV com 5+ karts da equipe: uma unica fileira compacta (antes quebrava em 2 linhas e cortava embaixo) */
