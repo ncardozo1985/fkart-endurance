@@ -6770,6 +6770,165 @@ document.head.appendChild(css);
 })();
 </script>
 <script>
+/* =====================================================================
+   RESULTADO POR FOTO (10/10/2026) -- le uma foto da tela do LapTime
+   (Cloud Function readTiming + visao) e monta a analise da bateria.
+   ===================================================================== */
+(function(){
+FK.foto=FK.foto||{};
+var F=FK.foto, LS='fk_fotos', URL_FN='https://us-central1-fkart-endurance.cloudfunctions.net/readTiming';
+F.list=[]; F.cur=null; F.busy=''; F.err=''; F.isOpen=false;
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function ms(t){ if(t==null||t==='')return null; if(typeof t==='number')return t; var s=String(t).trim().replace(',','.'); if(!/\d/.test(s))return null;
+  var p=s.split(':').map(function(x){return parseFloat(x);}); if(p.some(isNaN))return null; var v=0; p.forEach(function(x){v=v*60+x;}); return Math.round(v*1000); }
+function fmt(v){ if(v==null)return '—'; var m=Math.floor(v/60000), s=(v-m*60000)/1000; return m+':'+(s<10?'0':'')+s.toFixed(3); }
+function fgap(v){ return v==null?'—':(v<60000?v/1000:0)?'+'+(v/1000).toFixed(3):'+'+fmt(v); }
+function nk(k){ return String(k==null?'':k).replace(/^0+(?=\d)/,'').trim(); }
+function mine(k){ var a=(FK.cfg&&FK.cfg.myKarts)||[]; return a.some(function(x){return nk(x)===nk(k);}); }
+function load(){ try{ F.list=JSON.parse(localStorage.getItem(LS)||'[]')||[]; }catch(e){ F.list=[]; } }
+function save(){ try{ localStorage.setItem(LS,JSON.stringify(F.list)); }catch(e){} }
+load();
+/* ---------- leitura ---------- */
+function shrink(file){ return new Promise(function(ok,no){ var img=new Image(), u=URL.createObjectURL(file);
+  img.onload=function(){ var W=img.naturalWidth,H=img.naturalHeight,m=1800,r=Math.min(1,m/Math.max(W,H)),c=document.createElement('canvas'); c.width=Math.round(W*r); c.height=Math.round(H*r);
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(u); ok(c.toDataURL('image/jpeg',0.85)); };
+  img.onerror=function(){ no(new Error('Nao consegui abrir essa imagem.')); }; img.src=u; }); }
+F.addFiles=async function(files){
+  files=[].slice.call(files||[]); if(!files.length)return;
+  var user=null; try{ user=firebase.auth().currentUser; }catch(e){}
+  if(!user){ F.err='Entre com sua conta para ler fotos (no modo demo use "Exemplo").'; F.render(); return; }
+  F.err='';
+  for(var i=0;i<files.length;i++){
+    F.busy='Lendo foto '+(i+1)+' de '+files.length+'... (10 a 30 s)'; F.render();
+    try{
+      var data=await shrink(files[i]), tok=await user.getIdToken();
+      var r=await fetch(URL_FN,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok},body:JSON.stringify({image:data,type:'image/jpeg'})});
+      var j=await r.json().catch(function(){return {ok:false,error:'Resposta invalida do servidor.'};});
+      if(!j.ok)throw new Error(j.error||('Erro '+r.status));
+      F.addRace(j,files[i].name);
+    }catch(e){ F.err=(e&&e.message||e)+(/Failed to fetch/i.test(e&&e.message)?' (a leitura de foto ainda nao foi ativada no servidor)':''); break; }
+  }
+  F.busy=''; F.render();
+};
+F.addRace=function(j,fname){
+  var rows=(j.rows||[]).map(function(x,i){ return {pos:x.pos||i+1,kart:nk(x.kart),name:String(x.name||''),laps:+x.laps||null,lapNo:+x.bestLapNo||null,
+    best:fmtIn(x.best),last:fmtIn(x.last),gl:fmtIn(x.gapLeader),ga:fmtIn(x.gapAhead),bests:(x.bests||[]).map(fmtIn).filter(Boolean)}; });
+  var id='f'+Date.now()+Math.floor(Math.random()*99);
+  F.list.push({id:id,name:'Bateria '+(F.list.length+1),at:Date.now(),clock:j.clock||'',passes:j.passes||null,rows:rows,notes:j.notes||'',file:fname||''});
+  F.cur=id; save();
+};
+function fmtIn(v){ return v==null||v===''?'':String(v).trim(); }
+F.demo=function(){
+  var mk=function(p,k,n,l,mv,b,u,dl,da){return {pos:p,kart:k,name:n,laps:l,lapNo:mv,best:b,last:u,gl:dl,ga:da,bests:[]};};
+  F.list.push({id:'d'+Date.now(),name:'Exemplo (dados fictícios)',at:Date.now(),clock:'0:24:30',passes:154,notes:'',file:'',rows:[
+    mk(1,'4','Poleti',19,19,'01:08.0540','01:08.0540','',''),mk(2,'15','Torres',18,17,'01:08.1950','01:08.2990','00:00.1410','00:00.1410'),
+    mk(3,'55','Lucas',18,18,'01:08.4620','01:09.7610','00:00.4080','00:00.2670'),mk(4,'30','Guilherme',19,10,'01:08.6870','01:09.9850','00:00.6330','00:00.2250'),
+    mk(5,'23','Eduardo',19,18,'01:08.7650','01:09.3930','00:00.8460','00:00.2130'),mk(6,'59','Rodrigo',18,11,'01:08.7230','01:10.0230','00:00.6690','00:00.0230'),
+    mk(7,'53','Aluno Poleti',13,13,'01:08.9560','01:09.4020','00:00.9020','00:00.2330'),mk(8,'67','Gael',9,9,'01:10.2180','01:13.9960','00:02.1640','00:01.2620')]});
+  F.cur=F.list[F.list.length-1].id; save(); F.render();
+};
+/* ---------- analise ---------- */
+function analyze(R){
+  var rows=R.rows.map(function(x){ return {x:x,b:ms(x.best),l:ms(x.last),gl:ms(x.gl),ga:ms(x.ga),bs:(x.bests||[]).map(ms).filter(function(v){return v!=null;})}; });
+  var ok=rows.filter(function(r){return r.b!=null;}), fast=ok.length?Math.min.apply(null,ok.map(function(r){return r.b;})):null;
+  ok.forEach(function(r){ r.d=r.b-fast; r.drop=r.l!=null?r.l-r.b:null; });
+  var srt=ok.slice().sort(function(a,b){return a.b-b.b;}); srt.forEach(function(r,i){r.rk=i+1;});
+  var drops=ok.filter(function(r){return r.drop!=null;});
+  var maxLaps=Math.max.apply(null,[0].concat(rows.map(function(r){return r.x.laps||0;})));
+  return {rows:rows,ok:ok,fast:fast,srt:srt,drops:drops,maxLaps:maxLaps,
+    fastest:srt[0]||null,
+    firm:drops.length?drops.slice().sort(function(a,b){return Math.abs(a.drop)-Math.abs(b.drop);})[0]:null,
+    worst:drops.length?drops.slice().sort(function(a,b){return b.drop-a.drop;})[0]:null,
+    med:ok.length?srt[Math.floor(srt.length/2)].b:null};
+}
+/* ---------- tela ---------- */
+function cardLine(t,v,sub,g){ return '<div class="ft-k"><small>'+t+'</small><b'+(g?' class="g"':'')+'>'+v+'</b><span>'+sub+'</span></div>'; }
+function nm(r){ return '#'+esc(r.x.kart)+' '+esc(r.x.name); }
+F.geral=function(){
+  var best={}; F.list.forEach(function(R){ R.rows.forEach(function(x){ var b=ms(x.best); if(b==null)return; var key=(x.name||'').trim().toLowerCase()||('#'+x.kart);
+    if(!best[key]||b<best[key].b)best[key]={b:b,name:x.name||('#'+x.kart),kart:x.kart,race:R.name,n:0}; best[key].n=(best[key].n||0)+1; }); });
+  return Object.keys(best).map(function(k){return best[k];}).sort(function(a,b){return a.b-b.b;});
+};
+F.render=function(){
+  var el=document.getElementById('fk-foto'); if(!el)return;
+  var h='<div class="ft-top"><button class="ft-back" onclick="FK.foto.close()">‹ VOLTAR</button><div class="ft-title"><b>RESULTADO POR FOTO</b><span>LAPTIME · '+F.list.length+' BATERIA'+(F.list.length===1?'':'S')+'</span></div></div>';
+  h+='<div class="ft-body"><div class="ft-tools"><label class="ft-btn pri">📷 Adicionar foto<input type="file" accept="image/*" multiple onchange="FK.foto.addFiles(this.files);this.value=\'\'"></label>'+
+    '<button class="ft-btn" onclick="FK.foto.demo()">Exemplo</button>'+(F.list.length?'<button class="ft-btn" onclick="FK.foto.clear()">Apagar tudo</button>':'')+'</div>';
+  h+='<div class="ft-note">Fotografe a tabela de frente, inteira e sem reflexo (uma foto por bateria). Confira os números lidos antes de analisar: o que estiver errado dá para corrigir na tabela.</div>';
+  if(F.busy)h+='<div class="ft-busy">'+esc(F.busy)+'</div>';
+  if(F.err)h+='<div class="ft-err">'+esc(F.err)+'</div>';
+  if(!F.list.length){ h+='<div class="ft-empty">Nenhuma foto ainda. Toque em "Adicionar foto" e tire a foto da tela do LapTime.</div>'; el.innerHTML=h+'</div>'; return; }
+  h+='<div class="ft-chips">'+F.list.map(function(R){return '<button class="ft-chip'+(F.cur===R.id?' on':'')+'" onclick="FK.foto.pick(\''+R.id+'\')">'+esc(R.name)+'</button>';}).join('')+
+    '<button class="ft-chip'+(F.cur==='*'?' on':'')+'" onclick="FK.foto.pick(\'*\')">★ GERAL</button></div>';
+  if(F.cur==='*'){
+    var g=F.geral();
+    h+='<section class="ft-sec"><h3>MELHOR VOLTA POR PILOTO (todas as fotos)</h3>';
+    var f0=g.length?g[0].b:0;
+    h+=g.map(function(r,i){ var w=g.length>1?100-(r.b-f0)/(g[g.length-1].b-f0||1)*70:100;
+      return '<div class="ft-bar'+(mine(r.kart)?' me':'')+'"><span class="p">'+(i+1)+'</span><span class="n">#'+esc(r.kart)+' '+esc(r.name)+'<small>'+esc(r.race)+'</small></span><span class="v"><i style="width:'+w.toFixed(0)+'%"></i></span><span class="t">'+fmt(r.b)+'<small>'+(i?'+'+((r.b-f0)/1000).toFixed(3):'melhor')+'</small></span></div>'; }).join('')+'</section>';
+    el.innerHTML=h+'</div>'; return;
+  }
+  var R=F.list.filter(function(x){return x.id===F.cur;})[0]||F.list[F.list.length-1]; F.cur=R.id; var A=analyze(R);
+  h+='<div class="ft-tools"><input class="ft-name" value="'+esc(R.name)+'" onchange="FK.foto.rename(\''+R.id+'\',this.value)"><button class="ft-btn" onclick="FK.foto.del(\''+R.id+'\')">Excluir bateria</button>'+(R.clock?'<span class="ft-mut">Relógio da foto: '+esc(R.clock)+(R.passes?' · '+R.passes+' passagens':'')+'</span>':'')+'</div>';
+  if(R.notes)h+='<div class="ft-note">Aviso da leitura: '+esc(R.notes)+'</div>';
+  /* destaques */
+  h+='<div class="ft-kpis">'+
+    (A.fastest?cardLine('MELHOR VOLTA',fmt(A.fastest.b),nm(A.fastest),1):'')+
+    (A.firm?cardLine('MAIS FIRME',(A.firm.drop<=0?'+0.00 s':'+'+(A.firm.drop/1000).toFixed(2)+' s'),nm(A.firm)+' · última volta vs melhor'+(A.firm.drop<=0?' (fechou na melhor)':'')):'')+
+    (A.worst&&A.worst.drop>0?cardLine('MAIOR QUEDA','+'+(A.worst.drop/1000).toFixed(2)+' s',nm(A.worst)+' · última vs melhor'):'')+
+    (A.med?cardLine('PELOTÃO','Δ '+((A.med-A.fast)/1000).toFixed(2)+' s',  'mediana das melhores vs a mais rápida'):'')+'</div>';
+  /* barras: melhor volta */
+  var slow=A.srt.length?A.srt[A.srt.length-1].b:0;
+  h+='<section class="ft-sec"><h3>RITMO — MELHOR VOLTA</h3>'+A.srt.map(function(r){ var w=slow>A.fast?100-(r.b-A.fast)/(slow-A.fast)*70:100;
+    return '<div class="ft-bar'+(mine(r.x.kart)?' me':'')+'"><span class="p">'+r.rk+'</span><span class="n">'+nm(r)+'<small>'+(r.x.laps?r.x.laps+' voltas':'')+'</small></span><span class="v"><i style="width:'+w.toFixed(0)+'%"></i></span><span class="t">'+fmt(r.b)+'<small>'+(r.d?'+'+(r.d/1000).toFixed(3):'melhor')+'</small></span></div>'; }).join('')+'</section>';
+  /* tabela editavel */
+  h+='<section class="ft-sec"><h3>TABELA LIDA (edite se algo estiver errado)</h3><div class="ft-tw"><table class="ft-t"><tr><th>Pos</th><th>Kart</th><th>Piloto</th><th>Voltas</th><th>Melhor</th><th>Última</th><th>Δ líder</th><th>Δ frente</th></tr>';
+  R.rows.forEach(function(x,i){ var cell=function(f,w,al){return '<td><input class="'+(al||'')+'" style="width:'+w+'px" value="'+esc(x[f]==null?'':x[f])+'" onchange="FK.foto.edit(\''+R.id+'\','+i+',\''+f+'\',this.value)"></td>';};
+    h+='<tr'+(mine(x.kart)?' class="me"':'')+'>'+cell('pos',34)+cell('kart',44)+cell('name',120)+cell('laps',46)+cell('best',88)+cell('last',88)+cell('gl',82)+cell('ga',82)+'</tr>'; });
+  h+='</table></div></section>';
+  el.innerHTML=h+'</div>';
+};
+F.pick=function(id){ F.cur=id; F.render(); };
+F.rename=function(id,v){ var R=F.list.filter(function(x){return x.id===id;})[0]; if(R){R.name=v||R.name; save(); F.render();} };
+F.del=function(id){ if(!confirm('Excluir esta bateria?'))return; F.list=F.list.filter(function(x){return x.id!==id;}); F.cur=F.list.length?F.list[F.list.length-1].id:null; save(); F.render(); };
+F.clear=function(){ if(!confirm('Apagar todas as fotos e análises?'))return; F.list=[]; F.cur=null; save(); F.render(); };
+F.edit=function(id,i,f,v){ var R=F.list.filter(function(x){return x.id===id;})[0]; if(!R)return; R.rows[i][f]=(f==='pos'||f==='laps')?(+v||null):(f==='kart'?nk(v):v.trim()); save(); F.render(); };
+F.open=function(){ var el=document.getElementById('fk-foto'); if(!el)return; F.isOpen=true; el.classList.add('on'); if(!F.cur&&F.list.length)F.cur=F.list[F.list.length-1].id; F.render(); };
+F.close=function(){ var el=document.getElementById('fk-foto'); if(el)el.classList.remove('on'); F.isOpen=false; };
+var box=document.createElement('div'); box.id='fk-foto'; document.body.appendChild(box);
+document.addEventListener('keydown',function(e){ if(F.isOpen&&e.key==='Escape'&&!/INPUT|TEXTAREA|SELECT/.test((e.target&&e.target.tagName)||''))F.close(); });
+var css=document.createElement('style');
+css.textContent=[
+'#fk-foto{position:fixed;inset:0;z-index:9003;display:none;flex-direction:column;color:#fff;background:radial-gradient(900px 500px at 90% -10%,rgba(215,38,61,.22),transparent 60%),radial-gradient(700px 500px at -10% 110%,rgba(21,101,192,.18),transparent 60%),#080A0E}',
+'#fk-foto.on{display:flex}',
+'.ft-top{display:flex;align-items:center;gap:14px;padding:max(10px,env(safe-area-inset-top)) 3vw 10px;border-bottom:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.35);flex-shrink:0}',
+'.ft-back{background:#fff;color:#000;border:0;font-weight:900;letter-spacing:1px;padding:8px 14px;border-radius:2px;cursor:pointer;font-size:12px}',
+'.ft-title{display:flex;flex-direction:column;line-height:1.05}.ft-title b{font-size:20px;font-style:italic;letter-spacing:3px}.ft-title span{font-size:9px;letter-spacing:2.5px;color:#9aa4b8}',
+'.ft-body{flex:1;overflow:auto;padding:14px 3vw 50px;max-width:1000px;width:100%;margin:0 auto;box-sizing:border-box;-webkit-overflow-scrolling:touch}',
+'.ft-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}',
+'.ft-btn{position:relative;overflow:hidden;display:inline-flex;align-items:center;background:transparent;color:#fff;border:1px solid rgba(255,255,255,.3);padding:9px 14px;font-weight:800;font-size:12px;letter-spacing:.5px;cursor:pointer;border-radius:2px;font-family:inherit}',
+'.ft-btn.pri{background:linear-gradient(90deg,#d7263d,#ff7043);border-color:transparent}.ft-btn input{position:absolute;inset:0;opacity:0;cursor:pointer}',
+'.ft-name{background:#0f1420;border:1px solid rgba(255,255,255,.18);color:#fff;padding:8px 10px;border-radius:2px;font-size:14px;font-weight:700;width:190px;font-family:inherit}',
+'.ft-mut,.ft-note{color:#9aa4b8;font-size:12px;line-height:1.45}.ft-note{margin-bottom:10px}',
+'.ft-busy{background:rgba(255,183,77,.12);border-left:3px solid #ffb74d;padding:10px 12px;margin-bottom:10px;font-size:13px}',
+'.ft-err{background:rgba(215,38,61,.14);border-left:3px solid #d7263d;padding:10px 12px;margin-bottom:10px;font-size:13px}',
+'.ft-empty{color:#9aa4b8;padding:36px 0;text-align:center}',
+'.ft-chips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 12px}.ft-chip{background:transparent;color:#8f9ab0;border:1px solid rgba(255,255,255,.22);padding:7px 12px;font-size:12px;font-weight:700;font-style:italic;cursor:pointer;border-radius:2px;font-family:inherit}.ft-chip.on{background:#fff;color:#000;border-color:#fff}',
+'.ft-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:14px}',
+'.ft-k{background:rgba(16,19,24,.92);box-shadow:0 0 0 1px rgba(255,255,255,.08);padding:10px 12px;border-left:3px solid #d7263d}.ft-k small{display:block;font-size:9px;letter-spacing:2px;color:#9aa4b8;font-weight:800}.ft-k b{display:block;font-size:22px;font-style:italic;margin:2px 0}.ft-k b.g{color:#ffd54a}.ft-k span{font-size:11px;color:#c9d1e0}',
+'.ft-sec{background:rgba(16,19,24,.92);box-shadow:0 0 0 1px rgba(255,255,255,.08);padding:12px 14px;margin-bottom:14px}.ft-sec h3{margin:0 0 10px;font-size:11px;letter-spacing:2.5px;color:#9aa4b8}',
+'.ft-bar{display:grid;grid-template-columns:24px minmax(110px,1.2fr) 2fr 86px;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px}',
+'.ft-bar.me .n{color:#ffd54a;font-weight:800}.ft-bar .p{color:#8f9ab0;font-weight:800}.ft-bar .n small{display:block;font-size:10px;color:#8f9ab0}',
+'.ft-bar .v{height:10px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden}.ft-bar .v i{display:block;height:100%;background:linear-gradient(90deg,#d7263d,#ff7043)}.ft-bar.me .v i{background:linear-gradient(90deg,#ffb300,#ffd54a)}',
+'.ft-bar .t{text-align:right;font-weight:800;font-variant-numeric:tabular-nums}.ft-bar .t small{display:block;font-size:10px;color:#8f9ab0;font-weight:600}',
+'.ft-tw{overflow-x:auto}.ft-t{border-collapse:collapse;font-size:12px}.ft-t th{text-align:left;color:#8f9ab0;font-size:9px;letter-spacing:1.5px;padding:4px 4px}.ft-t td{padding:2px 3px}.ft-t input{background:#0f1420;border:1px solid rgba(255,255,255,.14);color:#fff;padding:6px;border-radius:2px;font-size:12px;font-family:inherit}.ft-t tr.me input{border-color:#ffd54a}',
+'@media(max-width:700px){.ft-body{padding:10px 10px 40px}.ft-bar{grid-template-columns:20px 1fr 78px;grid-template-areas:"p n t" "v v v"}.ft-bar .p{grid-area:p}.ft-bar .n{grid-area:n}.ft-bar .t{grid-area:t}.ft-bar .v{grid-area:v}}'
+].join('\n');
+document.head.appendChild(css);
+})();
+</script>
+
+<script>
 /* =====================================================================================
    PERFIL DOS KARTS (10/10/2026) -- inspirado na analise de karts do DriverOne
    Fonte: Race Monitor (raceId 26021 = KGV), todas as sessoes do dia de corrida (04h->04h Brasilia),
@@ -8993,7 +9152,7 @@ var P=FK.post={
     var h='<div class="q-top"><button class="q-back" onclick="FK.post.close()">‹ MENU</button><div class="q-title"><b>ANÁLISE PÓS-CORRIDA</b><span>'+(D?esc(src.name||(D.info.name||'sessão importada'))+' · '+D.comps.length+' karts':'IMPORTE UMA SESSÃO DO RACE MONITOR')+'</span></div></div>';
     h+='<div class="q-body">';
     h+='<section class="q-sec"><h3><i>⇩</i>IMPORTAR PROVA</h3><div class="q-tools"><span class="q-grp">Race Monitor: prova <input id="pa-rid" type="text" value="'+esc(src.raceId||(FK.cfg&&FK.cfg.raceId)||'')+'" style="width:90px"><button class="q-btn" onclick="FK.post.listSessions()">Listar sessões</button><span id="pa-sess" class="q-sess"></span></span>'+
-      '<span class="q-grp">ou <label class="q-btn q-file" title="Relatório volta a volta (Lap Analysis) do kartódromo; junto, o PDF de classificação traz as categorias">📄 Enviar arquivo de tempos (HTML/PDF)<input type="file" accept="application/pdf,.pdf,.html,.htm,text/html" multiple onchange="FK.post.importPdf(this.files);this.value=\'\'"></label><span id="pa-pdf" class="q-mut"></span></span></div>'+
+      '<span class="q-grp">ou <label class="q-btn q-file" title="Relatório volta a volta (Lap Analysis) do kartódromo; junto, o PDF de classificação traz as categorias">📄 Enviar arquivo de tempos (HTML/PDF)<input type="file" accept="application/pdf,.pdf,.html,.htm,text/html" multiple onchange="FK.post.importPdf(this.files);this.value=\'\'"></label><span id="pa-pdf" class="q-mut"></span></span><span class="q-grp">ou <button class="q-btn" onclick="FK.foto&&FK.foto.open()" title="Tire uma foto da tela do LapTime e eu leio a tabela">📷 Foto do LapTime</button></span></div>'+
       (function(){ var R=P.rule(P.raw); return '<div class="q-tools" style="margin-top:8px"><span class="q-grp">Regra de paradas desta prova: mínima <input id="pa-min" type="number" min="0" step="0.5" value="'+(R.min/60)+'" style="width:60px"> min · longa <input id="pa-long" type="number" min="0" step="0.5" value="'+(R.long/60)+'" style="width:60px"> min <small style="color:#8f9ab0">(0 = sem longa)</small>'+(P.raw?'<button class="q-btn" onclick="FK.post.setRule()">Recalcular</button>':'')+'</span></div>'+
       '<div class="q-note">Use a sessão da corrida (ex.: "PROVA"). '+(R.own?'Regra salva com esta prova.':'Por padrão usa a regra da Config; ajuste aqui se a prova importada tinha outra regra.')+'</div>'; })()+'</section>';
     if(!D){ h+='</div>'; el.innerHTML=h; return; }
