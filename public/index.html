@@ -1036,21 +1036,51 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
 <div class="pane" id="pane-tracado">
 <div class="dash-root" id="trc3d-root"></div>
 </div>
+<style>
+#pane-config.on{display:flex;position:fixed;inset:0;z-index:8900;background:radial-gradient(900px 420px at 85% -10%,rgba(21,101,192,.26),transparent 62%),radial-gradient(700px 500px at -10% 110%,rgba(215,38,61,.12),transparent 60%),#080A0E}
+.cf-app{display:flex;flex-direction:column;width:100%;height:100%;color:#fff}
+.cf-top{display:flex;align-items:center;gap:14px;padding:max(10px,env(safe-area-inset-top)) 3vw 10px;border-bottom:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.35);flex-shrink:0}
+.cf-back{background:#fff;color:#000;border:0;font-weight:900;letter-spacing:1px;padding:8px 14px;border-radius:2px;cursor:pointer;font-size:12px}
+.cf-title{display:flex;flex-direction:column;line-height:1.05;flex:1;min-width:0}.cf-title b{font-size:22px;font-style:italic;letter-spacing:3px}.cf-title span{font-size:9px;letter-spacing:2.5px;color:#9aa4b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cf-nav{display:flex;gap:0;overflow-x:auto;padding:0 3vw;background:rgba(0,0,0,.25);border-bottom:1px solid rgba(255,255,255,.08);flex-shrink:0;-webkit-overflow-scrolling:touch;scrollbar-width:none}.cf-nav::-webkit-scrollbar{display:none}
+.cf-nav button{background:transparent;color:#8f9ab0;border:0;border-bottom:3px solid transparent;padding:12px 16px;font-weight:800;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;white-space:nowrap;font-family:inherit}
+.cf-nav button.on{color:#fff;border-bottom-color:#d7263d}
+.cf-main{flex:1;overflow:auto;padding:16px 3vw 110px;-webkit-overflow-scrolling:touch}
+.cf-sec{display:none;max-width:980px;margin:0 auto}.cf-sec.on{display:block}
+.cf-card{background:rgba(16,19,24,.92);box-shadow:0 0 0 1px rgba(255,255,255,.08);padding:16px;margin-bottom:12px;border-left:3px solid #d7263d}
+.cf-card h4{margin:0 0 4px;font-size:14px;font-style:italic;letter-spacing:2px;text-transform:uppercase}
+.cf-card>p{margin:0 0 12px;color:#9aa4b8;font-size:12px;line-height:1.45}
+#pane-config .cfg-grid{margin-bottom:0}
+#pane-config .cfg-field label{color:#9aa4b8;font-size:10px;letter-spacing:1.5px;font-weight:700}
+#pane-config .cfg-field input,#pane-config .cfg-field select,#pane-config textarea{background:#0f1420;border:1px solid rgba(255,255,255,.18);border-radius:2px;color:#fff;padding:9px 10px;font-size:14px}
+#pane-config .cfg-field input:focus,#pane-config .cfg-field select:focus,#pane-config textarea:focus{border-color:#fff}
+.cf-note{margin-top:14px;font-size:11px;color:#9aa4b8}.cf-note summary{cursor:pointer;letter-spacing:1px;font-weight:700;color:#c9d1e0}.cf-note p{margin:8px 0 0;line-height:1.5}
+.cf-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.cf-act{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.2);color:#fff;text-align:left;padding:12px 14px;border-radius:2px;cursor:pointer;font-family:inherit}
+.cf-act b{display:block;font-size:13px;letter-spacing:1px;text-transform:uppercase}.cf-act small{display:block;color:#9aa4b8;font-size:11px;margin-top:3px;line-height:1.35}
+.cf-act.live{border-color:#2fbf71}.cf-act.live b{color:#6bff9a}.cf-act.warn{border-color:#ffa726}.cf-act.warn b{color:#ffa726}
+.cf-save{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:12px;padding:10px 3vw max(10px,env(safe-area-inset-bottom));background:linear-gradient(0deg,#080A0E 70%,rgba(8,10,14,0));justify-content:flex-end}
+.cf-save span{flex:1;font-size:11px;color:#9aa4b8}
+.cf-save button{background:linear-gradient(90deg,#d7263d,#ff7043);color:#fff;border:0;font-weight:900;letter-spacing:1px;padding:13px 22px;border-radius:2px;cursor:pointer;font-size:13px;font-family:inherit}
+#pane-config .kp-chip{background:transparent;color:#8f9ab0;border:1px solid rgba(255,255,255,.22);border-radius:2px;padding:6px 10px;font-size:12px;font-weight:700;font-style:italic;cursor:pointer}
+#pane-config .kp-chip.sel{background:#fff;color:#000;border-color:#fff}
+#pane-config .kart-input-row input{background:#0f1420;border:1px solid rgba(255,255,255,.18);border-radius:2px;color:#fff;padding:9px 10px;font-size:14px}
+#pane-config .kart-input-row button{border-radius:2px}
+@media(max-width:700px){.cf-title b{font-size:18px}.cf-top{padding-left:10px;padding-right:10px}.cf-main{padding:12px 10px 110px}.cf-nav{padding:0 6px}.cf-nav button{padding:12px 11px}.cf-save button{flex:1}.cf-save span{display:none}}
+</style>
 <div class="pane" id="pane-config">
-<div class="cfg-panel">
-<h3>&#9881; Configuracao da Corrida</h3>
+<div class="cf-app" style="position:relative">
+<header class="cf-top"><button type="button" class="cf-back" onclick="FK.hub&&FK.hub.open()">&lsaquo; MENU</button><div class="cf-title"><b>CONFIGURAÇÕES</b><span id="cf-sub">CORRIDA, EQUIPE E REGULAMENTO</span></div></header>
+<nav class="cf-nav" id="cf-nav">
+<button type="button" class="on" data-s="race">Corrida</button><button type="button" data-s="team">Equipe</button><button type="button" data-s="rules">Regras</button><button type="button" data-s="windows">Janelas</button><button type="button" data-s="weather">Clima</button><button type="button" data-s="live">Ao vivo</button>
+</nav>
+<main class="cf-main">
+<section class="cf-sec on" data-s="race">
+<div class="cf-card"><h4>Dados da corrida</h4><p>Nome, ID no Race Monitor, duração e traçado da pista.</p>
 <div class="cfg-grid">
-<div class="cfg-field">
-<label>Nome da Corrida</label>
-<input type="text" id="cfg-race-name" placeholder="Ex: KGV 3h Endurance" value="KGV Endurance">
-</div>
-<div class="cfg-field">
-<label>Race Monitor ID</label>
-<input type="number" id="cfg-race-id" placeholder="Ex: 169005" value="169005">
-</div>
-<div class="cfg-field">
-<label>Duracao Total da Corrida</label>
-<select id="cfg-duration">
+<div class="cfg-field"><label>Nome da Corrida</label><input type="text" id="cfg-race-name" placeholder="Ex: KGV 3h Endurance" value="KGV Endurance"></div>
+<div class="cfg-field"><label>Race Monitor ID</label><input type="number" id="cfg-race-id" placeholder="Ex: 169005" value="169005"></div>
+<div class="cfg-field"><label>Duracao Total da Corrida</label><select id="cfg-duration">
 <option value="3600">1 hora</option>
 <option value="5400">1h 30min</option>
 <option value="7200">2 horas</option>
@@ -1065,15 +1095,8 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
 <option value="57600">16 horas</option>
 <option value="72000">20 horas</option>
 <option value="86400">24 horas</option>
-</select>
-</div>
-<div class="cfg-field">
-<label>API Token Race Monitor (nao usado mais aqui)</label>
-<input type="password" id="cfg-api-token" placeholder="Token agora fica so no servidor (Cloud Function)" disabled>
-</div>
-<div class="cfg-field">
-<label>Traçado da Pista</label>
-<select id="cfg-tracado">
+</select></div>
+<div class="cfg-field"><label>Traçado da Pista</label><select id="cfg-tracado">
 <option value="500_milhas">500 Milhas</option>
 <option value="endurance_1">Endurance 1</option>
 <option value="101">Traçado 101</option>
@@ -1099,60 +1122,21 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
 <option value="145">Traçado 145</option>
 <option value="146">Traçado 146</option>
 <option value="oval_invertido">Oval Invertido</option>
-</select>
+</select></div>
 </div>
-</div>
-<div class="cfg-field">
-<label>Meus Karts nesta Corrida</label>
+<input type="password" id="cfg-api-token" disabled style="display:none">
+</div></section>
+<section class="cf-sec" data-s="team">
+<div class="cf-card"><h4>Meus karts nesta corrida</h4><p>Os karts adicionados ficam em dourado no ranking. Limpe e reconfigure a cada corrida.</p>
 <div class="kart-tags" id="kart-tags"></div>
-<div class="kart-input-row">
-<input type="text" id="kart-input" placeholder="Numero do kart (ex: 064)" maxlength="4" oninput="this.value=this.value.toUpperCase()">
-<button onclick="FK.addKart()">+ Adicionar</button>
+<div class="kart-input-row"><input type="text" id="kart-input" placeholder="Numero do kart (ex: 064)" maxlength="4" oninput="this.value=this.value.toUpperCase()"><button onclick="FK.addKart()">+ Adicionar</button></div>
+<label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:12px;font-weight:400;cursor:pointer;color:#c9d1e0"><input type="checkbox" id="cfg-krono-sort-pos" style="width:auto"> Ordenar cronômetros da equipe pela colocação na corrida (senão, ordem de cadastro acima)</label>
 </div>
-<small style="color:var(--mut);font-size:11px;margin-top:6px;display:block">Os karts adicionados serao destacados em dourado no ranking. Limpe e reconfigure a cada corrida.</small>
-<label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:12px;font-weight:400;cursor:pointer">
-<input type="checkbox" id="cfg-krono-sort-pos" style="width:auto">
-Ordenar cronometros da equipe pela colocacao na corrida (senao, ordem de cadastro acima)
-</label>
-</div>
-<div class="btn-row">
-<button class="btn-primary" onclick="FK.saveConfig()">&#10003; Salvar e Aplicar</button>
-<button class="btn-secondary" onclick="FK.resetDemo()">&#8635; Carregar Demo</button>
-<button class="btn-secondary" id="btn-live" onclick="FK.startLive()" style="border-color:rgba(102,187,106,0.4);color:#66bb6a">&#9654; Iniciar Ao Vivo</button>
-<button class="btn-secondary" onclick="FK.resetPilotKartLinks()" style="border-color:rgba(255,167,38,0.5);color:#ffa726" title="Limpa quem esta marcado como piloto ativo em cada kart (o que aparece no cronometro), a contagem de paradas curtas/longas feitas e as flags manuais. NAO mexe na ordem/fila de pilotos configurada -- so em quem esta 'na pista agora'.">&#129529; Limpar Piloto Ativo por Kart</button>
-</div>
-</div>
-<div class="cfg-panel">
-<h3>&#127937; LapTime ao Vivo (MyLapTime) — Estrategia Solo</h3>
-<p style="color:var(--mut);font-size:12px;margin-bottom:14px">Sem API publica: leia a tela do LiveTime e cole o texto abaixo a cada atualizacao (ex: a cada 5min durante a prova). O app calcula posicao, gaps e ritmo entre leituras.</p>
-<div class="cfg-grid">
-<div class="cfg-field">
-<label>Link do LiveTime (MyLapTime)</label>
-<input type="text" id="cfg-laptime-url" placeholder="https://tools.mylaptime.com.br/livetime/...">
-</div>
-<div class="cfg-field">
-<label>Duracao da Prova (Estrategia)</label>
-<select id="cfg-laptime-duration">
-<option value="3600">1 hora</option>
-<option value="7200">2 horas</option>
-<option value="9000">2h 30min</option>
-<option value="10800">3 horas</option>
-<option value="14400" selected>4 horas (+1 volta)</option>
-<option value="18000">5 horas</option>
-<option value="21600">6 horas</option>
-</select>
-</div>
-</div>
-<div class="cfg-field">
-<label>Colar leitura da tela do LiveTime (Ctrl+A, Ctrl+C na pagina)</label>
-<textarea id="cfg-laptime-paste" rows="6" placeholder="Cole aqui o texto copiado da tela do LiveTime..." style="width:100%;background:#0c0d0f;border:1px solid var(--border);color:var(--txt);padding:8px 10px;border-radius:5px;font-size:12px;font-family:monospace;resize:vertical"></textarea>
-</div>
-<div class="btn-row" style="margin-top:10px">
-<button class="btn-primary" onclick="FK.processLaptimePaste()">&#10003; Processar Leitura</button>
-</div>
-</div>
-<div class="cfg-panel">
-<h3>&#127942; Regras da Prova</h3>
+<div class="cf-card"><h4>Pilotos por kart</h4><p>Marque quais pilotos cadastrados (aba Pilotos) podem pilotar cada kart. Alimenta a Fila de Pilotos; sem marcação, todos aparecem como opção.</p>
+<div id="kp-setup-body"></div></div>
+</section>
+<section class="cf-sec" data-s="rules">
+<div class="cf-card"><h4>Regras da prova</h4><p>Escolha a categoria do regulamento para preencher as paradas e ajuste o que precisar.</p>
 <div class="cfg-grid">
 <div class="cfg-field">
 <label>Categoria do Regulamento (preenche as 4 regras abaixo)</label>
@@ -1199,10 +1183,9 @@ Ordenar cronometros da equipe pela colocacao na corrida (senao, ordem de cadastr
 <input type="number" id="cfg-box-capacity" min="1" value="24">
 </div>
 </div>
-<small style="color:var(--mut);font-size:11px;display:block">Ajuste estes campos conforme o regulamento de cada corrida (o preset "Categoria do Regulamento" acima preenche os 4 campos de paradas pro KGV -- Elite ou Challenge -- mas continuam editaveis). Para a Endurance Itu 6h (23/08/2026, Art.14&#186;): 5 paradas obrigatorias de 5min + 1 parada longa de 7min = 32min de paradas no total. As "Paradas Longas" contam separado das paradas minimas normais e entram na Proje&ccedil;&atilde;o como tempo obrigat&oacute;rio adicional descontado do tempo total de prova. As paradas cumpridas sao contadas automaticamente pela volta cronometrada detectada no feed ao vivo (duracao >= o minimo configurado acima). A categoria precisa bater com o texto da coluna CATEGORIA da fonte de dados. O stint pesado (105kg / min 40min continuos) e regra de todas as categorias e fica configurado separado, na "Heavy Window" abaixo. A "Capacidade do Box" alimenta o Box Intelligence (aba Dashboard): quantidade de karts reserva sempre parados no box (padrao 24, conforme a frota do KGV -- 110 karts menos 86 equipes na pista); ajuste se outro kartodromo tiver frota reserva diferente.</small>
-</div>
-<div class="cfg-panel">
-<h3>&#128679; Janelas Especiais da Prova</h3>
+<details class="cf-note"><summary>Ver observações do regulamento</summary><p>Ajuste estes campos conforme o regulamento de cada corrida (o preset "Categoria do Regulamento" acima preenche os 4 campos de paradas pro KGV -- Elite ou Challenge -- mas continuam editaveis). Para a Endurance Itu 6h (23/08/2026, Art.14&#186;): 5 paradas obrigatorias de 5min + 1 parada longa de 7min = 32min de paradas no total. As "Paradas Longas" contam separado das paradas minimas normais e entram na Proje&ccedil;&atilde;o como tempo obrigat&oacute;rio adicional descontado do tempo total de prova. As paradas cumpridas sao contadas automaticamente pela volta cronometrada detectada no feed ao vivo (duracao >= o minimo configurado acima). A categoria precisa bater com o texto da coluna CATEGORIA da fonte de dados. O stint pesado (105kg / min 40min continuos) e regra de todas as categorias e fica configurado separado, na "Heavy Window" abaixo. A "Capacidade do Box" alimenta o Box Intelligence (aba Dashboard): quantidade de karts reserva sempre parados no box (padrao 24, conforme a frota do KGV -- 110 karts menos 86 equipes na pista); ajuste se outro kartodromo tiver frota reserva diferente.</p></details></div></section>
+<section class="cf-sec" data-s="windows">
+<div class="cf-card"><h4>Janelas especiais</h4><p>Heavy Window, Safety Kart Virtual e box fechado, em minutos de prova. Alimentam o Planejamento de Stints.</p>
 <div class="cfg-grid">
 <div class="cfg-field">
 <label>Heavy Window - Inicio (min de prova)</label>
@@ -1225,36 +1208,46 @@ Ordenar cronometros da equipe pela colocacao na corrida (senao, ordem de cadastr
 <input type="number" id="cfg-mandatory-cutoff" min="0" step="0.01" value="0">
 </div>
 </div>
-<small style="color:var(--mut);font-size:11px;display:block">Para a Endurance Itu 6h (Art.10&#186; e 16&#186;): Heavy Window das 03h30 as 05h00 (kart deve sair do box 20kg acima do peso da categoria); Safety Kart Virtual aos 03h00 de prova (bandeira quadriculada verde/amarela, sem ultrapassagem); Box Fechado a partir das 02h50 ate a relargada (duracao real da relargada e definida pela organizacao na hora, nao da pra prever); corte para abrir a volta cronometrada obrigatoria (5 ou 7min) as 05h44min59s de prova. Esses campos alimentam o Planejamento de Stints na aba Estrategia.</small>
-</div>
-<div class="cfg-panel">
-<h3>&#128100; Setup — Pilotos por Kart</h3>
-<p style="color:var(--mut);font-size:12px;margin-bottom:14px">Marque quais pilotos cadastrados (aba Pilotos) podem pilotar cada kart. Essa lista alimenta os menus da "Fila de Pilotos" no Dashboard Geral — se nenhum piloto for marcado para um kart, todos os cadastrados aparecem como opção.</p>
-<div id="kp-setup-body"></div>
-</div>
-<div class="cfg-panel">
-<h3>&#127777; Localizacao do Clima</h3>
-<p style="color:var(--mut);font-size:12px;margin-bottom:14px">Coordenadas usadas na previsao do tempo (barra superior e aba Estrategia). Ajuste para o kartodromo da etapa atual.</p>
+<details class="cf-note"><summary>Ver observações do regulamento</summary><p>Para a Endurance Itu 6h (Art.10&#186; e 16&#186;): Heavy Window das 03h30 as 05h00 (kart deve sair do box 20kg acima do peso da categoria); Safety Kart Virtual aos 03h00 de prova (bandeira quadriculada verde/amarela, sem ultrapassagem); Box Fechado a partir das 02h50 ate a relargada (duracao real da relargada e definida pela organizacao na hora, nao da pra prever); corte para abrir a volta cronometrada obrigatoria (5 ou 7min) as 05h44min59s de prova. Esses campos alimentam o Planejamento de Stints na aba Estrategia.</p></details></div></section>
+<section class="cf-sec" data-s="weather">
+<div class="cf-card"><h4>Localização do clima</h4><p>Coordenadas usadas na previsão do tempo (barra superior e aba Estratégia). Ajuste para o kartódromo da etapa.</p>
 <div class="cfg-grid">
-<div class="cfg-field">
-<label>Nome/Local (rotulo)</label>
-<input type="text" id="cfg-wx-label" placeholder="Ex: KGV Arena Itu">
+<div class="cfg-field"><label>Nome/Local (rotulo)</label><input type="text" id="cfg-wx-label" placeholder="Ex: KGV Arena Itu"></div>
+<div class="cfg-field"><label>Latitude</label><input type="number" id="cfg-wx-lat" step="0.000001" placeholder="-23.249038"></div>
+<div class="cfg-field"><label>Longitude</label><input type="number" id="cfg-wx-lon" step="0.000001" placeholder="-47.339491"></div>
+</div></div></section>
+<section class="cf-sec" data-s="live">
+<div class="cf-card"><h4>Ações</h4><p>Iniciar a leitura ao vivo, carregar a demonstração ou limpar quem está na pista.</p>
+<div class="cf-actions">
+<button type="button" class="cf-act live" id="btn-live" onclick="FK.startLive()"><b>&#9654; Iniciar ao vivo</b><small>Começa a puxar os dados do Race Monitor.</small></button>
+<button type="button" class="cf-act" onclick="FK.resetDemo()"><b>&#8635; Carregar demo</b><small>Corrida fictícia para testar, nada é gravado.</small></button>
+<button type="button" class="cf-act warn" onclick="FK.resetPilotKartLinks()"><b>&#129529; Limpar piloto ativo por kart</b><small>Zera quem está na pista, contagem de paradas e flags manuais. Não mexe na fila de pilotos.</small></button>
+</div></div>
+<div class="cf-card"><h4>LapTime ao vivo (MyLapTime)</h4><p>Estratégia Solo, sem API pública: copie a tela do LiveTime e cole abaixo a cada atualização (ex: a cada 5 min). O app calcula posição, gaps e ritmo entre leituras.</p>
+<div class="cfg-grid">
+<div class="cfg-field"><label>Link do LiveTime (MyLapTime)</label><input type="text" id="cfg-laptime-url" placeholder="https://tools.mylaptime.com.br/livetime/..."></div>
+<div class="cfg-field"><label>Duracao da Prova (Estrategia)</label><select id="cfg-laptime-duration">
+<option value="3600">1 hora</option>
+<option value="7200">2 horas</option>
+<option value="9000">2h 30min</option>
+<option value="10800">3 horas</option>
+<option value="14400" selected>4 horas (+1 volta)</option>
+<option value="18000">5 horas</option>
+<option value="21600">6 horas</option>
+</select></div>
 </div>
-<div class="cfg-field">
-<label>Latitude</label>
-<input type="number" id="cfg-wx-lat" step="0.000001" placeholder="-23.249038">
+<div class="cfg-field" style="margin-top:12px"><label>Colar leitura da tela do LiveTime</label><textarea id="cfg-laptime-paste" rows="6" placeholder="Cole aqui o texto copiado da tela do LiveTime..." style="width:100%;font-family:monospace;resize:vertical"></textarea></div>
+<div style="margin-top:10px"><button type="button" class="cf-act live" style="display:inline-block" onclick="FK.processLaptimePaste()"><b>&#10003; Processar leitura</b></button></div>
 </div>
-<div class="cfg-field">
-<label>Longitude</label>
-<input type="number" id="cfg-wx-lon" step="0.000001" placeholder="-47.339491">
-</div>
-</div>
-</div>
-<div class="card" id="config-status" style="display:none">
-<h3>Status da Conexao</h3>
-<div id="config-status-body"></div>
+<div class="cf-card" id="config-status" style="display:none"><h4>Status da conexão</h4><div id="config-status-body"></div></div>
+</section>
+</main>
+<div class="cf-save"><span>As alterações só valem depois de salvar.</span><button type="button" onclick="FK.saveConfig()">&#10003; SALVAR E APLICAR</button></div>
 </div>
 </div>
+<script>
+(function(){var nav=document.getElementById('cf-nav');if(!nav)return;nav.addEventListener('click',function(e){var b=e.target.closest('button[data-s]');if(!b)return;var s=b.getAttribute('data-s');[].forEach.call(nav.querySelectorAll('button'),function(x){x.classList.toggle('on',x===b);});[].forEach.call(document.querySelectorAll('#pane-config .cf-sec'),function(x){x.classList.toggle('on',x.getAttribute('data-s')===s);});var m=document.querySelector('#pane-config .cf-main');if(m)m.scrollTop=0;});})();
+</script>
 <style>
 #pane-users.on{display:flex;position:fixed;inset:0;z-index:8900;background:radial-gradient(900px 420px at 85% -10%,rgba(21,101,192,.26),transparent 62%),radial-gradient(700px 500px at -10% 110%,rgba(215,38,61,.12),transparent 60%),#080A0E}
 .usr-app{display:flex;flex-direction:column;width:100%;height:100%;color:#fff}
