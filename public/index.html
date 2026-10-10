@@ -6756,6 +6756,83 @@ var S=FK.sorteio={
     var rs=0,rh=0; names.forEach(function(n){ var x=kv[lc(n)]&&kv[lc(n)][best[n]]; if(x){ if(x.s)rs++; else if(x.h)rh++; } });
     return {map:best,repSess:rs,repHist:rh};
   },
+  /* ---------- 10/10/2026: ordenacao, piloto atrasado, pedido de troca ---------- */
+  sortOf:function(m){ return (S.st.sort&&S.st.sort[m])||(m==='prova'?'kart':'sorteio'); },
+  setSort:function(m,v){ if(!S.canEdit())return; S.st.sort=S.st.sort||{}; S.st.sort[m]=v; S.save(); S.render(true); },
+  sortBar:function(m,ed){ if(!ed)return ''; var c=S.sortOf(m);
+    return '<div class="st-sortb">ORDENAR POR '+[['sorteio','ordem sorteada'],['alfa','alfabética'],['kart','número do kart']].map(function(o){ return '<button class="'+(c===o[0]?'on':'')+'" onclick="FK.sorteio.setSort(\''+m+'\',\''+o[0]+'\')">'+o[1]+'</button>'; }).join('')+'</div>'; },
+  sortList:function(list,m){ var a=list.slice(), s=S.sortOf(m);
+    if(s==='alfa')a.sort(function(x,y){return String(x.n).localeCompare(String(y.n),'pt-BR');}); else if(s==='kart')a.sort(function(x,y){return x.k-y.k;}); return a; },
+  flatQ:function(r){ var o=[]; r.duplas.forEach(function(d,i){ d.forEach(function(p){ o.push({n:p.n,k:p.k,d:i+1}); }); }); return o; },
+  kvQ:function(b){ var kv={}; if(b===2&&S.st.b1)S.st.b1.duplas.forEach(function(d){ d.forEach(function(p){ S.addK(kv,p.n,p.k,'s'); }); });
+    S.histFor('qualy',S.st.sid).forEach(function(h){ ['b1','b2'].forEach(function(bb){ var r=h[bb]; if(r)r.duplas.forEach(function(d){ d.forEach(function(p){ S.addK(kv,p.n,p.k,'h'); }); }); }); }); return kv; },
+  kvP:function(){ var kv={}, pr=S.st.prova; pr.res.forEach(function(r){ r.map.forEach(function(x){ S.addK(kv,x.n,x.k,'s'); }); });
+    S.histFor('prova',pr.sid).forEach(function(h){ (h.res||[]).forEach(function(r){ r.map.forEach(function(x){ S.addK(kv,x.n,x.k,'h'); }); }); }); return kv; },
+  pickK:function(n,cands,kv){ var best=null,bc=1e18; shuffle(cands).forEach(function(k){ var c=S.kartCost(kv,n,k); if(c<bc){bc=c;best=k;} }); return best; },
+  provaPool:function(){ var pool=S.st.karts.slice(), resv=S.qualyKarts(); if(S.st.rules.skipQualy!==false&&Object.keys(resv).length)pool=pool.filter(function(k){return !resv[String(k)];}); return pool; },
+  ensurePresent:function(n){ var cad=S.cadastro().filter(function(x){return lc(x)===lc(n);})[0];
+    if(cad){ S.st.sel[cad]=true; return; }
+    if(S.present().some(function(x){return lc(x)===lc(n);}))return;
+    var i=S.st.extras.findIndex(function(v){return !String(v||'').trim();}); if(i>=0)S.st.extras[i]=n; else S.st.extras.push(n); },
+  lateName:function(){ var inp=document.getElementById('st-late'); var n=inp?inp.value.trim():''; if(!n){ S.msg('Digite o nome do piloto atrasado.'); return null; } return n; },
+  lateQ:function(b){
+    if(!S.canEdit())return; var n=S.lateName(); if(!n)return;
+    var r=S.st['b'+b]; if(!r){ S.msg('Sorteie a Bateria '+b+' primeiro.'); return; }
+    var has=false, used={}; r.duplas.forEach(function(d){ d.forEach(function(p){ used[p.k]=1; if(lc(p.n)===lc(n))has=true; }); });
+    if(has){ S.msg(n+' já está nessa bateria.'); return; }
+    var free=S.st.karts.filter(function(k){return !used[k];});
+    if(!free.length){ S.msg('Não há kart livre na Bateria '+b+'.'); return; }
+    var k=S.pickK(n,free,S.kvQ(b)), solo=r.duplas.filter(function(d){return d.length===1;})[0];
+    if(solo)solo.push({n:n,k:k}); else r.duplas.push([{n:n,k:k}]);
+    r.pilotos=(r.pilotos||0)+1; r.late=(r.late||[]).concat([{n:n,k:k}]);
+    S.ensurePresent(n); S.toHist('qualy'); S.save(); S.render();
+    if(S.animOn())S.reveal({title:'PILOTO ATRASADO',sub:S.st.title+' · Bateria '+b,color:'#ffb74d',groups:[[{n:n,k:k}]],label:'',kartOnly:true});
+  },
+  lateP:function(){
+    if(!S.canEdit())return; var n=S.lateName(); if(!n)return;
+    var pr=S.st.prova, r=pr.res[pr.res.length-1]; if(!r){ S.msg('Sorteie os karts primeiro.'); return; }
+    var has=false, used={}; r.map.forEach(function(x){ used[x.k]=1; if(lc(x.n)===lc(n))has=true; });
+    if(has){ S.msg(n+' já está nesse sorteio.'); return; }
+    var free=S.provaPool().filter(function(k){return !used[k];});
+    if(!free.length){ S.msg('Não há kart livre.'); return; }
+    var k=S.pickK(n,free,S.kvP());
+    r.map.push({n:n,k:k}); r.late=(r.late||[]).concat([{n:n,k:k}]);
+    if(!S.parts().some(function(x){return lc(x)===lc(n);}))pr.txt=(pr.txt?pr.txt.replace(/\s+$/,'')+'\n':'')+n;
+    S.toHist('prova'); S.save(); S.render();
+    if(S.animOn())S.reveal({title:'PILOTO ATRASADO',sub:pr.title,color:'#ffb74d',groups:[[{n:n,k:k}]],label:'',kartOnly:true});
+  },
+  lateHTML:function(mode,ed){
+    if(!ed)return ''; var btns;
+    if(mode==='prova'){ if(!S.st.prova.res.length)return ''; btns='<button onclick="FK.sorteio.lateP()">sortear kart</button>'; }
+    else { if(!S.st.b1&&!S.st.b2)return ''; btns=[1,2].filter(function(b){return S.st['b'+b];}).map(function(b){ return '<button onclick="FK.sorteio.lateQ('+b+')">entrar na Bateria '+b+'</button>'; }).join(''); }
+    return '<div class="st-late"><b>➕ PILOTO ATRASADO</b><input type="text" id="st-late" placeholder="Nome do piloto">'+btns+'<small>sorteia só o kart dele, entre os livres</small></div>'; },
+  swapOn:function(){ return S.st.rules.swapReq===true; },
+  /* janela de pedido de troca: botao com contagem regressiva ao lado do kart revelado */
+  swapWin:function(t,p,node,next){
+    var row=node.parentNode, ms=(S.st.rules.swapSec||3)*1000, asked=false, fin=false;
+    var b=document.createElement('button'); b.className='rv-swap'; b.innerHTML='🔁 PEDIR TROCA<i></i>'; row.appendChild(b);
+    var bar=b.querySelector('i'); bar.style.transition='width '+ms+'ms linear'; requestAnimationFrame(function(){ requestAnimationFrame(function(){ bar.style.width='0'; }); });
+    var go=function(){ if(fin)return; fin=true; if(S._rv!==t)return; if(!asked)b.remove(); next(); };
+    b.onclick=function(){ if(asked||fin)return; asked=true; t.swaps.push(p.n); b.classList.add('ask'); b.innerHTML='TROCA PEDIDA ✓'; clearTimeout(tm); t.timers.push(setTimeout(go,800)); };
+    var tm=setTimeout(go,ms); t.timers.push(tm);
+  },
+  /* depois da revelacao: quem pediu troca sorteia entre os karts livres (+ os recusados, que voltam pra lista) */
+  applySwaps:function(o,names){
+    var res=o.swapKind==='q'?S.st['b'+o.swapB]:S.st.prova.res[o.swapI]; if(!res||!names.length)return;
+    var ent=[]; if(o.swapKind==='q')res.duplas.forEach(function(d){ d.forEach(function(p){ ent.push(p); }); }); else res.map.forEach(function(x){ ent.push(x); });
+    var req=ent.filter(function(e){return names.indexOf(e.n)>=0;}), held={}; ent.forEach(function(e){ if(names.indexOf(e.n)<0)held[e.k]=1; });
+    var base=(o.swapKind==='q'?S.st.karts.slice():S.provaPool()).filter(function(k){return !held[k];});
+    var refused={}; req.forEach(function(e){ refused[e.k]=1; });
+    var kv=o.swapKind==='q'?S.kvQ(o.swapB):S.kvP(), taken={}, out=[];
+    shuffle(req).forEach(function(e){
+      var from=e.k, free=base.filter(function(k){return !refused[k]&&!taken[k];}), k;
+      if(free.length)k=S.pickK(e.n,free,kv);
+      else { var rf=base.filter(function(x){return refused[x]&&x!==from&&!taken[x];}); if(rf.length)k=S.pickK(e.n,rf,kv); else k=from; }
+      taken[k]=1; e.k=k; out.push({n:e.n,from:from,to:k}); });
+    res.swaps=(res.swaps||[]).concat(out);
+    S.toHist(o.swapKind==='q'?'qualy':'prova'); S.seen=S.lastAt(); S.save(); S.render();
+    S.reveal({title:'TROCAS DE KART',sub:o.sub,color:'#ffb74d',groups:out.map(function(x){return [{n:x.n,k:x.to}];}),label:'',kartOnly:true});
+  },
   addK:function(kv,n,k,f){ var o=kv[lc(n)]||(kv[lc(n)]={}), x=o[k]||(o[k]={}); if(f==='s')x.s=1; else x.h=(x.h||0)+1; },
   addP:function(av,a,b,f){ var x=av[key(a,b)]||(av[key(a,b)]={}); if(f==='s')x.s=1; else x.h=(x.h||0)+1; },
   eachPair:function(d,fn){ for(var a=0;a<d.length;a++)for(var c=a+1;c<d.length;c++)fn(d[a].n,d[c].n); },
@@ -6785,7 +6862,7 @@ var S=FK.sorteio={
     if(b===1&&S.st.b2){ S.st.b2=null; }
     if(!S.st.title)S.st.title='Treino de Qualy '+dayTxt();
     S.toHist('qualy'); S.seen=S.lastAt(); S.save(); S.render();
-    if(S.animOn())S.reveal({title:'BATERIA '+b, sub:S.st.title, color:b===1?'#d7263d':'#1565c0', groups:S.st['b'+b].duplas, label:'DUPLA'});
+    if(S.animOn()){ var o=S.qualyRv(b); o.live=true; S.reveal(o); }
   },
   drawProva:function(){
     if(!S.canEdit())return;
@@ -6805,11 +6882,11 @@ var S=FK.sorteio={
     pr.res.push(r);
     if(!pr.title)pr.title='Karts da prova '+dayTxt();
     S.toHist('prova'); S.seen=S.lastAt(); S.save(); S.render();
-    if(S.animOn())S.reveal(S.provaRv(pr.res.length-1));
+    if(S.animOn()){ var o=S.provaRv(pr.res.length-1); o.live=true; S.reveal(o); }
   },
   /* karts ja usados no Treino de Qualy atual (B1 e B2): o sorteio de karts da prova pode pular esses (07/10/2026) */
   qualyKarts:function(){ var o={}; ['b1','b2'].forEach(function(b){ var r=S.st[b]; if(r&&r.duplas)r.duplas.forEach(function(d){ d.forEach(function(p){ if(p.k!=null)o[String(p.k)]=1; }); }); }); return o; },
-  provaRv:function(i){ var pr=S.st.prova, r=pr.res[i]; return {title:(pr.res.length>1?'TURNO '+(i+1):'KARTS DA PROVA'), sub:pr.title, color:'#f2a900', groups:r.map.map(function(x){return [x];}), label:'', kartOnly:true}; },
+  provaRv:function(i){ var pr=S.st.prova, r=pr.res[i]; return {title:(pr.res.length>1?'TURNO '+(i+1):'KARTS DA PROVA'), sub:pr.title, color:'#f2a900', groups:r.map.map(function(x){return [x];}), label:'', kartOnly:true, swapKind:'p', swapI:i}; },
   undoProva:function(){ if(!S.canEdit())return; var pr=S.st.prova; if(!pr.res.length)return; if(!confirm('Apagar o turno '+pr.res.length+'?'))return; pr.res.pop(); S.toHist('prova'); S.save(); S.render(true); },
   /* grava/atualiza o sorteio atual no historico */
   toHist:function(mode){
@@ -6836,10 +6913,11 @@ var S=FK.sorteio={
   textOf:function(h){
     var out;
     if(h.mode==='prova'){ out=['*SORTEIO DE KARTS — '+String(h.title||'PROVA').toUpperCase()+'*','_'+nowTxt(h.at)+'_'];
-      (h.res||[]).forEach(function(r,i){ out.push(''); if(h.res.length>1)out.push('*TURNO '+(i+1)+'*'); r.map.forEach(function(x){ out.push('Kart '+pad(x.k)+' — '+x.n); }); });
+      (h.res||[]).forEach(function(r,i){ out.push(''); if(h.res.length>1)out.push('*TURNO '+(i+1)+'*'); S.sortList(r.map,'prova').forEach(function(x){ out.push('Kart '+pad(x.k)+' — '+x.n); }); });
     }else{ out=['*SORTEIO — '+String(h.title||'TREINO DE QUALY').toUpperCase()+'*','_'+nowTxt(h.at)+'_'];
       [1,2].forEach(function(b){ var r=h['b'+b]; if(!r)return; out.push('','*BATERIA '+b+'*');
-        r.duplas.forEach(function(d,i){ out.push('Dupla '+(i+1)+': '+d.map(function(p){return p.n+' (kart '+pad(p.k)+')';}).join(' + ')); }); }); }
+        if(S.sortOf('qualy')!=='sorteio')S.sortList(S.flatQ(r),'qualy').forEach(function(x){ out.push('Kart '+pad(x.k)+' — '+x.n+' (dupla '+x.d+')'); });
+        else r.duplas.forEach(function(d,i){ out.push('Dupla '+(i+1)+': '+d.map(function(p){return p.n+' (kart '+pad(p.k)+')';}).join(' + ')); }); }); }
     return out.join('\n');
   },
   text:function(){ return (S.tab||S.st.mode)==='prova'?S.textOf({mode:'prova',title:S.st.prova.title,at:S.st.updatedAt,res:S.st.prova.res}):S.textOf({mode:'qualy',title:S.st.title,at:S.st.updatedAt,b1:S.st.b1,b2:S.st.b2}); },
@@ -6857,7 +6935,7 @@ var S=FK.sorteio={
   toggleMute:function(){ lsSet('fk_st_mute',!S.muted()); var b=document.getElementById('rv-mute'); if(b)b.textContent=S.muted()?'🔇':'🔊'; },
   beep:function(f,d,v,type){ if(S.muted())return; try{ var A=S._ac||(S._ac=new (window.AudioContext||window.webkitAudioContext)()); if(A.state==='suspended')A.resume(); var o=A.createOscillator(), g=A.createGain(), t=A.currentTime; o.type=type||'square'; o.frequency.setValueAtTime(f,t); g.gain.setValueAtTime(v||0.03,t); g.gain.exponentialRampToValueAtTime(0.0001,t+(d||0.03)); o.connect(g); g.connect(A.destination); o.start(t); o.stop(t+(d||0.03)+0.02); }catch(e){} },
   lockSnd:function(){ S.beep(660,0.09,0.06,'triangle'); setTimeout(function(){S.beep(990,0.16,0.06,'triangle');},70); },
-  qualyRv:function(b){ var s=S.st; return {title:'BATERIA '+b, sub:s.title, color:b===1?'#d7263d':'#1565c0', groups:s['b'+b].duplas, label:'DUPLA'}; },
+  qualyRv:function(b){ var s=S.st; return {title:'BATERIA '+b, sub:s.title, color:b===1?'#d7263d':'#1565c0', groups:s['b'+b].duplas, label:'DUPLA', swapKind:'q', swapB:b}; },
   revealLatest:function(){
     var s=S.st, c=[];
     [1,2].forEach(function(b){ if(s['b'+b])c.push({at:s['b'+b].at, o:S.qualyRv(b)}); });
@@ -6868,7 +6946,7 @@ var S=FK.sorteio={
   reveal:function(o){
     var host=document.getElementById('fk-sorteio'); if(!host)return;
     S.stopReveal();
-    var tok=S._rv={o:o, i:0, speed:lsGet('fk_st_speed',1)||1, done:false, timers:[], ints:[]};
+    var tok=S._rv={o:o, i:0, speed:lsGet('fk_st_speed',1)||1, done:false, timers:[], ints:[], swaps:[]};
     var namePool=[]; o.groups.forEach(function(g){ g.forEach(function(p){ namePool.push(p.n); }); });
     tok.namePool=namePool; tok.kartPool=(S.st.karts&&S.st.karts.length?S.st.karts:o.groups.reduce(function(a,g){ return a.concat(g.map(function(p){return p.k;})); },[]));
     var el=document.createElement('div'); el.id='st-rv'; el.style.setProperty('--rc',o.color||'#d7263d');
@@ -6892,14 +6970,15 @@ var S=FK.sorteio={
   },
   finish:function(t){ t.done=true; var p=document.getElementById('rv-prog'); if(p)p.innerHTML='<b class="rv-ok">SORTEIO CONCLUÍDO</b>';
     var st=document.getElementById('rv-stage'); if(st)st.innerHTML='<button class="rv-close" onclick="FK.sorteio.stopReveal()">FECHAR</button>';
-    S.beep(523,0.12,0.05,'triangle'); setTimeout(function(){S.beep(659,0.12,0.05,'triangle');},120); setTimeout(function(){S.beep(784,0.25,0.06,'triangle');},240); },
+    S.beep(523,0.12,0.05,'triangle'); setTimeout(function(){S.beep(659,0.12,0.05,'triangle');},120); setTimeout(function(){S.beep(784,0.25,0.06,'triangle');},240);
+    if(t.o.live&&t.swaps&&t.swaps.length){ var sw=t.swaps.slice(); t.swaps=[]; if(p)p.innerHTML='<b class="rv-ok">SORTEANDO AS TROCAS…</b>'; t.timers.push(setTimeout(function(){ if(S._rv===t)S.applySwaps(t.o,sw); },1200)); } },
   nextGroup:function(t){
     var o=t.o, i=t.i; if(i>=o.groups.length){ S.finish(t); return; }
     var gr=o.groups[i], st=document.getElementById('rv-stage'), pg=document.getElementById('rv-prog'); if(!st)return;
     if(pg)pg.innerHTML=(o.label?o.label+' ':'')+'<b>'+(i+1)+'</b> / '+o.groups.length;
     st.innerHTML='<div class="rv-card'+(o.kartOnly?' ko':'')+'">'+(o.label?'<div class="rv-n">'+esc(o.label)+' '+(i+1)+'</div>':'')+gr.map(function(p,j){
       return '<div class="rv-row"><div class="rv-name" id="rvn'+j+'">'+(o.kartOnly?esc(p.n):'???')+'</div><div class="rv-kart" id="rvk'+j+'"><small>KART</small><b>??</b></div></div>'; }).join('')+'</div>';
-    var steps=[]; gr.forEach(function(p,j){ if(!o.kartOnly)steps.push({el:'rvn'+j, v:esc(p.n), pool:t.namePool, name:true}); steps.push({el:'rvk'+j, v:pad(p.k), pool:t.kartPool, name:false}); });
+    var steps=[]; gr.forEach(function(p,j){ if(!o.kartOnly)steps.push({el:'rvn'+j, v:esc(p.n), pool:t.namePool, name:true}); steps.push({el:'rvk'+j, v:pad(p.k), pool:t.kartPool, name:false, j:j}); });
     var run=function(si){
       if(si>=steps.length){ S.later(t,function(){ var g=document.getElementById('rv-grid'); if(g){ g.appendChild(S.miniCard(o,gr,i,true)); g.scrollTop=g.scrollHeight; } t.i++; S.nextGroup(t); },700); return; }
       var s=steps[si], node=document.getElementById(s.el); if(!node)return;
@@ -6907,7 +6986,7 @@ var S=FK.sorteio={
       var dur=(s.name?850:(o.kartOnly?1500:950)), t0=Date.now(), last=0, iv;
       var tick=function(){ if(S._rv!==t){clearInterval(iv);return;}
         var el=(Date.now()-t0)*(t.speed||1), pgr=el/dur, gap=40+Math.pow(pgr,2.2)*260;
-        if(el>=dur){ clearInterval(iv); tgt.innerHTML=s.v; node.classList.remove('spin'); node.classList.add('lock'); S.lockSnd(); S.later(t,function(){ run(si+1); },s.name?250:380); return; }
+        if(el>=dur){ clearInterval(iv); tgt.innerHTML=s.v; node.classList.remove('spin'); node.classList.add('lock'); S.lockSnd(); S.later(t,function(){ if(!s.name&&o.live&&o.swapKind&&S.swapOn())S.swapWin(t,gr[s.j],node,function(){ run(si+1); }); else run(si+1); },s.name?250:380); return; }
         if(Date.now()-last>=gap/(t.speed||1)){ last=Date.now(); var v=s.pool[rnd(s.pool.length)]; tgt.innerHTML=s.name?esc(v):pad(v); S.beep(s.name?1400:900,0.015,0.02); }
       };
       iv=setInterval(tick,16); t.ints.push(iv);
@@ -6950,16 +7029,20 @@ var S=FK.sorteio={
     if(r.repDuplas)w+='<div class="st-warn">⚠ '+r.repDuplas+' dupla(s) repetida(s) da Bateria 1 (não havia combinação sem repetir)</div>';
     if(r.keepKart)w+='<div class="st-hinfo">🔒 Mesmo kart da Bateria 1 para cada piloto · só as duplas foram sorteadas'+(r.novosK?' ('+r.novosK+' piloto(s) novo(s) receberam kart livre)':'')+'</div>';
     if(r.repKarts)w+='<div class="st-warn">⚠ '+r.repKarts+' repetiram kart '+(prova?'de turno anterior':'da Bateria 1')+' (poucos karts disponíveis)</div>';
+    if(r.late&&r.late.length)w+='<div class="st-hinfo">➕ Atrasado(s): '+r.late.map(function(x){return esc(x.n)+' (kart '+pad(x.k)+')';}).join(' · ')+'</div>';
+    if(r.swaps&&r.swaps.length)w+='<div class="st-hinfo">🔁 Trocas pedidas: '+r.swaps.map(function(x){return esc(x.n)+' '+pad(x.from)+(x.from===x.to?' (manteve)':' → '+pad(x.to));}).join(' · ')+'</div>';
     var hn=r.histN||0;
     if(hn){ var hd=r.repHistD||0, hk=r.repHistK||0;
       w+='<div class="st-hinfo">'+(hd||hk?'↺ '+[hd?hd+' dupla(s)':'',hk?hk+' kart(s)':''].filter(Boolean).join(' e ')+' já usado(s) nos últimos '+hn+' sorteio(s) — sem combinação melhor':'✓ Nenhuma '+(prova?'repetição de kart':'dupla ou kart repetido')+' dos últimos '+hn+' sorteio(s)')+'</div>'; }
     return w;
   },
-  duplasHTML:function(r,cls){ return '<div class="st-duplas">'+r.duplas.map(function(d,i){
+  duplasHTML:function(r,cls){
+    if(S.sortOf('qualy')!=='sorteio')return '<div class="st-pmap">'+S.sortList(S.flatQ(r),'qualy').map(function(x){ return '<div class="st-pm"><span class="st-k">'+pad(x.k)+'</span><span class="st-pn">'+esc(x.n)+'<small>dupla '+x.d+'</small></span></div>'; }).join('')+'</div>';
+    return '<div class="st-duplas">'+r.duplas.map(function(d,i){
       return '<div class="st-dupla '+(cls||'')+'"><div class="st-dn">'+(i+1)+'</div><div class="st-ps">'+d.map(function(p){
         return '<div class="st-p"><span class="st-pn">'+esc(p.n)+'</span><span class="st-k">'+pad(p.k)+'</span></div>'; }).join('')+'</div></div>';
     }).join('')+'</div>'; },
-  mapHTML:function(r){ return '<div class="st-pmap">'+r.map.slice().sort(function(a,b){return a.k-b.k;}).map(function(x){ return '<div class="st-pm"><span class="st-k">'+pad(x.k)+'</span><span class="st-pn">'+esc(x.n)+'</span></div>'; }).join('')+'</div>'; },
+  mapHTML:function(r){ return '<div class="st-pmap">'+S.sortList(r.map,'prova').map(function(x){ return '<div class="st-pm"><span class="st-k">'+pad(x.k)+'</span><span class="st-pn">'+esc(x.n)+'</span></div>'; }).join('')+'</div>'; },
   resultHTML:function(b){
     var r=S.st['b'+b];
     if(!r)return '<div class="st-empty">Bateria '+b+' ainda não sorteada</div>';
@@ -6974,8 +7057,9 @@ var S=FK.sorteio={
     return '<section class="st-sec"><h3><i>'+n+'</i>KARTS DISPONÍVEIS'+(ed?'<span class="st-mini"><button onclick="FK.sorteio.pasteK()">digitar lista</button><button onclick="FK.sorteio.clearK()">limpar</button></span>':'')+'</h3>'+
       '<div class="st-kgrid">'+Array.apply(null,Array(99)).map(function(_,i){ var k=i+1, on=S.st.karts.indexOf(k)>=0; return '<button class="st-kb'+(on?' on':'')+'" '+(ed?'':'disabled')+' onclick="FK.sorteio.toggleK('+k+')">'+pad(k)+'</button>'; }).join('')+'</div></section>';
   },
-  rulesHTML:function(ed,qualy){ var r=S.st.rules;
-    return (qualy?'<div class="st-rules st-keep"><label><input type="checkbox" '+(r.keepKart?'checked':'')+' '+(ed?'':'disabled')+' onchange="FK.sorteio.setRule(\'keepKart\',this.checked)"> <b>Bateria 2 com o mesmo kart da Bateria 1</b> — cada piloto repete o kart, só as duplas mudam</label></div>':'')+'<div class="st-rules"><label><input type="checkbox" '+(r.hist?'checked':'')+' '+(ed?'':'disabled')+' onchange="FK.sorteio.setRule(\'hist\',this.checked)"> Evitar repetir duplas e karts dos últimos</label> <select '+(ed?'':'disabled')+' onchange="FK.sorteio.setRule(\'histN\',+this.value)">'+[1,2,3,4,5,6,8,10].map(function(n){return '<option'+(n===r.histN?' selected':'')+'>'+n+'</option>';}).join('')+'</select> sorteios do histórico <small>(a regra da Bateria 2 e dos turnos tem prioridade)</small></div>'; },
+  rulesHTML:function(ed,qualy,swap){ var r=S.st.rules;
+    var sw=swap?'<div class="st-rules st-keep"><label><input type="checkbox" '+(r.swapReq?'checked':'')+' '+(ed?'':'disabled')+' onchange="FK.sorteio.setRule(\'swapReq\',this.checked)"> <b>Piloto pode pedir troca de kart</b> — ao revelar o kart, aparece o botão PEDIR TROCA por</label> <select '+(ed?'':'disabled')+' onchange="FK.sorteio.setRule(\'swapSec\',+this.value)">'+[3,4,5,6,8,10].map(function(n){return '<option value="'+n+'"'+(n===(r.swapSec||3)?' selected':'')+'>'+n+'</option>';}).join('')+'</select> s <small>quem pedir sorteia de novo, depois dos demais, entre os karts livres (os recusados voltam para a lista)</small></div>':'';
+    return sw+(qualy?'<div class="st-rules st-keep"><label><input type="checkbox" '+(r.keepKart?'checked':'')+' '+(ed?'':'disabled')+' onchange="FK.sorteio.setRule(\'keepKart\',this.checked)"> <b>Bateria 2 com o mesmo kart da Bateria 1</b> — cada piloto repete o kart, só as duplas mudam</label></div>':'')+'<div class="st-rules"><label><input type="checkbox" '+(r.hist?'checked':'')+' '+(ed?'':'disabled')+' onchange="FK.sorteio.setRule(\'hist\',this.checked)"> Evitar repetir duplas e karts dos últimos</label> <select '+(ed?'':'disabled')+' onchange="FK.sorteio.setRule(\'histN\',+this.value)">'+[1,2,3,4,5,6,8,10].map(function(n){return '<option'+(n===r.histN?' selected':'')+'>'+n+'</option>';}).join('')+'</select> sorteios do histórico <small>(a regra da Bateria 2 e dos turnos tem prioridade)</small></div>'; },
   histHTML:function(ed){
     if(!S.hist.length)return '<div class="st-empty">Nenhum sorteio salvo ainda. Todo sorteio feito aqui entra automaticamente no histórico.</div>';
     return '<div class="st-hlist">'+S.hist.map(function(h){
@@ -7014,9 +7098,9 @@ var S=FK.sorteio={
           '<textarea class="st-parts" rows="12" placeholder="Um por linha, ex.:&#10;FKART Azul&#10;FKART Vermelha&#10;Equipe Convidada" '+(ed?'':'disabled')+' oninput="FK.sorteio.setParts(this.value)">'+esc(pr.txt)+'</textarea><div class="st-at" id="st-pcount"></div>'+
         '</section>'+S.kartsSec(ed,2)+
         '<section class="st-sec st-res"><h3><i>3</i>SORTEIO</h3><div class="st-trow"><label>NOME</label><input type="text" class="st-ttl" value="'+esc(pr.title)+'" placeholder="Karts da prova '+dayTxt()+'" '+(ed?'':'disabled')+' oninput="FK.sorteio.setTitle(\'prova\',this.value)"></div>'+
-          '<div class="st-counts" id="st-counts"></div>'+(Object.keys(S.qualyKarts()).length?'<div class="st-rules st-keep"><label><input type="checkbox" '+(S.st.rules.skipQualy!==false?'checked':'')+' '+(ed?'':'disabled')+' onchange="FK.sorteio.setRule(\'skipQualy\',this.checked)"> <b>Não usar os karts já sorteados no Treino de Qualy</b> — '+Object.keys(S.qualyKarts()).length+' karts ficam reservados para as duplas</label></div>':'')+(ed?S.rulesHTML(ed):'')+
+          '<div class="st-counts" id="st-counts"></div>'+(Object.keys(S.qualyKarts()).length?'<div class="st-rules st-keep"><label><input type="checkbox" '+(S.st.rules.skipQualy!==false?'checked':'')+' '+(ed?'':'disabled')+' onchange="FK.sorteio.setRule(\'skipQualy\',this.checked)"> <b>Não usar os karts já sorteados no Treino de Qualy</b> — '+Object.keys(S.qualyKarts()).length+' karts ficam reservados para as duplas</label></div>':'')+(ed?S.rulesHTML(ed,false,true):'')+
           (ed?'<div class="st-btns"><button class="st-draw b3" onclick="FK.sorteio.drawProva()">🎲 Sortear '+(pr.res.length?'turno '+(pr.res.length+1)+' <small>(kart diferente do anterior)</small>':'karts')+'</button>'+(pr.res.length?'<button class="st-clear" onclick="FK.sorteio.undoProva()">apagar último turno</button><button class="st-clear" onclick="FK.sorteio.novo(\'prova\')">novo sorteio</button>':'')+'</div>':'<div class="st-empty">Só quem configura a prova pode sortear. Você está vendo o resultado ao vivo.</div>')+
-          S.provaRes()+
+          (pr.res.length?S.sortBar('prova',ed):'')+S.lateHTML('prova',ed)+S.provaRes()+
         '</section></div>';
     }else{
       html=head+tabs+'<div class="st-body">'+
@@ -7025,8 +7109,9 @@ var S=FK.sorteio={
           '<div class="st-extras-t">Pilotos extras (convidados / fora do cadastro)</div><div class="st-extras">'+S.st.extras.map(function(v,i){ return '<input type="text" placeholder="Nome '+(i+1)+'" value="'+esc(v)+'" '+(ed?'':'disabled')+' oninput="FK.sorteio.setExtra('+i+',this.value)">'; }).join('')+'</div>'+
         '</section>'+S.kartsSec(ed,2)+
         '<section class="st-sec st-res"><h3><i>3</i>SORTEIO</h3><div class="st-trow"><label>NOME</label><input type="text" class="st-ttl" value="'+esc(S.st.title)+'" placeholder="Treino de Qualy '+dayTxt()+'" '+(ed?'':'disabled')+' oninput="FK.sorteio.setTitle(\'qualy\',this.value)"></div>'+
-          '<div class="st-counts" id="st-counts"></div>'+(ed?S.rulesHTML(ed,true):'')+
+          '<div class="st-counts" id="st-counts"></div>'+(ed?S.rulesHTML(ed,true,true):'')+
           (ed?'<div class="st-btns"><button class="st-draw b1" onclick="FK.sorteio.draw(1)">🎲 '+(S.st.b1?'Refazer':'Sortear')+' Bateria 1</button><button class="st-draw b2" onclick="FK.sorteio.draw(2)">🎲 '+(S.st.b2?'Refazer':'Sortear')+' Bateria 2</button>'+((S.st.b1||S.st.b2)?'<button class="st-clear" onclick="FK.sorteio.novo(\'qualy\')">novo sorteio</button>':'')+'</div>':'<div class="st-empty">Só quem configura a prova pode sortear. Você está vendo o resultado ao vivo.</div>')+
+          ((S.st.b1||S.st.b2)?S.sortBar('qualy',ed):'')+S.lateHTML('qualy',ed)+
           '<div class="st-bats"><div class="st-col"><h4>BATERIA 1</h4>'+S.resultHTML(1)+'</div><div class="st-col"><h4>BATERIA 2 <small>duplas novas · '+(S.st.rules.keepKart?'mesmo kart':'kart diferente')+'</small></h4>'+S.resultHTML(2)+'</div></div>'+
         '</section></div>';
     }
@@ -7142,6 +7227,15 @@ css.textContent=[
 '.rv-mini p{margin:0;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 10px;font-weight:800;font-size:14px}.rv-mini p+p{border-top:1px solid rgba(255,255,255,.07)}',
 '.rv-mini span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rv-mini em{font-style:normal;background:#fff;color:#000;font-weight:900;padding:1px 7px;font-variant-numeric:tabular-nums;flex-shrink:0}',
 '.rv-grid.ko .rv-mini p{justify-content:flex-start}',
+'.rv-swap{margin-left:6px;background:#ffb74d;color:#000;border:0;font-weight:900;letter-spacing:1px;padding:10px 16px;cursor:pointer;position:relative;overflow:hidden;font-size:14px}',
+'.rv-swap i{position:absolute;left:0;bottom:0;height:4px;width:100%;background:#d7263d}',
+'.rv-swap.ask{background:#2fbf71;color:#fff;cursor:default}.rv-swap.ask i{display:none}',
+'.st-late{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0;padding:10px 12px;border:1px dashed rgba(255,255,255,.28);font-size:12px;color:#c9d1e0}',
+'.st-late input{background:#0f1420;border:1px solid rgba(255,255,255,.15);color:#fff;padding:8px 10px;border-radius:2px;font-size:13px;font-family:inherit;min-width:180px}',
+'.st-late button,.st-sortb button{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.3);padding:6px 12px;border-radius:2px;font-weight:700;font-size:12px;cursor:pointer}',
+'.st-sortb{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0;font-size:11px;letter-spacing:1px;color:#9aa4b8}',
+'.st-sortb button.on{background:#fff;color:#000}',
+'.st-pm small{color:#7f8aa0;margin-left:6px;font-size:10px}',
 '@media(max-width:900px){.st-body,.st-bats,.st-turnos,.st-body.tv{grid-template-columns:1fr}.st-body.tv .st-duplas{grid-template-columns:1fr}.st-kgrid{grid-template-columns:repeat(8,1fr)}.st-title b{font-size:20px}.rv-card{padding:10px 14px 12px;width:84vw}.rv-row{gap:10px}.rv-ctl{width:100%}}'
 ].join('\n');
 document.head.appendChild(css);
