@@ -1255,11 +1255,50 @@ Ordenar cronometros da equipe pela colocacao na corrida (senao, ordem de cadastr
 <div id="config-status-body"></div>
 </div>
 </div>
+<style>
+#pane-users.on{display:flex;position:fixed;inset:0;z-index:8900;background:radial-gradient(900px 420px at 85% -10%,rgba(21,101,192,.26),transparent 62%),radial-gradient(700px 500px at -10% 110%,rgba(215,38,61,.12),transparent 60%),#080A0E}
+.usr-app{display:flex;flex-direction:column;width:100%;height:100%;color:#fff}
+.usr-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:max(10px,env(safe-area-inset-top)) 3vw 10px;border-bottom:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.35);flex-shrink:0}
+.usr-back{background:#fff;color:#000;border:0;font-weight:900;letter-spacing:1px;padding:8px 14px;border-radius:2px;cursor:pointer;font-size:12px}
+.usr-title{display:flex;flex-direction:column;line-height:1.05;flex:1;min-width:150px}.usr-title b{font-size:22px;font-style:italic;letter-spacing:3px}.usr-title span{font-size:9px;letter-spacing:2.5px;color:#9aa4b8}
+.usr-sum{display:flex;gap:6px;flex-wrap:wrap}.usr-sum span{font-size:11px;font-weight:800;letter-spacing:1px;padding:5px 10px;background:rgba(16,19,24,.85);box-shadow:0 0 0 1px rgba(255,255,255,.08);color:#c9d1e0}.usr-sum b{color:#fff;font-size:14px}.usr-sum .pd b{color:#ffb74d}
+.usr-bar{display:flex;gap:10px;flex-wrap:wrap;padding:10px 3vw;background:rgba(0,0,0,.25);border-bottom:1px solid rgba(255,255,255,.08);flex-shrink:0}
+.usr-bar input{flex:1;min-width:180px;background:#0f1420;border:1px solid rgba(255,255,255,.18);border-radius:2px;color:#fff;padding:9px 12px;font-size:14px;font-family:inherit}
+.usr-seg{display:flex}.usr-seg button{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.3);padding:8px 14px;font-weight:700;font-size:12px;cursor:pointer;margin-left:-1px;font-family:inherit}.usr-seg button.on{background:#fff;color:#000}
+.usr-main{flex:1;overflow:auto;padding:14px 3vw 50px;display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;align-content:start;-webkit-overflow-scrolling:touch}
+.usr-card{background:rgba(16,19,24,.92);box-shadow:0 0 0 1px rgba(255,255,255,.08);padding:12px 14px;border-left:3px solid #2fbf71;min-width:0}
+.usr-card.pend{border-left-color:#ffb74d;background:linear-gradient(90deg,rgba(255,183,77,.1),rgba(16,19,24,.92) 55%)}
+.usr-head{display:flex;align-items:center;gap:12px}
+.usr-av{width:44px;height:44px;border-radius:50%;border:2px solid rgba(255,255,255,.3);object-fit:cover;flex-shrink:0;background:#1a1f2b;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px}
+.usr-who{flex:1;min-width:0}.usr-who b{display:block;font-size:15px;font-style:italic;letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.usr-who b i{font-style:normal;color:#ffd54a}.usr-who small{display:block;color:#8f9ab0;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.usr-st{border:0;cursor:pointer;font-weight:900;font-size:11px;letter-spacing:1px;padding:8px 12px;border-radius:2px;font-family:inherit;flex-shrink:0}
+.usr-st.on{background:transparent;color:#6bff9a;box-shadow:inset 0 0 0 1px #2fbf71}
+.usr-st.off{background:linear-gradient(90deg,#d7263d,#ff7043);color:#fff}
+.usr-perms-h{display:flex;align-items:center;gap:8px;margin:10px 0 6px;font-size:9px;letter-spacing:2px;color:#8f9ab0;font-weight:800}
+.usr-perms-h .sp{flex:1}.usr-perms-h button{background:transparent;color:#c9d1e0;border:1px solid rgba(255,255,255,.25);padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit}
+.usr-chips{display:flex;flex-wrap:wrap;gap:6px}
+.usr-chip{background:transparent;color:#8f9ab0;border:1px solid rgba(255,255,255,.22);padding:7px 10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;font-style:italic;border-radius:2px}
+.usr-chip.on{background:#fff;color:#000;border-color:#fff}
+.usr-chip:disabled{cursor:default;opacity:.55}
+.usr-empty{grid-column:1/-1;color:#9aa4b8;padding:30px 0;text-align:center}
+@media(max-width:700px){.usr-main{grid-template-columns:1fr;padding:10px 10px 40px}.usr-title b{font-size:18px}.usr-top{padding-left:10px;padding-right:10px}.usr-bar{padding:8px 10px}}
+</style>
 <div class="pane" id="pane-users">
-<div class="card">
-<h3>&#128101; Usuarios &mdash; aprovacao e permissoes</h3>
-<p style="color:var(--mut);font-size:12px;margin-bottom:12px">Aprove novos usuarios e marque quais abas cada um pode ver. Mudancas sao aplicadas na hora, sem precisar recarregar.</p>
-<div id="users-list"><p style="color:var(--mut);font-size:12px">Carregando...</p></div>
+<div class="usr-app">
+  <header class="usr-top">
+    <button type="button" class="usr-back" onclick="FK.hub&&FK.hub.open()">&lsaquo; MENU</button>
+    <div class="usr-title"><b>USUÁRIOS</b><span>APROVAÇÃO E PERMISSÕES</span></div>
+    <div class="usr-sum" id="usr-sum"></div>
+  </header>
+  <div class="usr-bar">
+    <input type="search" id="usr-q" placeholder="Buscar por nome ou e-mail" oninput="FK.usersRender()">
+    <div class="usr-seg" id="usr-seg">
+      <button type="button" data-f="all" class="on" onclick="FK.usersFilter('all')">Todos</button>
+      <button type="button" data-f="pend" onclick="FK.usersFilter('pend')">Pendentes</button>
+      <button type="button" data-f="adm" onclick="FK.usersFilter('adm')">Admins</button>
+    </div>
+  </div>
+  <main class="usr-main" id="users-list"><div class="usr-empty">Carregando...</div></main>
 </div>
 </div>
 </div>
@@ -1638,43 +1677,60 @@ if(firstOk)FK.tab(firstOk);
 },
 rUsersAdmin:function(){
 var el=document.getElementById('users-list');if(!el)return;
-if(typeof firebase==='undefined')return;
+if(typeof firebase==='undefined'){el.innerHTML='<div class="usr-empty">Indisponível neste modo.</div>';return;}
 firebase.firestore().collection('users').get().then(function(qs){
-if(qs.empty){el.innerHTML='<p style="color:var(--mut);font-size:12px">Nenhum usuario cadastrado ainda.</p>';return;}
-var rows=[];
-qs.forEach(function(doc){
-var d=doc.data(),uid=doc.id;
-var perms=d.permissions||{};
-var lblMap={dashgeral:'Dashboard',mobile:'Dash. Celular',tvpilotos:'TV Pilotos',pilotos:'Pilotos',filapilotos:'Fila de Pilotos',tracado:'Traçado 3D',estrategia:'Estrategia',config:'Config'};
+var list=[];qs.forEach(function(doc){list.push({uid:doc.id,d:doc.data()||{}});});
+FK._users=list;FK.usersRender();
+}).catch(function(e){el.innerHTML='<div class="usr-empty" style="color:#ff8a8a">Erro ao carregar usuários: '+(e&&e.message||e)+'</div>';});
+},
+usersFilter:function(f){FK._ufilter=f;FK.usersRender();},
+usersRender:function(){
+var el=document.getElementById('users-list');if(!el)return;
+var list=FK._users||[],f=FK._ufilter||'all',q=((document.getElementById('usr-q')||{}).value||'').trim().toLowerCase();
+var lblMap={dashgeral:'Dashboard',mobile:'Dash. Celular',tvpilotos:'TV Pilotos',pilotos:'Pilotos',filapilotos:'Fila de Pilotos',tracado:'Traçado 3D',estrategia:'Estratégia',config:'Config'};
+var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
+var nPend=list.filter(function(x){return !x.d.approved;}).length,nOk=list.filter(function(x){return x.d.approved;}).length,nAdm=list.filter(function(x){return x.d.isAdmin;}).length;
+var sum=document.getElementById('usr-sum');if(sum)sum.innerHTML='<span><b>'+nOk+'</b> aprovados</span><span class="pd"><b>'+nPend+'</b> pendentes</span><span><b>'+nAdm+'</b> admins</span>';
+[].forEach.call(document.querySelectorAll('#usr-seg button'),function(b){b.classList.toggle('on',b.getAttribute('data-f')===f);});
+var shown=list.filter(function(x){
+if(f==='pend'&&x.d.approved)return false;if(f==='adm'&&!x.d.isAdmin)return false;
+if(q&&((x.d.displayName||'')+' '+(x.d.email||'')).toLowerCase().indexOf(q)<0)return false;return true;
+}).sort(function(a,b){
+if(!!a.d.approved!==!!b.d.approved)return a.d.approved?1:-1;
+if(!!a.d.isAdmin!==!!b.d.isAdmin)return a.d.isAdmin?-1:1;
+return String(a.d.displayName||a.d.email||'').localeCompare(String(b.d.displayName||b.d.email||''),'pt-BR');
+});
+if(!list.length){el.innerHTML='<div class="usr-empty">Nenhum usuário cadastrado ainda.</div>';return;}
+if(!shown.length){el.innerHTML='<div class="usr-empty">Ninguém encontrado com esse filtro.</div>';return;}
+el.innerHTML=shown.map(function(x){
+var d=x.d,uid=x.uid,perms=d.permissions||{},nm=d.displayName||'(sem nome)';
 var chips=FK.ALL_TABS.map(function(t){
-return '<label><input type="checkbox" data-uid="'+uid+'" data-perm="'+t+'" '+(perms[t]?'checked':'')+' '+(d.isAdmin?'disabled':'')+'> '+(lblMap[t]||t)+'</label>';
+var on=d.isAdmin||perms[t];
+return '<button type="button" class="usr-chip'+(on?' on':'')+'" data-uid="'+esc(uid)+'" data-perm="'+t+'" '+(d.isAdmin?'disabled':'')+'>'+esc(lblMap[t]||t)+'</button>';
 }).join('');
-rows.push(
-'<div class="users-card">'+
-(d.photoURL?'<img src="'+d.photoURL+'">':'')+
-'<div class="users-info"><div class="un">'+(d.displayName||'(sem nome)')+(d.isAdmin?' &#9733;':'')+'</div><div class="ue">'+(d.email||'')+'</div></div>'+
-'<div class="users-perms">'+chips+'</div>'+
-'<span class="users-approve '+(d.approved?'on':'off')+'" data-uid="'+uid+'" data-approve-toggle="1">'+(d.approved?'Aprovado':'Pendente')+'</span>'+
-'</div>'
-);
-});
-el.innerHTML=rows.join('');
-el.querySelectorAll('[data-approve-toggle]').forEach(function(b){
-b.addEventListener('click',function(){
-var uid=b.getAttribute('data-uid');
-var next=b.classList.contains('off');
-firebase.firestore().collection('users').doc(uid).update({approved:next}).then(function(){FK.rUsersAdmin();}).catch(function(e){alert('Erro: '+e.message);});
-});
-});
-el.querySelectorAll('input[type=checkbox][data-perm]').forEach(function(cb){
-cb.addEventListener('change',function(){
-var uid=cb.getAttribute('data-uid'),perm=cb.getAttribute('data-perm'),val=cb.checked;
-var key='permissions.'+perm;
-var upd={};upd[key]=val;
-firebase.firestore().collection('users').doc(uid).update(upd).catch(function(e){alert('Erro: '+e.message);cb.checked=!val;});
-});
-});
-}).catch(function(e){el.innerHTML='<p style="color:var(--red);font-size:12px">Erro ao carregar usuarios: '+e.message+'</p>';});
+return '<div class="usr-card'+(d.approved?'':' pend')+'">'+
+'<div class="usr-head">'+(d.photoURL?'<img class="usr-av" src="'+esc(d.photoURL)+'" referrerpolicy="no-referrer">':'<div class="usr-av">'+esc(nm.charAt(0).toUpperCase())+'</div>')+
+'<div class="usr-who"><b>'+esc(nm)+(d.isAdmin?' <i>★</i>':'')+'</b><small>'+esc(d.email||'')+'</small></div>'+
+'<button type="button" class="usr-st '+(d.approved?'on':'off')+'" data-uid="'+esc(uid)+'" data-approve-toggle="1">'+(d.approved?'APROVADO':'APROVAR')+'</button></div>'+
+'<div class="usr-perms-h"><span>'+(d.isAdmin?'ADMIN — ACESSO TOTAL':'TELAS LIBERADAS')+'</span><span class="sp"></span>'+(d.isAdmin?'':'<button type="button" data-uid="'+esc(uid)+'" data-all="1">todas</button><button type="button" data-uid="'+esc(uid)+'" data-all="0">nenhuma</button>')+'</div>'+
+'<div class="usr-chips">'+chips+'</div></div>';
+}).join('');
+if(!el._bound){el._bound=1;el.addEventListener('click',function(ev){
+var t=ev.target;if(!t||!t.closest)return;
+var ap=t.closest('[data-approve-toggle]');
+if(ap){var uid=ap.getAttribute('data-uid'),next=ap.classList.contains('off');
+if(!next&&!confirm('Remover a aprovação deste usuário? Ele perde o acesso ao app.'))return;
+firebase.firestore().collection('users').doc(uid).update({approved:next}).then(function(){FK.rUsersAdmin();}).catch(function(e){alert('Erro: '+e.message);});return;}
+var all=t.closest('[data-all]');
+if(all){var u2=all.getAttribute('data-uid'),v=all.getAttribute('data-all')==='1',upd={};
+FK.ALL_TABS.forEach(function(p){upd['permissions.'+p]=v;});
+firebase.firestore().collection('users').doc(u2).update(upd).then(function(){FK.rUsersAdmin();}).catch(function(e){alert('Erro: '+e.message);});return;}
+var ch=t.closest('.usr-chip[data-perm]');
+if(ch&&!ch.disabled){var u3=ch.getAttribute('data-uid'),perm=ch.getAttribute('data-perm'),val=!ch.classList.contains('on'),u4={};
+ch.classList.toggle('on',val);u4['permissions.'+perm]=val;
+var rec=(FK._users||[]).filter(function(r){return r.uid===u3;})[0];if(rec){rec.d.permissions=rec.d.permissions||{};rec.d.permissions[perm]=val;}
+firebase.firestore().collection('users').doc(u3).update(u4).catch(function(e){alert('Erro: '+e.message);ch.classList.toggle('on',!val);if(rec)rec.d.permissions[perm]=!val;});}
+});}
 },
 loadConfig:function(){
 try{
