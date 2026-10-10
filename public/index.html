@@ -916,6 +916,9 @@ body.tv-mode .hdr-leader .hs-leader{font-size:10px}
     <div class="dash-card-hdr"><h3>&#128226; Chamadas para o piloto</h3><span style="font-size:9px;color:var(--mut)">chefe de equipe</span></div>
     <div id="mob-radio-chief"></div>
   </div>
+  <div class="dash-card" id="mob-kperf-card">
+    <button type="button" class="kp-open" onclick="FK.kperf&&FK.kperf.open()">&#128202; PERFIL DOS KARTS &mdash; quais estão bons hoje</button>
+  </div>
 </div>
 </div>
 <!-- TV Pilotos (15/09/2026): dashboard fixo pra telona do box, resolucao 1920x1080, visao
@@ -6705,10 +6708,29 @@ var K=FK.kperf={ day:rday(Date.now()), span:1, metric:'mv', data:{}, loading:0, 
   },
   _tok:0,
   /* ---------- calculo ---------- */
+  /* O KGV quebra a mesma prova em varias sessoes no Race Monitor (a mesma "PROVA 6 - 20:30" aparece 7x
+     em 10 min). Une as sessoes com o mesmo nome-base (sem o prefixo do campeonato) e inicio ate 90 min
+     de distancia: por kart vale a MELHOR volta entre os pedacos e a posicao do pedaco em que mais voltou.
+     Nomes genericos ("Nova corrida", sem PROVA/TOMADA + numero) nao sao unidos. */
+  mergeSessions:function(list){
+    var key=function(s){ var n=String(s.name||'').replace(/\s+/g,' ').trim(), t=n.split(' / ').pop().trim().toUpperCase(); return /(PROVA|TOMADA)\s*\d+/.test(t)?t:null; };
+    var out=[], open={};
+    list.slice().sort(function(a,b){return a.t-b.t;}).forEach(function(s){
+      var k=key(s), g=k&&open[k];
+      if(g&&s.t-g.last<=90*60){ g.parts.push(s); g.last=s.t; if(String(s.name).length>String(g.name).length)g.name=s.name; return; }
+      g={id:s.id,name:s.name,t:s.t,last:s.t,parts:[s]}; out.push(g); if(k)open[k]=g; });
+    return out.map(function(g){
+      if(g.parts.length===1)return {id:g.id,name:g.name,t:g.t,rows:g.parts[0].rows,frag:1};
+      var by={};
+      g.parts.forEach(function(p){ p.rows.forEach(function(r){ var k=r[0]; if(k<1)return; var o=by[k];
+        if(!o)by[k]=o=[k,r[1],r[2],r[3]];
+        else{ if(r[2]>0&&(!(o[2]>0)||r[2]<o[2]))o[2]=r[2]; if(r[3]>=o[3]){ o[3]=r[3]; if(r[1]>0)o[1]=r[1]; } } }); });
+      return {id:g.id,name:g.name,t:g.t,rows:Object.keys(by).map(function(k){return by[k];}),frag:g.parts.length}; });
+  },
   compute:function(){
     var karts={}, nsess=0, days=K.days();
     days.forEach(function(d){ var D=K.data[d]; if(!D||!D.sessions)return;
-      D.sessions.forEach(function(s){
+      K.mergeSessions(D.sessions).forEach(function(s){
         var rows=s.rows.filter(function(r){ return r[0]>=1&&r[0]<=99&&r[3]>=MINLAPS; });
         var mv=rows.filter(function(r){return r[2]>0;}), ps=rows.filter(function(r){return r[1]>0;});
         if(mv.length<MINN)return; nsess++;
@@ -6750,9 +6772,9 @@ var K=FK.kperf={ day:rday(Date.now()), span:1, metric:'mv', data:{}, loading:0, 
   pick:function(k){ K.sel=K.sel===k?null:k; K.render(); },
   detail:function(){
     var k=K.sel; if(!k)return ''; var o=K.res&&K.res.karts[k], m=K.metric;
-    if(!o||o[m+'s']==null)return '<section class="kp-det"><h3>KART '+pad(k)+'</h3><div class="kp-mut">Sem dados neste período.</div></section>';
+    if(!o||o[m+'s']==null)return '<section class="kp-det"><button class="kp-x" onclick="FK.kperf.pick('+k+')">✕</button><h3>KART '+pad(k)+'</h3><div class="kp-mut">Sem dados neste período.</div></section>';
     var items=o.items.filter(function(x){return x[m];}).sort(function(a,b){return b.t-a.t;});
-    return '<section class="kp-det"><h3>KART '+pad(k)+(mine(k)?' <span class="kp-mine">da equipe</span>':'')+'</h3>'+
+    return '<section class="kp-det"><button class="kp-x" onclick="FK.kperf.pick('+k+')">✕</button><h3>KART '+pad(k)+(mine(k)?' <span class="kp-mine">da equipe</span>':'')+'</h3>'+
       '<div class="kp-kv"><span>Ranking <b>'+o[m+'r']+'º</b> de '+o[m+'N']+'</span><span>Nota <b>'+Math.round((1-o[m+'s'])*100)+'</b>/100</span><span>Sessões <b>'+o[m+'n']+'</b> · confiança <b>'+K.conf(o[m+'n'])+'</b></span><span>Média do percentil <b>'+Math.round(o[m+'raw']*100)+'%</b> <small>(0% = sempre o mais rápido)</small></span></div>'+
       '<table class="kp-t"><tr><th>Dia</th><th>Sessão</th><th>Melhor volta</th><th>Pos. na melhor volta</th><th>Pos. final</th></tr>'+items.map(function(x){
         return '<tr><td>'+dtxt(x.day)+' '+new Date(x.t*1000).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'</td><td>'+esc(String(x.name||'').replace(/\s+/g,' '))+'</td><td>'+fmt(x.best)+'</td><td>'+(x.mv?x.mv.rank+'º de '+x.mv.n:'—')+'</td><td>'+(x.ps?x.ps.rank+'º de '+x.ps.n:'—')+'</td></tr>'; }).join('')+'</table></section>';
@@ -6813,7 +6835,22 @@ css.textContent=[
 '.kp-t td{padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.06)}.kp-rank tr{cursor:pointer}.kp-rank tr:hover td{background:rgba(255,255,255,.05)}.kp-rank tr.mine td:first-child{box-shadow:inset 3px 0 #ffd54a}',
 '.kp-chip{display:inline-block;min-width:32px;text-align:center;color:#000;font-weight:900;padding:2px 6px}',
 '.kp-mut{color:#9aa4b8;padding:24px 0}.kp-err{color:#ff8a8a;padding:24px 0}',
-'.st-kb .kd{display:block;height:3px;margin-top:2px}'
+'.st-kb .kd{display:block;height:3px;margin-top:2px}',
+'.kp-x{float:right;background:transparent;color:#fff;border:1px solid rgba(255,255,255,.3);padding:2px 10px;font-size:16px;cursor:pointer;display:none}',
+'.kp-open{width:100%;background:linear-gradient(90deg,#1565c0,#1e88e5);color:#fff;border:0;font-weight:900;letter-spacing:1px;padding:14px;font-size:15px;cursor:pointer}',
+/* celular: todos os numeros na tela sem rolar (10 colunas), detalhe em folha inferior */
+'@media(max-width:700px){',
+' .kp-top{padding:8px 10px;gap:10px}.kp-title b{font-size:16px;letter-spacing:2px}.kp-title span{font-size:8px;letter-spacing:1px}.kp-back{padding:6px 10px;font-size:12px}',
+' .kp-bar{padding:6px 8px;gap:6px}.kp-grp button,.kp-grp input{padding:5px 7px;font-size:11px}.kp-grp input{width:118px}',
+' .kp-body{padding:8px 6px 20px}.kp-sum{gap:4px 12px;font-size:11px;margin-bottom:6px}',
+' .kp-grid{grid-template-columns:repeat(10,1fr);gap:3px;max-width:none}',
+' .kp-c{aspect-ratio:auto;height:calc((100vh - 245px)/8);min-height:34px;max-height:52px;border-width:1px}.kp-c b{font-size:14px}.kp-c small{display:none}.kp-c i{font-size:9px;top:0;left:1px}',
+' .kp-c.mine{box-shadow:inset 0 0 0 2px #ffd54a}',
+' .kp-leg{font-size:9px;gap:4px 10px;margin:6px 0}',
+' .kp-det{position:fixed;left:0;right:0;bottom:0;z-index:5;margin:0;max-width:none;max-height:58vh;overflow:auto;border-top:2px solid #1e88e5;background:#0b0f18;padding:10px 12px}',
+' .kp-x{display:inline-block}.kp-det h3{font-size:14px}.kp-kv{gap:4px 12px;font-size:12px}',
+' .kp-t{font-size:11px}.kp-t th,.kp-t td{padding:4px 5px}.kp-t th:nth-child(2),.kp-t td:nth-child(2){display:none}',
+'}'
 ].join('\n');
 document.head.appendChild(css);
 })();
