@@ -6278,6 +6278,7 @@ var ICON2={
 };
 
 var ICON={
+  track3d:'<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 31c0-9 6-12 11-12 6 0 6 7 12 7 6 0 8-5 13-5"/><path d="M4 40h40"/><circle cx="37" cy="14" r="3"/><path d="M15 14l4-5h8l3 5"/></svg>',
   flag:'<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"><path d="M10 44V6"/><path d="M10 7h28l-5 8 5 8H10"/><path d="M17 7v16M24 7v16M31 7v16M10 15h28" stroke-width="1.2" opacity=".55"/></svg>',
   timer:'<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="24" cy="27" r="15"/><path d="M24 27l7-6M20 5h8M24 5v7M37 13l3-3"/></svg>',
   dice:'<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"><rect x="5" y="15" width="22" height="22" rx="4" transform="rotate(-12 16 26)"/><rect x="22" y="8" width="20" height="20" rx="4" transform="rotate(14 32 18)"/><circle cx="12" cy="24" r="1.8" fill="currentColor"/><circle cx="19" cy="31" r="1.8" fill="currentColor"/><circle cx="29" cy="14" r="1.8" fill="currentColor"/><circle cx="35" cy="22" r="1.8" fill="currentColor"/></svg>',
@@ -6291,7 +6292,7 @@ var ICON={
   search:'<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="20" cy="20" r="13"/><path d="M30 30l12 12"/><path d="M13 24v-4M18 24v-8M23 24v-6M28 24v-10" stroke-width="2"/></svg>',
   users:'<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="18" cy="16" r="7"/><path d="M4 40c1-8 7-12 14-12s13 4 14 12"/><circle cx="34" cy="14" r="5"/><path d="M34 24c5 0 9 3 10 9"/></svg>'
 };
-var ACC={endurance:'#d7263d',qualy:'#1e88e5',sorteio:'#f2a900',piloto:'#26c6da',tv:'#2fbf71',fila:'#4fc3f7',analise:'#ab47bc',pilotos:'#ff4d3d',estrategia:'#ff8f00',config:'#8c9eff',users:'#26c6a0'};
+var ACC={endurance:'#d7263d',qualy:'#1e88e5',sorteio:'#f2a900',piloto:'#26c6da',tv:'#2fbf71',fila:'#4fc3f7',analise:'#ab47bc',pilotos:'#ff4d3d',estrategia:'#ff8f00',tracado:'#2f6fd6',config:'#8c9eff',users:'#26c6a0'};
 var MESES=['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
 var TILES=[
   {id:'endurance', cls:'hero hero-end', area:'end', title:'Endurance', sub:'Gestão de prova ao vivo', tab:null, live:true},
@@ -6303,6 +6304,7 @@ var TILES=[
   {id:'analise', cls:'big', area:'ana', title:'Análise Pós-corrida', sub:'Raio-X da prova inteira', icon:'search', module:'post'},
   {id:'pilotos', area:'plt', title:'Pilotos', icon:'helmet', tab:'pilotos', module:'pil'},
   {id:'estrategia', area:'est', title:'Estratégia', icon:'chart', tab:'estrategia', module:'est'},
+  {id:'tracado', area:'trc', title:'Traçado 3D', icon:'track3d', tab:'tracado'},
   {id:'config', area:'cfg', title:'Configurar', icon:'gear', tab:'config'},
   {id:'users', area:'usr', title:'Usuários', icon:'users', tab:'users'}
 ];
@@ -6551,7 +6553,7 @@ css.textContent=[
 '.hub-user img{width:28px;height:28px;border-radius:50%;border:2px solid rgba(255,255,255,.3)}',
 '.hub-grid{flex:1;display:grid;gap:10px;padding:18px 5vw;min-height:0;',
 ' grid-template-columns:2fr 1.15fr .9fr .9fr;grid-template-rows:repeat(6,minmax(64px,1fr));',
-' grid-template-areas:"end sor tv fila" "end sor tv fila" "end ana plt est" "qua ana plt est" "qua pil cfg usr" "qua pil cfg usr"}',
+' grid-template-areas:"end sor tv fila" "end sor tv trc" "end ana plt est" "qua ana plt est" "qua pil cfg usr" "qua pil cfg usr"}',
 '.hub-tile{position:relative;overflow:hidden;border:0;border-radius:2px;background:var(--panel);color:#fff;text-align:left;padding:14px 16px;cursor:pointer;',
 ' display:flex;flex-direction:column;justify-content:flex-start;box-shadow:0 0 0 1px var(--line),0 10px 24px rgba(0,0,0,.35);',
 ' transition:transform .22s cubic-bezier(.2,.9,.3,1.2),box-shadow .22s ease,background .22s ease}',
@@ -6608,7 +6610,7 @@ css.textContent=[
 '.hub-toast.on{opacity:1;transform:translate(-50%,0)}',
 '.tab.tab-hub .tab-ic{background:#1565c0!important;color:#fff}',
 '@media(max-width:900px){.hub-grid{flex:none;grid-template-columns:1fr 1fr;grid-template-rows:180px 180px 150px 130px 116px 116px 116px;',
-' grid-template-areas:"end end" "qua qua" "sor pil" "ana ana" "tv fila" "plt est" "cfg usr"}.hub-tile.hero{min-height:170px}.hub-tile.big{min-height:130px}',
+' grid-template-areas:"end end" "qua qua" "sor pil" "ana ana" "tv fila" "trc trc" "plt est" "cfg usr"}.hub-tile.hero{min-height:170px}.hub-tile.big{min-height:130px}',
 ' .hub-badge{top:auto;bottom:10px}.hub-keys{display:none}.hub-news{min-width:0;flex:1}.hub-top:after{display:none}.hub-name b{font-size:22px}.hub-season{font-size:26px}',
 ' .hub-top{flex-wrap:wrap;gap:8px}.hub-status{justify-content:flex-start;gap:6px}.hs-clock,.hub-tag{display:none}.hs-user span small{display:none}.hub-track{width:140%;right:-30%;opacity:.1}.hub-hud{gap:10px}.hub-hud b{font-size:14px}}'
 ].join('\n');
@@ -10015,10 +10017,13 @@ V.mapGeo=function(){
   V._geo={key:key,P:P,cum:cum,len:cum[cum.length-1],W:W,H:H,d:P.map(function(p,i){ return (i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1); }).join('')+'Z'};
   return V._geo;
 };
-V.mapAt=function(f){ var G=V.mapGeo(), c=FK.cfg.mapCal||{}, dir=c.dir===-1?-1:1, off=+c.off||0;
+V.CALV='500v2';
+/* a calibracao antiga (sentido/ponto da largada) foi feita no tracado 500 Milhas ANTIGO; o novo ja parte da largada oficial no sentido horario, entao a antiga e ignorada ate alguem ajustar de novo */
+V.cal=function(){ var c=FK.cfg.mapCal||{}; if(((FK.cfg||{}).tracado||'500_milhas')==='500_milhas'&&c.trk!==V.CALV)return {dir:1,off:0,trk:V.CALV}; return c; };
+V.mapAt=function(f){ var G=V.mapGeo(), c=V.cal(), dir=c.dir===-1?-1:1, off=+c.off||0;
   f=((dir*f+off)%1+1)%1; var s=f*G.len, i=1; while(i<G.cum.length-1&&G.cum[i]<s)i++;
   var a=G.P[i-1], b=G.P[i%G.P.length], seg=(G.cum[i]-G.cum[i-1])||1, t=(s-G.cum[i-1])/seg; return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t]; };
-V.mapCal=function(k,v){ var c=FK.cfg.mapCal=Object.assign({dir:1,off:0},FK.cfg.mapCal||{}); if(k==='dir')c.dir=-c.dir; else c.off=((c.off+v)%1+1)%1;
+V.mapCal=function(k,v){ var c=FK.cfg.mapCal=Object.assign({dir:1,off:0},V.cal(),{trk:V.CALV}); if(k==='dir')c.dir=-c.dir; else c.off=((c.off+v)%1+1)%1;
   try{ localStorage.setItem('fkart_cfg',JSON.stringify(FK.cfg)); }catch(e){} try{ FK.pushCfgToCloud&&FK.pushCfgToCloud(); }catch(e){} V._mapSig=''; V.mapTick(); };
 V.mapFrac=function(d){
   var logs=FK.state.lapLog||{}, key=FK.findKartKey?FK.findKartKey(logs,d.kart):d.kart, L=key!=null?logs[key]:null, el=+FK.state.elapsed||0;
@@ -10082,7 +10087,7 @@ V.mapTick=function(){
     try{ inBox=FK.isKartInBoxNow&&FK.isKartInBoxNow(d.kart); }catch(e){}
     var xy, fr=0, cf=0, sp=0;
     if(inBox){ var n=mine?boxT++:boxF++; xy=mine?[60+n*64, G.H+102]:[150+n*26, G.H+52]; if(!mine&&xy[0]>G.W-160){ xy=[150+((n*26)%(G.W-320)), G.H+52+Math.floor(n*26/(G.W-320))*24]; } }
-    else { fr=V.mapFrac(d); sp=1/(V._lp||65); xy=V.mapAt(fr); var cc=FK.cfg.mapCal||{}, dd=cc.dir===-1?-1:1; cf=(((dd*fr+(+cc.off||0))%1)+1)%1; sp*=dd; }
+    else { fr=V.mapFrac(d); sp=1/(V._lp||65); xy=V.mapAt(fr); var cc=V.cal(), dd=cc.dir===-1?-1:1; cf=(((dd*fr+(+cc.off||0))%1)+1)%1; sp*=dd; }
     pos.push({k:k,d:d,mine:mine,box:inBox,xy:xy,cf:cf,sp:sp});
   });
   var use3=V.use3d();
@@ -10143,6 +10148,14 @@ cssL.textContent=[
 'html.evt #pane-tvpilotos .dash-cols>.dash-col:last-child>.dash-card:has(#tv-krono-grid){grid-column:1/-1}',
 '.ev-map-host{padding:0 10px}.ev-map-host svg{display:block;width:100%;height:auto;max-height:300px}',
 '.ev-map-host.m3d{padding:0;height:clamp(320px,44vh,520px);background:#0b0e14}.m3d-fr{display:block;width:100%;height:100%;border:0}',
+'html.evt #pane-tvpilotos .ev-map-host.m3d{height:clamp(230px,29vh,330px)}',
+/* TV com 5+ karts da equipe: uma unica fileira compacta (antes quebrava em 2 linhas e cortava embaixo) */
+'#tv-krono-grid.grid-fit:has(.krono-card:nth-child(5)){grid-template-columns:none!important;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}',
+'#tv-krono-grid:has(.krono-card:nth-child(5)) .krono-card{padding:6px 7px}',
+'#tv-krono-grid:has(.krono-card:nth-child(5)) .krono-timer{font-size:clamp(20px,1.75vw,28px)}',
+'#tv-krono-grid:has(.krono-card:nth-child(5)) .krono-badge{width:30px;height:30px;font-size:13px}',
+'#tv-krono-grid:has(.krono-card:nth-child(5)) .krono-name,#tv-krono-grid:has(.krono-card:nth-child(5)) .krono-pos-info{font-size:11px}',
+'#tv-krono-grid:has(.krono-card:nth-child(5)) .kr-cell .kv{font-size:12px}#tv-krono-grid:has(.krono-card:nth-child(5)) .kr-cell .kl{font-size:8px}',
 '#ev-map-pop .ev-map-host.m3d{height:calc(100vh - 150px)}#pane-tracado .ev-map-host.m3d{height:calc(100vh - 200px);min-height:360px}',
 '#ev-map-pop{position:fixed;inset:0;z-index:9005;background:rgba(5,7,12,.75);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:24px}',
 '#ev-map-pop .ev-mapcard{width:min(1300px,100%);background:#111723;box-shadow:0 0 0 1px rgba(255,255,255,.12),0 20px 60px rgba(0,0,0,.6);border-top:3px solid #d7263d}',

@@ -291,7 +291,7 @@ function poseKart(k){
 var FK3D=window.FK3D={
   update:function(list){var seen={};list.forEach(function(d,ix){var k=karts[d.num];seen[d.num]=1;
       if(!k){k=karts[d.num]={team:!!d.team,color:d.team?(d.color!=null?d.color:TEAMC):RED,frac:d.frac,tgt:d.frac,lane:d.lane||0,lap:d.lap||0};k.grp=mkKart(d.num,k.team,k.color);}
-      k.tgt=d.frac;k.spd=d.spd||0;if(d.lane!=null)k.lane=d.lane;k.lap=d.lap||0;k.rank=d.rank||0;k.num=d.num;});
+      k.meas=d.frac;k.spd=d.spd||0;if(!k.spd)k.tgt=d.frac;if(d.lane!=null)k.lane=d.lane;k.lap=d.lap||0;k.rank=d.rank||0;k.num=d.num;});
     Object.keys(karts).forEach(function(n){if(!seen[n]){scene.remove(karts[n].grp);delete karts[n];}});},
   karts:karts,
   setInfo:function(o){var c=document.getElementById('chip');if(!c)return;if(o&&o.box>0){c.style.display='block';c.textContent='BOX: '+o.box+(o.boxTeam&&o.boxTeam.length?' · equipe: '+o.boxTeam.join(', '):'');}else c.style.display='none';}
@@ -433,7 +433,7 @@ function wxStep(dt){var T=wxTarget(),k=Math.min(1,dt*1.2);if(window.WX_SNAP){ENV
 var last=performance.now();
 (function loop(now){requestAnimationFrame(loop);var dt=Math.min(.05,(now-last)/1000);last=now;
   if(!window.FK3D_LIVE)tickDemo(dt);
-  var tm=now/1000;Object.keys(karts).forEach(function(n){var k=karts[n];if(k.spd)k.tgt=(k.tgt+k.spd*dt)%1;var d=((k.tgt-k.frac+1.5)%1)-.5;k.frac+=d*Math.min(1,dt*8);poseKart(k);var u=k.grp.userData;if(u.gl){var s=14+Math.sin(tm*4)*2.2;u.gl.scale.set(s,s,1);u.ring.scale.setScalar(1+.12*Math.sin(tm*4));}});
+  var tm=now/1000;Object.keys(karts).forEach(function(n){var k=karts[n];if(k.spd){var er=((k.meas-k.tgt+1.5)%1)-.5;if(Math.abs(er)>.3)k.tgt=k.meas;else k.tgt=(k.tgt+Math.max(0,k.spd+er*1.5)*dt+1)%1;}var d=((k.tgt-k.frac+1.5)%1)-.5;k.frac+=d*Math.min(1,dt*8);poseKart(k);var u=k.grp.userData;if(u.gl){var s=14+Math.sin(tm*4)*2.2;u.gl.scale.set(s,s,1);u.ring.scale.setScalar(1+.12*Math.sin(tm*4));}});
   updCam(dt);wxStep(dt);drawRank(dt);drawProf(dt);renderer.render(scene,camera);})(last);
 })();
 </script></body></html>
