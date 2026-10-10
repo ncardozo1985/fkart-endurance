@@ -2150,7 +2150,7 @@ if(sb)sb.innerHTML='<span style="color:#ffb300">&#8987; Conectando...</span>';
    fica guardado so no servidor, nunca no client. */
 /* prova ENCERRADA (TimeToGo<=0): consulta o Race Monitor so a cada 5s e ignora resposta identica
    (antes seguia reconstruindo a tela inteira 1x/s sem dado novo -> CPU alta na TV) */
-raceOver:function(){ try{ if(FK.cfg.source!=='live'||FK.state.timeToGoSec==null)return false; return FK.state.timeToGoSec<=0&&(FK.state.elapsed||0)>0; }catch(e){ return false; } },
+raceOver:function(){ try{ var e=FK.state.elapsed||0, rem=(FK.cfg.source==='live'&&FK.state.timeToGoSec!=null)?FK.state.timeToGoSec:Math.max(0,FK.cfg.raceTotal-e); return rem<=0&&e>0; }catch(x){ return false; } },
 liveTick:function(){ if(FK.raceOver()){ FK._ovT=(FK._ovT||0)+1; if(FK._ovT%5)return; } else FK._ovT=0; FK.fetchLive(); },
 fetchLive:function(){
 var url='/api/live?raceId='+encodeURIComponent(FK.cfg.raceId);
@@ -3806,6 +3806,8 @@ startKronoInterval:function(){
     var onMobile=paneMobile&&paneMobile.classList.contains('on');
     var onTv=paneTv&&paneTv.classList.contains('on');
     if(!onGeral&&!onMobile&&!onTv)return;
+    /* prova encerrada ou aba oculta: cronometro parado (nao ha mais volta a contar) -- antes seguia escrevendo no DOM 20x/s */
+    if(document.hidden||FK.raceOver())return;
     FK.cfg.myKarts.forEach(function(k){
       var ks=FK.state.kronoState&&FK.state.kronoState[k];
       if(!ks||!ks.lapStartTs)return;
@@ -3830,10 +3832,10 @@ startKronoInterval:function(){
          de ser exibido. */
       ['kt-'+k,'kt-'+k+'-dg','kt-'+k+'-mob','kt-'+k+'-tv'].forEach(function(id){
         var tel=document.getElementById(id);
-        if(tel){tel.textContent=timerStr;tel.className='krono-timer'+lateCls;}
+        if(tel){ if(tel.textContent!==timerStr)tel.textContent=timerStr; var cn='krono-timer'+lateCls; if(tel.className!==cn)tel.className=cn; }
       });
     });
-  },50);
+  },100);
 },
 getMobKronoFilter:function(){
 var raw=null;
