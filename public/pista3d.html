@@ -25,14 +25,50 @@ body.embed .logo,body.embed .sub,body.embed .badge{display:none}
 #chip{position:absolute;left:50%;bottom:62px;transform:translateX(-50%);background:#0e131dd9;border:1px solid #3a2f12;color:#ffb74d;border-radius:16px;padding:4px 12px;font-size:12px;font-weight:700;letter-spacing:.04em;display:none}
 body.embed #elv,body.embed #hint{display:none}body.embed #wxb{top:14px}body.embed #wx{top:52px}
 @media(max-width:760px){#rank,#prof{display:none}#cams button{padding:6px 11px;font-size:11px}#wxb button{padding:4px 9px;font-size:11px}}
+
+#lcol,#fsb{display:none}
+#fsb{position:absolute;right:14px;top:14px;width:40px;height:34px;background:#0e131dd9;color:#fff;border:1px solid #2a3344;border-radius:8px;font-size:18px;line-height:1;cursor:pointer;pointer-events:auto;display:block}
+#lcol{position:absolute;left:12px;top:12px;bottom:12px;width:clamp(230px,24vw,330px);flex-direction:column;gap:8px;pointer-events:none}
+#tower{flex:1;min-height:0;background:#0b0e14e6;border-top:3px solid #e8232a;padding:6px 8px 4px;overflow:hidden;display:flex;flex-direction:column;backdrop-filter:blur(4px)}
+#tower h4{margin:0 0 5px;font-size:11px;letter-spacing:.16em;color:#9aa3b2;font-weight:800;display:flex;justify-content:space-between;text-transform:uppercase}
+#twl{flex:1;min-height:0;overflow:hidden}
+.tr{display:flex;align-items:center;gap:7px;height:26px;margin-bottom:2px;background:#131926d9;border-left:4px solid #2a3344;font-size:12.5px;font-weight:700}
+.tr .p{width:28px;height:100%;display:flex;align-items:center;justify-content:center;background:#f2f4f8;color:#0b0e14;font-weight:900;font-size:13px;flex-shrink:0}
+.tr .n{font-style:normal;font-weight:900;min-width:30px;text-align:center;padding:1px 5px;background:#8a93a4;color:#0b0e14;border-radius:2px;flex-shrink:0}
+.tr .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-transform:uppercase;letter-spacing:.03em;color:#e8ecf4}
+.tr .g{font-style:normal;margin-right:7px;color:#cfd6e4;font-variant-numeric:tabular-nums;font-size:12px;flex-shrink:0}
+.tr .g.bx{color:#ffb74d;font-weight:900;letter-spacing:.08em}
+.tr.t{border-left-color:var(--c);background:linear-gradient(90deg,color-mix(in srgb,var(--c) 38%,#131926),#131926d9 75%)}
+.tr.t .n{background:var(--c)}
+.tr.sep{height:14px;background:none;border:0;justify-content:center;color:#6c7689;letter-spacing:.3em;font-size:10px}
+#tcard{flex:none;display:none;background:#0b0e14e6;border-top:3px solid var(--c,#00e5ff);padding:8px 10px 9px;backdrop-filter:blur(4px)}
+#tcard.in{animation:tcIn .35s ease}
+@keyframes tcIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.tc-h{display:flex;align-items:center}
+.tc-n{font-style:normal;font-weight:900;font-size:18px;padding:1px 8px;background:var(--c);color:#04141a;border-radius:2px}
+.tc-p{font-size:20px;font-weight:900;margin-left:8px}
+.tc-pl{margin-left:auto;font-size:12px;color:#cfd6e4;text-transform:uppercase;max-width:52%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
+.tc-g{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 8px;margin-top:8px}
+.tc-g small{display:block;font-size:9px;letter-spacing:.12em;color:#8f9ab0;font-weight:700;text-transform:uppercase}
+.tc-g b{font-size:15px;font-variant-numeric:tabular-nums}
+.tc-f{margin-top:7px;font-size:11px;color:#ffb74d;font-weight:800;letter-spacing:.04em}
+.tc-dots{display:flex;gap:4px;margin-top:6px}.tc-dots i{width:16px;height:3px;background:#2a3344}.tc-dots i.on{background:var(--c)}
+@media(min-width:640px) and (min-height:380px){
+ body.embed #lcol{display:flex}
+ body.embed #wxb{left:auto;right:64px;top:14px;max-width:none}
+ body.embed #wx{left:auto;right:64px;top:52px}
+ body.embed #prof{display:none}
+ body.embed #rank{display:none}
+ body.embed #cams,body.embed #chip{left:calc(50% + clamp(115px,12vw,165px) + 12px)}
+}
 </style></head><body>
 <div id="hud">
   <div class="logo"><span class="f">F</span><span class="k">KART</span></div>
   <div class="sub">KGV · 500 Milhas · 1.104 m · horário · altitude GPS</div>
   <div class="badge" id="badge">DEMO · karts simulados</div>
-  <div id="chip"></div><div id="rank"><h4>Classificação</h4><div id="rl"></div></div>
+  <div id="chip"></div><div id="rank"><h4>Classificação</h4><div id="rl"></div></div><div id="lcol"><div id="tower"><h4><span>Classificação</span><span id="twr"></span></h4><div id="twl"></div></div><div id="tcard"></div></div><button id="fsb" title="Tela cheia">&#9974;</button>
   <div id="cams">
-    <button data-m="orbit" class="on">Órbita</button><button data-m="top">Topo</button><button data-m="heli">Traseira</button><button data-m="free">Livre</button>
+    <button data-m="orbit">Órbita</button><button data-m="top" class="on">Topo</button><button data-m="heli">Traseira</button><button data-m="free">Livre</button>
   </div>
   <div id="elv"><label>Elevação ×<span id="ev">2</span></label><input id="ex" type="range" min="1" max="12" step="1" value="2"></div>
   <canvas id="prof" width="520" height="110"></canvas>
@@ -292,9 +328,11 @@ function disposeKart(g){g.traverse(function(o){if(o.isSprite){var m=o.material;i
 var FK3D=window.FK3D={
   update:function(list){var seen={};list.forEach(function(d,ix){var k=karts[d.num];seen[d.num]=1;
       if(!k){k=karts[d.num]={team:!!d.team,color:d.team?(d.color!=null?d.color:TEAMC):RED,frac:d.frac,tgt:d.frac,lane:d.lane||0,lap:d.lap||0};k.grp=mkKart(d.num,k.team,k.color);}
-      k.meas=d.frac;k.spd=d.spd||0;if(!k.spd)k.tgt=d.frac;if(d.lane!=null)k.lane=d.lane;k.lap=d.lap||0;k.rank=d.rank||0;k.num=d.num;});
+      k.meas=d.frac;k.spd=d.spd||0;if(!k.spd)k.tgt=d.frac;if(d.lane!=null)k.lane=d.lane;k.lap=d.lap||0;k.rank=d.rank||0;k.num=d.num;k.name=d.name||'';k.gap=d.gap||'';});
     Object.keys(karts).forEach(function(n){if(!seen[n]){disposeKart(karts[n].grp);scene.remove(karts[n].grp);delete karts[n];}});},
   karts:karts,
+  setBoard:function(a){BOARD=a||[];},
+  setTeam:function(a){TEAMINFO=a||[];},
   setPaused:function(v){v=!!v;if(v===paused)return;paused=v;if(!v){last=performance.now();}},
   isPaused:function(){return paused;},
   setInfo:function(o){var c=document.getElementById('chip');if(!c)return;if(o&&o.box>0){c.style.display='block';c.textContent='BOX: '+o.box+(o.boxTeam&&o.boxTeam.length?' · equipe: '+o.boxTeam.join(', '):'');}else c.style.display='none';}
@@ -309,16 +347,18 @@ function tickDemo(dt){simT+=dt*TS;var arr=demo.map(function(d){var dist=d.base*L
   arr.sort(function(a,b){return b._d-a._d;});arr.forEach(function(a,i){a.rank=i+1;});FK3D.update(arr);}
 
 /* ---------- camera ---------- */
-var mode='orbit',ang=Math.PI*.9,elev=.62,rad=205,tgt=new THREE.Vector3(0,0,0),CY=function(){return (AMAX-AMIN)*EXAG*.4;},drag=null;
+var mode='top',topZ=1,ang=Math.PI*.9,elev=.62,rad=205,tgt=new THREE.Vector3(0,0,0),CY=function(){return (AMAX-AMIN)*EXAG*.4;},drag=null;
 function setMode(m){mode=m;[].forEach.call(document.querySelectorAll('#cams button'),function(b){b.classList.toggle('on',b.dataset.m===m);});if(m==='heli'){chaseI=chaseI;}if(m==='top'){elev=1.5;rad=230;}if(m==='orbit'||m==='free'){elev=.62;rad=205;}}
 function teamList(){var a=Object.keys(karts).filter(function(n){return karts[n].team;});return a.length?a:TEAM;}
 var chaseI=0;[].forEach.call(document.querySelectorAll('#cams button'),function(b){b.onclick=function(){if(b.dataset.m==='heli'&&mode==='heli')chaseI=(chaseI+1)%teamList().length;setMode(b.dataset.m);if(b.dataset.m==='heli')b.textContent='Traseira · #'+TEAM[chaseI];};});
-renderer.domElement.addEventListener('pointerdown',function(e){drag={x:e.clientX,y:e.clientY};if(mode==='orbit')mode='free';});
-addEventListener('pointerup',function(){drag=null;});
-addEventListener('pointermove',function(e){if(!drag)return;ang-=(e.clientX-drag.x)*.006;elev=Math.max(.15,Math.min(1.5,elev+(e.clientY-drag.y)*.005));drag={x:e.clientX,y:e.clientY};if(mode==='orbit'||mode==='top'||mode==='heli')setMode('free');});
-renderer.domElement.addEventListener('wheel',function(e){rad=Math.max(40,Math.min(520,rad*(1+e.deltaY*.001)));e.preventDefault();},{passive:false});
-addEventListener('resize',function(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+var ptrs={},pinch0=0;
+renderer.domElement.addEventListener('pointerdown',function(e){ptrs[e.pointerId]=[e.clientX,e.clientY];drag={x:e.clientX,y:e.clientY};if(mode==='orbit')mode='free';});
+addEventListener('pointerup',function(e){delete ptrs[e.pointerId];pinch0=0;drag=null;});addEventListener('pointercancel',function(e){delete ptrs[e.pointerId];pinch0=0;drag=null;});
+addEventListener('pointermove',function(e){if(ptrs[e.pointerId])ptrs[e.pointerId]=[e.clientX,e.clientY];var ks=Object.keys(ptrs);if(mode==='top'&&ks.length===2){var a=ptrs[ks[0]],b=ptrs[ks[1]],d=Math.hypot(a[0]-b[0],a[1]-b[1]);if(pinch0)topZ=Math.max(.5,Math.min(3,topZ*d/pinch0));pinch0=d;return;}if(mode==='top'&&EMBED)return;if(!drag)return;ang-=(e.clientX-drag.x)*.006;elev=Math.max(.15,Math.min(1.5,elev+(e.clientY-drag.y)*.005));drag={x:e.clientX,y:e.clientY};if(mode==='orbit'||mode==='top'||mode==='heli')setMode('free');});
+renderer.domElement.addEventListener('wheel',function(e){if(mode==='top')topZ=Math.max(.5,Math.min(3,topZ*(1-e.deltaY*.001)));else rad=Math.max(40,Math.min(520,rad*(1+e.deltaY*.001)));e.preventDefault();},{passive:false});
+addEventListener('resize',function(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);lastPW=-1;});
 function updCam(dt){
+  if(mode==='top'){var TP=topPose();camera.position.lerp(TP.pos,.18);tgt.lerp(TP.tgt,.25);camera.up.copy(TP.up);camera.lookAt(tgt);return;}
   if(mode==='orbit'&&!LITE)ang+=dt*.12;
   if(mode==='heli'){var tl=teamList();var k=karts[tl[chaseI%tl.length]];if(k&&k.pos){
       var T=k.tan.clone(),back=T.clone().multiplyScalar(-15),want=k.pos.clone().add(back);want.y=k.pos.y+6.2;
@@ -341,6 +381,61 @@ function drawProf(dt){pt+=dt;if(pt<.25)return;pt=0;if(!pc.offsetParent)return;va
   px.strokeStyle='#ff8a1f';px.lineWidth=2;px.beginPath();for(var i=0;i<=ALT.length;i++){var a=ALT[i%ALT.length];i?px.lineTo(X(i/ALT.length),Y(a)):px.moveTo(X(0),Y(a));}px.stroke();
   px.fillStyle='#8f9ab0';px.font='18px sans-serif';px.fillText('PERFIL DE ELEVAÇÃO · '+Math.round(AMIN)+'–'+Math.round(AMAX)+' m',pad,20);
   Object.keys(karts).forEach(function(n){var k=karts[n];if(k.alt==null)return;var f=((k.frac%1)+1)%1;px.beginPath();px.fillStyle=k.team?'#00e5ff':'#a33';px.arc(X(f),Y(k.alt),k.team?6:3,0,7);px.fill();if(k.team){px.strokeStyle='#fff';px.lineWidth=2;px.stroke();}});}
+/* ---------- VISAO DE TOPO + TORRE (classificacao estilo F1) + CARTAO DA EQUIPE ---------- */
+var BB=(function(){var a=1e9,b=-1e9,c=1e9,d=-1e9;pts.forEach(function(p){if(p.x<a)a=p.x;if(p.x>b)b=p.x;if(p.z<c)c=p.z;if(p.z>d)d=p.z;});return {cx:(a+b)/2,cz:(c+d)/2,w:b-a,h:d-c};})();
+var lastPW=-1,BOARD=[],TEAMINFO=[],tci=0,tct=0,tt=0,lastTW='',lastTC='',lastTK='';
+function panelW(){var l=document.getElementById('lcol');return (EMBED&&l&&l.offsetWidth)?l.offsetWidth+24:0;}
+function applyView(){var pw=panelW();if(pw===lastPW)return;lastPW=pw;camera.aspect=innerWidth/innerHeight;if(pw)camera.setViewOffset(innerWidth,innerHeight,-pw/2,0,innerWidth,innerHeight);else camera.clearViewOffset();camera.updateProjectionMatrix();}
+function topPose(){
+  var pw=panelW(),W=Math.max(200,innerWidth-pw),Hh=Math.max(100,innerHeight),a=W/Hh,t=Math.tan(22.5*Math.PI/180),w=BB.w+70,h=BB.h+70;
+  var H1=Math.max(h/(2*t),w/(2*t*a)),H2=Math.max(w/(2*t),h/(2*t*a)),rot=H2<H1*.9,H=(rot?H2:H1)*1.03/topZ;
+  return {pos:new THREE.Vector3(BB.cx,H+CY(),BB.cz),tgt:new THREE.Vector3(BB.cx,CY(),BB.cz),up:rot?new THREE.Vector3(1,0,0):new THREE.Vector3(0,0,-1)};
+}
+function hex6(c){return '#'+('000000'+(c==null?TEAMC:c).toString(16)).slice(-6);}
+function esc2(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function drawTower(dt,now){
+  tt+=dt;if(tt<.5)return;tt=0;
+  var L=document.getElementById('lcol');if(!L||!L.offsetWidth)return;
+  var twl=document.getElementById('twl'),twr=document.getElementById('twr'),tcard=document.getElementById('tcard');
+  var arr=(BOARD&&BOARD.length)?BOARD.slice():Object.keys(karts).map(function(n){var k=karts[n];return {num:k.num,rank:k.rank,name:k.name,gap:k.gap,lap:k.lap,team:k.team,color:k.team?k.color:null};});
+  arr=arr.filter(function(k){return k.rank;}).sort(function(a,b){return a.rank-b.rank;});
+  var cap=Math.max(3,Math.floor(twl.clientHeight/28));
+  function outside(top){return arr.filter(function(k){return k.team&&top.indexOf(k)<0;});}
+  var top=arr.slice(0,cap),miss=outside(top);
+  if(miss.length){top=arr.slice(0,Math.max(1,cap-Math.min(3,miss.length)-1));miss=outside(top).slice(0,3);}
+  function row(k){
+    var c=hex6(k.color),g=k.box?'<em class="g bx">BOX</em>':'<em class="g">'+esc2(k.rank===1?('V'+(k.lap||'')):(k.gap||''))+'</em>';
+    return '<div class="tr'+(k.team?' t':'')+'" style="--c:'+c+'"><b class="p">'+k.rank+'</b><i class="n">'+(parseInt(k.num,10)||esc2(k.num))+'</i><span class="nm">'+esc2(k.name||(k.team?'FKART':''))+'</span>'+g+'</div>';
+  }
+  var h=top.map(row).join('')+(miss.length?'<div class="tr sep">&bull;&bull;&bull;</div>'+miss.map(row).join(''):'');
+  if(h!==lastTW){lastTW=h;twl.innerHTML=h;}
+  var lead=arr[0];twr.textContent=lead&&lead.lap?'VOLTA '+lead.lap:'';
+  /* cartao da equipe: alterna entre os karts da equipe a cada 5 s */
+  if(!TEAMINFO.length){if(tcard.style.display!=='none')tcard.style.display='none';return;}
+  if(now-tct>5000){tct=now;tci=(tci+1)%TEAMINFO.length;}
+  var T=TEAMINFO[tci%TEAMINFO.length],c2=hex6(T.color);
+  function f(l,v,x){return '<div><small>'+l+(x?' '+x:'')+'</small><b>'+esc2(v==null||v===''?'—':v)+'</b></div>';}
+  var html='<div class="tc-h"><i class="tc-n">#'+(parseInt(T.num,10)||esc2(T.num))+'</i><b class="tc-p">P'+(T.pos||'–')+'</b><span class="tc-pl">'+esc2(T.pilot||'')+'</span></div>'+
+    '<div class="tc-g">'+f('Última',T.last)+f('Melhor',T.best)+f('Voltas',T.laps)+f('À frente',T.ahead,T.aheadKart?'#'+T.aheadKart:'')+f('Atrás',T.behind,T.behindKart?'#'+T.behindKart:'')+f('Paradas',T.stops)+'</div>'+
+    '<div class="tc-f">'+(T.box?'NO BOX AGORA':(T.next?'PRÓXIMA TROCA '+esc2(T.next)+(T.nextIn!=null?' · EM '+esc2(T.nextIn)+"'":'')+(T.nextP?' → '+esc2(T.nextP):''):''))+'</div>'+
+    (TEAMINFO.length>1?'<div class="tc-dots">'+TEAMINFO.map(function(x,i){return '<i'+(i===tci%TEAMINFO.length?' class="on"':'')+'></i>';}).join('')+'</div>':'');
+  tcard.style.setProperty('--c',c2);if(tcard.style.display!=='block')tcard.style.display='block';
+  var tk=String(T.num);if(tk!==lastTK){lastTK=tk;tcard.classList.remove('in');void tcard.offsetWidth;tcard.classList.add('in');}
+  if(html!==lastTC){lastTC=html;tcard.innerHTML=html;}
+}
+/* tela cheia: dentro do app pede ao pai (iframe); no arquivo solto usa a API do navegador */
+(function(){
+  var fsb=document.getElementById('fsb');
+  function req(){
+    if(EMBED&&window.parent!==window){try{parent.postMessage({fk3d:'fs'},'*');}catch(e){}return;}
+    var d=document,e=d.documentElement;
+    if(d.fullscreenElement||d.webkitFullscreenElement){(d.exitFullscreen||d.webkitExitFullscreen||function(){}).call(d);}
+    else{(e.requestFullscreen||e.webkitRequestFullscreen||function(){}).call(e);}
+  }
+  if(fsb)fsb.onclick=req;
+  renderer.domElement.addEventListener('dblclick',req);
+  addEventListener('keydown',function(e){if(e.key==='Escape'&&EMBED&&window.parent!==window){try{parent.postMessage({fk3d:'esc'},'*');}catch(x){}}});
+})();
 /* ---------- ranking ---------- */
 var rl=document.getElementById('rl'),rt=0;
 function drawRank(dt){rt+=dt;if(rt<.4)return;rt=0;if(!rl.offsetParent)return;var a=Object.keys(karts).map(function(n){return karts[n];}).sort(function(x,y){return (x.rank||99)-(y.rank||99);}).slice(0,10);
@@ -437,6 +532,6 @@ var last=performance.now();
 (function loop(now){if(paused||document.hidden){setTimeout(function(){requestAnimationFrame(loop);},paused?500:250);return;}requestAnimationFrame(loop);if(now-last<1000/FPS-2)return;var dt=Math.min(.1,(now-last)/1000);last=now;
   if(!window.FK3D_LIVE)tickDemo(dt);
   var tm=now/1000;Object.keys(karts).forEach(function(n){var k=karts[n];if(k.spd){var er=((k.meas-k.tgt+1.5)%1)-.5;if(Math.abs(er)>.3)k.tgt=k.meas;else k.tgt=(k.tgt+Math.max(0,k.spd+er*1.5)*dt+1)%1;}var d=((k.tgt-k.frac+1.5)%1)-.5;k.frac+=d*Math.min(1,dt*8);poseKart(k);var u=k.grp.userData;if(u.gl){var s=14+Math.sin(tm*4)*2.2;u.gl.scale.set(s,s,1);u.ring.scale.setScalar(1+.12*Math.sin(tm*4));}});
-  updCam(dt);wxStep(dt);drawRank(dt);drawProf(dt);renderer.render(scene,camera);})(last);
+  applyView();updCam(dt);wxStep(dt);drawRank(dt);drawTower(dt,now);drawProf(dt);renderer.render(scene,camera);})(last);
 })();
 </script></body></html>

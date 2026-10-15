@@ -6584,6 +6584,8 @@ setInterval(function(){ if(H.isOpen&&!document.querySelector('#fk-hub .hub-tile:
 
 /* entrada: #endurance/<tela> vai direto; sem # abre o menu */
 function boot(){
+  /* #tracado = modo quiosque: abre o Traçado direto e já em tela cheia (tablet/TV exclusivo) */
+  if(/^#tracado/.test(location.hash||'')){ window._fkKiosk3d=true; try{ history.replaceState(null,'',location.pathname+location.search+'#endurance/tracado'); }catch(e){} }
   var m=/^#endurance(?:\/([\w-]+))?/.exec(location.hash||'');
   if(m){ H.isOpen=false; H.everClosed=true; var t=m[1]&&document.getElementById('pane-'+m[1])?m[1]:(curTab()||firstAllowed());
     H.want=t; /* o login pode chegar depois: applyAuthUI aplica a tela pedida quando as permissoes carregarem */
@@ -7165,6 +7167,9 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return
 function pad(k){ k=parseInt(k,10); return (k<10?'0':'')+k; }
 function key(a,b){ return [String(a).toLowerCase(),String(b).toLowerCase()].sort().join('|'); }
 function lc(s){ return String(s||'').trim().toLowerCase(); }
+function lcn(s){ return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
+function initialsOf(n){ var w=String(n||'?').trim().split(/\s+/); return ((w[0]||'?')[0]+(w.length>1?w[w.length-1][0]:'')).toUpperCase(); }
+function hueOf(s){ var h=0; s=String(s||''); for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))%360; return h; }
 function nowTxt(ts){ var d=new Date(ts||Date.now()); return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
 function dayTxt(ts){ return new Date(ts||Date.now()).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}); }
 function sid(){ return Date.now().toString(36)+rnd(1e6).toString(36); }
@@ -7255,6 +7260,23 @@ var S=FK.sorteio={
     return {map:best,repSess:rs,repHist:rh};
   },
   /* ---------- 10/10/2026: ordenacao, piloto atrasado, pedido de troca ---------- */
+  /* foto do piloto (a mesma do cartão da aba Pilotos) ou iniciais; casa por apelido/nome sem acento */
+  pilot:function(n){
+    try{
+      var k=lcn(n), a=(FK.pil&&FK.pil.list)?FK.pil.list():(FK.getPilotos?FK.getPilotos():[]), i, f=[];
+      if(!k)return null;
+      for(i=0;i<a.length;i++){ if(lcn(a[i].apelido)===k||lcn(a[i].nome)===k)return a[i]; }
+      for(i=0;i<a.length;i++){ if(lcn(a[i].nome).split(/\s+/)[0]===k)f.push(a[i]); }
+      if(f.length===1)return f[0];
+    }catch(e){}
+    return null;
+  },
+  phInner:function(n){
+    var p=S.pilot(n), img=null;
+    try{ if(p&&FK.pil)img=FK.pil.photo(p,0)||FK.pil.photo(p,1); }catch(e){}
+    return img?'<img src="'+img+'" alt="">':'<b>'+esc(initialsOf(n))+'</b>';
+  },
+  ph:function(n,cls){ return '<span class="st-ph'+(cls?' '+cls:'')+'" style="--h:'+hueOf(n)+'">'+S.phInner(n)+'</span>'; },
   sortOf:function(m){ return (S.st.sort&&S.st.sort[m])||(m==='prova'?'kart':'sorteio'); },
   setSort:function(m,v){ if(!S.canEdit())return; S.st.sort=S.st.sort||{}; S.st.sort[m]=v; S.save(); S.render(true); },
   sortBar:function(m,ed){ if(!ed)return ''; var c=S.sortOf(m);
@@ -7463,7 +7485,7 @@ var S=FK.sorteio={
     S.finish(t); },
   miniCard:function(o,gr,i,anim){
     var d=document.createElement('div'); d.className='rv-mini'+(anim?' in':'');
-    d.innerHTML=(o.kartOnly?'':'<i>'+(i+1)+'</i>')+'<div>'+gr.map(function(p){ return '<p>'+(o.kartOnly?'<em>'+pad(p.k)+'</em><span>'+esc(p.n)+'</span>':'<span>'+esc(p.n)+'</span><em>'+pad(p.k)+'</em>')+'</p>'; }).join('')+'</div>';
+    d.innerHTML=(o.kartOnly?'':'<i>'+(i+1)+'</i>')+'<div>'+gr.map(function(p){ return '<p>'+S.ph(p.n,'sm')+(o.kartOnly?'<em>'+pad(p.k)+'</em><span>'+esc(p.n)+'</span>':'<span>'+esc(p.n)+'</span><em>'+pad(p.k)+'</em>')+'</p>'; }).join('')+'</div>';
     return d;
   },
   finish:function(t){ t.done=true; var p=document.getElementById('rv-prog'); if(p)p.innerHTML='<b class="rv-ok">SORTEIO CONCLUÍDO</b>';
@@ -7475,8 +7497,9 @@ var S=FK.sorteio={
     var gr=o.groups[i], st=document.getElementById('rv-stage'), pg=document.getElementById('rv-prog'); if(!st)return;
     if(pg)pg.innerHTML=(o.label?o.label+' ':'')+'<b>'+(i+1)+'</b> / '+o.groups.length;
     st.innerHTML='<div class="rv-card'+(o.kartOnly?' ko':'')+'">'+(o.label?'<div class="rv-n">'+esc(o.label)+' '+(i+1)+'</div>':'')+gr.map(function(p,j){
-      return '<div class="rv-row"><div class="rv-name" id="rvn'+j+'">'+(o.kartOnly?esc(p.n):'???')+'</div><div class="rv-kart" id="rvk'+j+'"><small>KART</small><b>??</b></div></div>'; }).join('')+'</div>';
-    var steps=[]; gr.forEach(function(p,j){ if(!o.kartOnly)steps.push({el:'rvn'+j, v:esc(p.n), pool:t.namePool, name:true}); steps.push({el:'rvk'+j, v:pad(p.k), pool:t.kartPool, name:false, j:j}); });
+      return '<div class="rv-row"><div class="rv-ph'+(o.kartOnly?'':' spin')+'" id="rvp'+j+'" style="--h:'+hueOf(p.n)+'">'+(o.kartOnly?S.phInner(p.n):'<b>?</b>')+'</div><div class="rv-name" id="rvn'+j+'">'+(o.kartOnly?esc(p.n):'???')+'</div><div class="rv-kart" id="rvk'+j+'"><small>KART</small><b>??</b></div></div>'; }).join('')+'</div>';
+    gr.forEach(function(p){ S.phInner(p.n); }); /* aquece as fotos (busca no servidor se ainda não estiverem no aparelho) */
+    var steps=[]; gr.forEach(function(p,j){ if(!o.kartOnly)steps.push({el:'rvn'+j, v:esc(p.n), pool:t.namePool, name:true, j:j}); steps.push({el:'rvk'+j, v:pad(p.k), pool:t.kartPool, name:false, j:j}); });
     var run=function(si){
       if(si>=steps.length){ S.later(t,function(){ var g=document.getElementById('rv-grid'); if(g){ g.appendChild(S.miniCard(o,gr,i,true)); g.scrollTop=g.scrollHeight; } t.i++; S.nextGroup(t); },700); return; }
       var s=steps[si], node=document.getElementById(s.el); if(!node)return;
@@ -7484,7 +7507,8 @@ var S=FK.sorteio={
       var dur=(s.name?850:(o.kartOnly?1500:950)), t0=Date.now(), last=0, iv;
       var tick=function(){ if(S._rv!==t){clearInterval(iv);return;}
         var el=(Date.now()-t0)*(t.speed||1), pgr=el/dur, gap=40+Math.pow(pgr,2.2)*260;
-        if(el>=dur){ clearInterval(iv); tgt.innerHTML=s.v; node.classList.remove('spin'); node.classList.add('lock'); S.lockSnd(); S.later(t,function(){ if(!s.name&&o.live&&o.swapKind&&S.swapOn())S.swapWin(t,gr[s.j],node,function(){ run(si+1); }); else run(si+1); },s.name?250:380); return; }
+        if(el>=dur){ clearInterval(iv); tgt.innerHTML=s.v; node.classList.remove('spin'); node.classList.add('lock'); S.lockSnd();
+          if(s.name){ var pb=document.getElementById('rvp'+s.j); if(pb){ pb.innerHTML=S.phInner(gr[s.j].n); pb.classList.remove('spin'); pb.classList.add('lock'); } } S.later(t,function(){ if(!s.name&&o.live&&o.swapKind&&S.swapOn())S.swapWin(t,gr[s.j],node,function(){ run(si+1); }); else run(si+1); },s.name?250:380); return; }
         if(Date.now()-last>=gap/(t.speed||1)){ last=Date.now(); var v=s.pool[rnd(s.pool.length)]; tgt.innerHTML=s.name?esc(v):pad(v); S.beep(s.name?1400:900,0.015,0.02); }
       };
       iv=setInterval(tick,16); t.ints.push(iv);
@@ -7536,12 +7560,12 @@ var S=FK.sorteio={
     return w;
   },
   duplasHTML:function(r,cls){
-    if(S.sortOf('qualy')!=='sorteio')return '<div class="st-pmap">'+S.sortList(S.flatQ(r),'qualy').map(function(x){ return '<div class="st-pm"><span class="st-k">'+pad(x.k)+'</span><span class="st-pn">'+esc(x.n)+'<small>dupla '+x.d+'</small></span></div>'; }).join('')+'</div>';
+    if(S.sortOf('qualy')!=='sorteio')return '<div class="st-pmap">'+S.sortList(S.flatQ(r),'qualy').map(function(x){ return '<div class="st-pm">'+S.ph(x.n,'sm')+'<span class="st-k">'+pad(x.k)+'</span><span class="st-pn">'+esc(x.n)+'<small>dupla '+x.d+'</small></span></div>'; }).join('')+'</div>';
     return '<div class="st-duplas">'+r.duplas.map(function(d,i){
       return '<div class="st-dupla '+(cls||'')+'"><div class="st-dn">'+(i+1)+'</div><div class="st-ps">'+d.map(function(p){
-        return '<div class="st-p"><span class="st-pn">'+esc(p.n)+'</span><span class="st-k">'+pad(p.k)+'</span></div>'; }).join('')+'</div></div>';
+        return '<div class="st-p">'+S.ph(p.n,'sm')+'<span class="st-pn">'+esc(p.n)+'</span><span class="st-k">'+pad(p.k)+'</span></div>'; }).join('')+'</div></div>';
     }).join('')+'</div>'; },
-  mapHTML:function(r){ return '<div class="st-pmap">'+S.sortList(r.map,'prova').map(function(x){ return '<div class="st-pm"><span class="st-k">'+pad(x.k)+'</span><span class="st-pn">'+esc(x.n)+'</span></div>'; }).join('')+'</div>'; },
+  mapHTML:function(r){ return '<div class="st-pmap">'+S.sortList(r.map,'prova').map(function(x){ return '<div class="st-pm">'+S.ph(x.n,'sm')+'<span class="st-k">'+pad(x.k)+'</span><span class="st-pn">'+esc(x.n)+'</span></div>'; }).join('')+'</div>'; },
   resultHTML:function(b){
     var r=S.st['b'+b];
     if(!r)return '<div class="st-empty">Bateria '+b+' ainda não sorteada</div>';
@@ -7735,6 +7759,15 @@ css.textContent=[
 '.st-sortb{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0;font-size:11px;letter-spacing:1px;color:#9aa4b8}',
 '.st-sortb button.on{background:#fff;color:#000}',
 '.st-pm small{color:#7f8aa0;margin-left:6px;font-size:10px}',
+/* caixinha de foto do piloto (mesmo estilo do cartão da aba Pilotos): moldura da cor do sorteio, canto cortado, iniciais quando não há foto */
+'.st-ph,.rv-ph{position:relative;flex-shrink:0;overflow:hidden;background:linear-gradient(160deg,hsl(var(--h,210) 45% 34%),hsl(var(--h,210) 50% 14%));box-shadow:0 0 0 2px var(--rc,#d7263d),0 6px 18px rgba(0,0,0,.5);clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,0 100%);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.9)}',
+'.st-ph img,.rv-ph img{width:100%;height:100%;object-fit:cover;object-position:center 20%;display:block}',
+'.st-ph b,.rv-ph b{font-style:italic;font-weight:900;letter-spacing:1px}',
+'.st-ph.sm{width:34px;height:34px;box-shadow:0 0 0 1px rgba(255,255,255,.25);clip-path:polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,0 100%)}.st-ph.sm b{font-size:13px}',
+'.st-pm .st-ph.sm,.st-p .st-ph.sm{width:38px;height:38px}.st-p{gap:10px}.st-p .st-pn,.rv-mini span{flex:1}',
+'.rv-ph{width:clamp(70px,8.5vw,128px);height:clamp(70px,8.5vw,128px);transition:filter .2s}.rv-ph b{font-size:clamp(26px,3.4vw,52px)}',
+'.rv-ph.spin{background:#2a3144;color:#8f9ab0;filter:blur(.6px)}.rv-ph.lock{animation:rvLockK .5s ease}',
+'.rv-mini .st-ph.sm{width:28px;height:28px}.rv-mini .st-ph.sm b{font-size:11px}',
 '@media(max-width:900px){.st-body,.st-bats,.st-turnos,.st-body.tv{grid-template-columns:1fr}.st-body.tv .st-duplas{grid-template-columns:1fr}.st-kgrid{grid-template-columns:repeat(8,1fr)}.st-title b{font-size:20px}.rv-card{padding:10px 14px 12px;width:84vw}.rv-row{gap:10px}.rv-ctl{width:100%}}'
 ].join('\n');
 document.head.appendChild(css);
@@ -9569,7 +9602,7 @@ var P=FK.pil={
     try{
       if(typeof firebase==='undefined'||!FK.state.authUser){ delete P._pend[k]; return; }
       firebase.firestore().collection('sync').doc('pf_'+k).get().then(function(sn){
-        var d=sn.exists&&sn.data(); if(d&&d.img){ P.photos[k]=d.img; try{ localStorage.setItem('fk_pf_'+k,JSON.stringify({v:v,img:d.img})); }catch(e){} if(P.isOpen)P.render(true); }
+        var d=sn.exists&&sn.data(); if(d&&d.img){ P.photos[k]=d.img; try{ localStorage.setItem('fk_pf_'+k,JSON.stringify({v:v,img:d.img})); }catch(e){} if(P.isOpen)P.render(true); else if(FK.sorteio&&FK.sorteio.isOpen&&!FK.sorteio._rv){ try{ FK.sorteio.render(true); }catch(e){} } }
       }).catch(function(e){ console.warn('foto piloto',e); }).then(function(){ delete P._pend[k]; });
     }catch(e){ delete P._pend[k]; }
   },
@@ -10918,33 +10951,70 @@ V.lite=function(host){ return /[?&]lite=1/.test(location.search+location.hash)||
 V.use3d=function(){ return ((FK.cfg||{}).tracado||'500_milhas')==='500_milhas'; };
 V._lane=function(k){ var n=parseInt(k,10)||0; return (((n*37)%100)/100-.5)*1.1; };
 V._hex=function(s){ if(typeof s==='string'&&/^#[0-9a-f]{6}$/i.test(s))return parseInt(s.slice(1),16); return null; };
+/* "visivel" tambem para o modo tela cheia (position:fixed nao tem offsetParent) */
+V.vis=function(h){ return !!(h&&(h.offsetWidth||h.offsetHeight||(h.getClientRects&&h.getClientRects().length))); };
+/* dados do cartão rotativo da equipe (um por kart da equipe): piloto, posição, tempos, gaps, paradas, próxima troca */
+V.teamInfo=function(o){
+  var d=o.d, k=o.k, I={num:k,color:null,pos:+d.pos||0,pilot:'',last:d.last,best:d.best,laps:d.laps,ahead:'',aheadKart:'',behind:'',behindKart:'',stops:'',next:'',nextIn:null,nextP:'',box:!!o.box};
+  try{ I.color=FK.est&&FK.est.kcol?FK.est.kcol(d.kart):null; }catch(e){}
+  try{ var Q=FK.state.pilotQueue||{}, A=FK.state.pilotQueueActiveIdx||{}, q=Q[k]||Q[d.kart]||[], ai=(A[k]!=null?A[k]:A[d.kart]); if(ai!=null&&q[ai])I.pilot=String(q[ai]); }catch(e){}
+  try{ var L=FK.est&&FK.est.live?FK.est.live(k):null; if(L){ if(L.ah){ I.ahead=String(L.gaT||'').replace('+','+'); I.aheadKart=String(parseInt(L.ah.kart,10)||L.ah.kart); } else I.ahead='líder'; if(L.bh){ I.behind=String(L.gbT||'').replace('+','−'); I.behindKart=String(parseInt(L.bh.kart,10)||L.bh.kart); } else I.behind='último'; } }catch(e){}
+  try{ var pc=FK.proj&&FK.proj.pitCounts?FK.proj.pitCounts(d):null, ru=FK.proj&&FK.proj.rulesFor?FK.proj.rulesFor(d.cat):null; if(pc&&ru)I.stops=(pc.short||0)+'/'+(ru.short||0)+(ru.long?' · longa '+(pc.long>=ru.long?'✓':'pend.'):''); }catch(e){}
+  try{ var n=V.next(k); if(n){ I.next=V.hm(n.at); I.nextIn=n.inMin; I.nextP=n.p||''; } }catch(e){}
+  return I;
+};
 V.tick3d=function(host,pos,boxN){
   host.classList.add('m3d');
   var fr=host.querySelector('iframe');
   if(!fr){
-    if(!host.offsetParent)return;
-    host.innerHTML=''; fr=document.createElement('iframe'); fr.className='m3d-fr'; fr.title='Traçado 3D'; fr._ok=false;
-    fr.onload=function(){ fr._ok=true; fr._sig=''; }; fr.src='pista3d.html?embed=1'+(V.lite(host)?'&lite=1':''); host.appendChild(fr); return;
+    if(!V.vis(host))return;
+    host.innerHTML=''; fr=document.createElement('iframe'); fr.className='m3d-fr'; fr.title='Traçado 3D'; fr._ok=false; fr.allowFullscreen=true; fr.setAttribute('allow','fullscreen');
+    fr.onload=function(){ fr._ok=true; fr._sig=''; }; fr.src='pista3d.html?embed=1'+(V.lite(host)?'&lite=1':''); host.appendChild(fr);
+    if(window._fkKiosk3d&&!host._kiosk){ host._kiosk=1; V.m3dMax(host,true); }
+    return;
   }
   if(!fr._ok)return;
   var w; try{ w=fr.contentWindow; }catch(e){ return; } if(!w||!w.FK3D||!w.FK3D.update)return;
   /* pausa o desenho (GPU ~0) com a aba oculta, mapa fora da tela ou prova encerrada */
-  var stop=!host.offsetParent||document.hidden||FK.raceOver(); try{ w.FK3D.setPaused(stop&&fr._drew); }catch(e){}
-  if(!host.offsetParent||document.hidden)return;
+  var stop=!V.vis(host)||document.hidden||FK.raceOver(); try{ w.FK3D.setPaused(stop&&fr._drew); }catch(e){}
+  if(!V.vis(host)||document.hidden)return;
   if(FK.raceOver()&&fr._drew)return; fr._drew=true;
-  var list=[], boxT=[];
+  var list=[], boxT=[], board=[], team=[];
   pos.forEach(function(o){
-    if(o.box){ if(o.mine)boxT.push(o.k); return; }
     var col=null; if(o.mine){ try{ col=V._hex(FK.est.kcol(o.d.kart)); }catch(e){} }
-    list.push({num:o.k,frac:o.cf,spd:o.sp,team:o.mine,color:col,lane:V._lane(o.k),rank:+o.d.pos||0,lap:o.d.laps||0});
+    board.push({num:o.k,rank:+o.d.pos||0,name:String(o.d.t||o.d.equipe||'').trim(),gap:o.d.gap||'',lap:o.d.laps||0,team:!!o.mine,color:col,box:!!o.box});
+    if(o.mine)team.push(V.teamInfo(o));
+    if(o.box){ if(o.mine)boxT.push(o.k); return; }
+    list.push({num:o.k,frac:o.cf,spd:o.sp,team:o.mine,color:col,lane:V._lane(o.k),rank:+o.d.pos||0,lap:o.d.laps||0,name:String(o.d.t||o.d.equipe||'').trim(),gap:o.d.gap||''});
   });
-  try{ w.FK3D.update(list); w.FK3D.setInfo({box:boxN,boxTeam:boxT}); }catch(e){}
+  team.sort(function(a,b){ return (a.pos||999)-(b.pos||999); });
+  team.forEach(function(t){ t.color=V._hex(t.color); });
+  try{ w.FK3D.update(list); w.FK3D.setInfo({box:boxN,boxTeam:boxT}); if(w.FK3D.setBoard)w.FK3D.setBoard(board); if(w.FK3D.setTeam)w.FK3D.setTeam(team); }catch(e){}
   var c=null; try{ c=FK.wx4&&FK.wx4.data&&FK.wx4.data.current; }catch(e){}
   if(c&&w.FK3D.setWeather){
     var wc=+c.weathercode||0, rain=(+c.precipitation>0.1)||(wc>=51&&wc<=67)||(wc>=80&&wc<=82)||wc>=95, night=c.is_day===0;
     var sig=night+'|'+rain; if(fr._sig!==sig){ fr._sig=sig; try{ w.FK3D.setWeather({night:night,rain:rain}); }catch(e){} }
   }
 };
+/* TELA CHEIA do traçado 3D (tablet/TV exclusivo): cobre a janela inteira; tenta também a API de tela cheia do navegador
+   (iPad não tem — lá a cobertura da janela já resolve; no Safari use "Adicionar à Tela de Início" para sumir a barra).
+   Atalhos: botão ⛶ dentro do mapa, duplo toque no mapa, Esc para sair. Endereço direto: #tracado */
+V.m3dMax=function(host,on){
+  if(!host)return;
+  if(on==null)on=!host.classList.contains('m3d-max');
+  host.classList.toggle('m3d-max',on); document.documentElement.classList.toggle('m3d-maxed',on);
+  try{
+    if(on){ var rq=host.requestFullscreen||host.webkitRequestFullscreen; if(rq&&!document.fullscreenElement&&!document.webkitFullscreenElement){ var pr=rq.call(host); if(pr&&pr.catch)pr.catch(function(){}); } }
+    else if(document.fullscreenElement||document.webkitFullscreenElement){ (document.exitFullscreen||document.webkitExitFullscreen).call(document); }
+  }catch(e){}
+};
+V.m3dHostOf=function(src){ var hs=document.querySelectorAll('.ev-map-host.m3d'); for(var i=0;i<hs.length;i++){ var f=hs[i].querySelector('iframe'); try{ if(f&&f.contentWindow===src)return hs[i]; }catch(e){} } return null; };
+window.addEventListener('message',function(e){
+  var d=e.data; if(!d||!d.fk3d)return; var h=V.m3dHostOf(e.source); if(!h)return;
+  if(d.fk3d==='fs')V.m3dMax(h); else if(d.fk3d==='esc'&&h.classList.contains('m3d-max'))V.m3dMax(h,false);
+});
+document.addEventListener('keydown',function(e){ if(e.key==='Escape'){ var h=document.querySelector('.ev-map-host.m3d.m3d-max'); if(h)V.m3dMax(h,false); } });
+document.addEventListener('fullscreenchange',function(){ if(!document.fullscreenElement){ var h=document.querySelector('.ev-map-host.m3d.m3d-max'); if(h)V.m3dMax(h,false); } });
 V.tabMap=function(){ var r=document.getElementById('trc3d-root'); if(!r)return; var c=V.mapCard('evt-map-tab'); if(c.parentNode!==r)r.appendChild(c); V.mapTick(); };
 V.BOXH=150;
 V.mapBuild=function(host){
@@ -11032,6 +11102,8 @@ cssL.textContent=[
 'body.tv-mode .krono-card.ev-lead,html.evt .krono-card.ev-lead{animation:none!important;box-shadow:inset 4px 0 0 var(--k),0 0 0 2px var(--k)!important}',
 'body.tv-mode .krono-card.in-box{animation:none!important;box-shadow:0 0 0 2px #ffc107!important}',
 '.ev-map-host.m3d{padding:0;height:clamp(320px,44vh,520px);background:#0b0e14}.m3d-fr{display:block;width:100%;height:100%;border:0}',
+'.ev-map-host.m3d.m3d-max{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;max-height:none!important;min-height:0!important;z-index:9100;background:#0b0e14;border-radius:0}',
+'html.m3d-maxed,html.m3d-maxed body{overflow:hidden}',
 'html.evt #pane-tvpilotos .ev-map-host.m3d{height:clamp(230px,29vh,330px)}',
 /* TV com 5+ karts da equipe: uma unica fileira compacta (antes quebrava em 2 linhas e cortava embaixo) */
 '#tv-krono-grid.grid-fit:has(.krono-card:nth-child(5)){grid-template-columns:none!important;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}',
