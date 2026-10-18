@@ -7922,6 +7922,8 @@ var Q=FK.qualy={
       if(d&&(d.updatedAt||0)>(Q.st.updatedAt||0)){ Q.st=d; Q.st.cfg=Object.assign({},Q.DEF,d.cfg||{}); try{localStorage.setItem(LS,JSON.stringify(Q.st));}catch(e){}
         try{ Q.afterSync(); }catch(e){ console.warn(e); }
         if(Q.isOpen&&!Q._rv){ var ae=document.activeElement; if(!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)&&ae.closest('#fk-qualy')))Q.render(true); } }
+      /* autocorreção (18/10/2026): se a nuvem ficou ATRÁS deste aparelho (um envio que falhou), reenvia uma vez; antes só puxava, e o celular nunca recebia a 2ª etapa */
+      else if(d&&(d.updatedAt||0)<(Q.st.updatedAt||0)&&!Q._healed&&(Q.st.events||[]).length&&Q.canEdit()){ Q._healed=1; try{ firebase.firestore().collection('sync').doc('qualy').set({json:JSON.stringify(Q.st),updatedAt:Q.st.updatedAt}).catch(function(e){console.warn('qualy heal',e);}); }catch(e){} }
     },function(){ Q._unsub=null; }); }catch(e){}
   },
   canEdit:function(){ try{ var p=FK.state.authProfile; if(!p)return true; return !!(p.isAdmin||(p.permissions&&p.permissions.config)); }catch(e){ return true; } },
