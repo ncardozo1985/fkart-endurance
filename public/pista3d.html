@@ -383,7 +383,7 @@ function tickDemo(dt){simT+=dt*TS;var arr=demo.map(function(d){var dist=d.base*L
 
 /* ---------- camera ---------- */
 var mode='top',topZ=1,ang=Math.PI*.9,elev=.62,rad=205,tgt=new THREE.Vector3(0,0,0),CY=function(){return (AMAX-AMIN)*EXAG*.4;},drag=null;
-function setMode(m){mode=m;[].forEach.call(document.querySelectorAll('#cams button'),function(b){b.classList.toggle('on',b.dataset.m===m);});if(m==='heli'){chaseI=chaseI;}if(m==='top'){elev=1.5;rad=230;}if(m==='orbit'||m==='free'){elev=.62;rad=205;}}
+var topSnap=120;function setMode(m){mode=m;if(m==='top')topSnap=120;[].forEach.call(document.querySelectorAll('#cams button'),function(b){b.classList.toggle('on',b.dataset.m===m);});if(m==='heli'){chaseI=chaseI;}if(m==='top'){elev=1.5;rad=230;}if(m==='orbit'||m==='free'){elev=.62;rad=205;}}
 function teamList(){var a=Object.keys(karts).filter(function(n){return karts[n].team;});return a.length?a:TEAM;}
 var chaseI=0;[].forEach.call(document.querySelectorAll('#cams button'),function(b){b.onclick=function(){if(b.dataset.m==='heli'&&mode==='heli')chaseI=(chaseI+1)%teamList().length;setMode(b.dataset.m);if(b.dataset.m==='heli')b.textContent='Traseira · #'+TEAM[chaseI];};});
 var ptrs={},pinch0=0;
@@ -393,7 +393,7 @@ addEventListener('pointermove',function(e){if(ptrs[e.pointerId])ptrs[e.pointerId
 renderer.domElement.addEventListener('wheel',function(e){if(mode==='top')topZ=Math.max(.5,Math.min(3,topZ*(1-e.deltaY*.001)));else rad=Math.max(40,Math.min(520,rad*(1+e.deltaY*.001)));e.preventDefault();},{passive:false});
 addEventListener('resize',function(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);lastPW=-1;});
 function updCam(dt){
-  if(mode==='top'){var TP=topPose();camera.position.lerp(TP.pos,.18);tgt.lerp(TP.tgt,.25);camera.up.copy(TP.up);camera.lookAt(tgt);return;}
+  if(mode==='top'){var TP=topPose(),kk1=topSnap>0?.6:.18,kk2=topSnap>0?.7:.25;topSnap--;camera.position.lerp(TP.pos,kk1);tgt.lerp(TP.tgt,kk2);camera.up.copy(TP.up);camera.lookAt(tgt);return;}
   if(mode==='orbit'&&!LITE)ang+=dt*.12;
   if(mode==='heli'){var tl=teamList();var k=karts[tl[chaseI%tl.length]];if(k&&k.pos){
       var T=k.tan.clone(),back=T.clone().multiplyScalar(-15),want=k.pos.clone().add(back);want.y=k.pos.y+6.2;
