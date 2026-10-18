@@ -196,7 +196,7 @@ function build(){
 
   // reta principal: trecho reto ao redor do indice 0
   var sI=0,eI=0;while(sI>-N/2&&Math.abs(kap[((sI-1)%N+N)%N])<.01)sI--;while(eI<N/2&&Math.abs(kap[(eI+1)%N])<.01)eI++;
-  var cen=new THREE.Vector3(0,0,0),dotc=n0.x*(cen.x-s0.x)+n0.z*(cen.z-s0.z),outer=dotc>0?-1:1;
+  var cen=new THREE.Vector3(0,0,0),dotc=n0.x*(cen.x-s0.x)+n0.z*(cen.z-s0.z),outer=dotc>0?-1:1;if(ITU)outer=n0.z>0?-1:1;
   // marcacoes do grid (colchetes) atras da linha
   var spac=LEN/N,wm=new THREE.MeshBasicMaterial({color:0xf2f4f8});
   function slab(w,d,x,z,y,ry){var s=new THREE.Mesh(new THREE.BoxGeometry(w,.05,d),wm);s.position.set(x,y,z);s.rotation.y=ry;world.add(s);}
