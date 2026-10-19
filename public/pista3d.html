@@ -274,13 +274,17 @@ function build(){
     })();
     // galpao/segundo bloco a esquerda
     (function(){var c=pm(342,685),ux=45,uz=150,rot=-Math.atan2(uz,ux);box(Math.hypot(ux,uz)*K,5,(50*K),c[0],hAt(c[0],c[1])-.15,c[1],rot,0xaeb4bf);})();
-    // predios principais (atras dos boxes)
-    slab(600,318,850,382,6.5,0x1c2a4a);slab(600,350,850,382,6.5,0xd9dcdf);
-    slab(865,262,1042,345,5,0xb9bcb8);
-    slab(740,228,1040,292,4,0x5b6270);
-    slab(975,108,1078,168,3.2,0x2f6fd6);slab(1030,168,1080,218,3.2,0x2f6fd6);
+    // predios principais (atras dos boxes) - deslocados para o norte ate liberar a pista e os boxes
+    var NB=[[600,318,850,382],[865,262,1042,345],[740,228,1040,292],[975,108,1078,168],[1030,168,1080,218]],MG=104,dy=0;
+    for(var q=0;q<N;q+=3){var ppx=pts[q].x/K+IT.CX,ppy=pts[q].z/K+IT.CY;
+      NB.forEach(function(b){if(ppx>b[0]-MG&&ppx<b[2]+MG&&ppy>b[1]-dy-MG&&ppy<b[3]-dy+MG&&ppy>b[1]-dy-MG){var need=(b[3]-dy)-(ppy-MG);if(need>0&&ppy<b[3]+MG)dy+=need;}});}
+    dy=Math.min(dy,150);
+    slab(600,318-dy,850,382-dy,6.5,0x1c2a4a);slab(600,350-dy,850,382-dy,6.5,0xd9dcdf);
+    slab(865,262-dy,1042,345-dy,5,0xb9bcb8);
+    slab(740,228-dy,1040,292-dy,4,0x5b6270);
+    slab(975,108-dy,1078,168-dy,3.2,0x2f6fd6);slab(1030,168-dy,1080,218-dy,3.2,0x2f6fd6);
     // estacionamento norte
-    lot(620,120,990,230,3);
+    lot(620,120-dy,990,230-dy,3);
   })();}
   // vegetacao
   var tp=0;tries=0;while(tp<230&&tries<2500){tries++;var x=TX0+R()*(TX1-TX0),z=TZ0+R()*(TZ1-TZ0),ni=nearestIdx(x,z);
