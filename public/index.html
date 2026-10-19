@@ -10386,6 +10386,18 @@ var P=FK.pil={
       '<label class="pp-f wide"><span>Observações</span><textarea id="pp-obs" rows="2"'+(ed?'':' disabled')+' onchange="FK.pil.set(\''+p.id+'\',\'obs\',this.value)" placeholder="Ex.: prefere stint curto, bom em pista molhada">'+esc(p.obs||'')+'</textarea></label>'+
       '<div class="pp-f wide"><span>Características</span><div class="pp-tags">'+TAGS.concat((p.attrs||[]).filter(function(a){return TAGS.indexOf(a)<0;})).map(function(a){ var on=(p.attrs||[]).indexOf(a)>=0; return '<button class="'+(on?'on':'')+'" '+(ed?'onclick="FK.pil.toggleTag(\''+p.id+'\',this.dataset.t)"':'disabled')+' data-t="'+esc(a)+'">'+esc(a)+'</button>'; }).join('')+'</div></div>'+
       '</div>';
+    /* saude e emergencia (so quem pode editar ve) */
+    if(ed){
+      var TS=['A+','A-','B+','B-','AB+','AB-','O+','O-'];
+      h+='<div class="pp-sub">DOCUMENTO, SAÚDE E EMERGÊNCIA <span class="q-mut" style="font-weight:400">visível só para quem edita</span></div><div class="pp-form">'+
+        '<label class="pp-f"><span>Tipo sanguíneo</span><select onchange="FK.pil.set(\''+p.id+'\',\'sangue\',this.value)"><option value="">--</option>'+TS.map(function(t){return '<option value="'+t+'"'+(p.sangue===t?' selected':'')+'>'+t+'</option>';}).join('')+'</select></label>'+
+        inp('cpf','CPF','text','000.000.000-00',' inputmode="numeric" maxlength="14" oninput="var d=this.value.replace(/\\D/g,\'\').slice(0,11);this.value=d.replace(/(\\d{3})(\\d)/,\'$1.$2\').replace(/(\\d{3})(\\d)/,\'$1.$2\').replace(/(\\d{3})(\\d{1,2})$/,\'$1-$2\')"')+
+        inp('nascimento','Data de nascimento','date','')+
+        inp('plano','Plano de saúde (operadora)','text','Ex.: Unimed, Bradesco Saúde, Amil')+inp('planoNum','Nº da carteirinha','text','Número do plano')+
+        inp('planoTipo','Tipo / abrangência do plano','text','Ex.: Nacional, enfermaria')+inp('alergias','Alergias e medicamentos de uso contínuo','text','Ex.: alergia a dipirona; nenhum')+
+        inp('emergNome','Contato de emergência (nome)','text','Nome e parentesco')+inp('emergTel','Contato de emergência (telefone)','tel','(11) 9....-....')+
+        '</div>';
+    }
     /* endurance */
     var mk=(FK.cfg&&FK.cfg.myKarts)||[], k1=p.kart||(p.karts&&p.karts[0])||'', k2=(p.karts&&p.karts[1])||'';
     var sel=function(slot,cur){ return '<select'+(ed?'':' disabled')+' onchange="FK.pil.setKart(\''+p.id+'\','+slot+',this.value)"><option value="">--</option>'+mk.map(function(k){return '<option value="'+esc(k)+'"'+(String(cur)===String(k)?' selected':'')+'>Kart '+esc(k)+'</option>';}).join('')+'</select>'; };
