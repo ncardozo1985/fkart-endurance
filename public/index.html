@@ -5057,6 +5057,29 @@ if(document.readyState!=='loading')FK.render();
 FK.initAuth();
 </script>
 <script>
+/* Lista oficial de pilotos FKART: completa o cadastro (so adiciona quem falta; nunca apaga nem renomeia) */
+(function(){
+  var NOMES=["Adriano Mamede", "Alberto Costoya", "Alexandre Albino", "Alexandre Grecco", "Arthur Feola", "Áureo Fiorita", "Bruno Rossi", "Carlos Barros", "Daniel Ramos", "Douglas Lima", "Douglas Mattos", "Duzinho", "Elias Costa", "Fabiano Júnior", "Fernando Goulart", "Gu Marques", "Hudson Camargo", "Lucas Antonacio", "Lucas Cruz", "Marcelo Comti", "Marcos Takuma", "Pablo", "Peru", "Rafael Pereira", "Raphael Cardozo", "Renato Leal", "Rodolfo Rodrigues", "Rodrigo Andreoli", "Rogerio Alviani", "Ronaldo Marcatto", "Silas Spartaco", "Theo Garcia", "Tiago Regis", "Vinícius Goulart", "Vinícius Terada"];
+  function norm(x){return FK._normNome(x).replace(/\s+/g,' ');}
+  function lev1(a,b){ if(a===b)return true; if(Math.abs(a.length-b.length)>1)return false; var i=0; while(i<a.length&&i<b.length&&a[i]===b[i])i++; if(a.length===b.length)return a.slice(i+1)===b.slice(i+1); return a.length>b.length?a.slice(i+1)===b.slice(i):b.slice(i+1)===a.slice(i); }
+  function same(a,b){ var x=norm(a),y=norm(b); if(x===y)return true; var tx=x.split(' '),ty=y.split(' ');
+    if(tx.length===1&&ty.indexOf(x)>=0)return true; if(ty.length===1&&tx.indexOf(y)>=0)return true;
+    return lev1(x,y); }
+  FK.completarPilotosFkart=function(){
+    var arr=FK.getPilotos(),add=0;
+    NOMES.forEach(function(n){ if(!arr.some(function(p){return same(p.nome,n);})){ arr.push({nome:n,apelido:'',kart:'',karts:['',''],ordem:arr.length+1,attrs:[]}); add++; } });
+    if(add){ FK.savePilotosLS(arr); FK.rPilotos&&FK.rPilotos(); FK.renderKartPilotsSetup&&FK.renderKartPilotsSetup(); }
+    return add;
+  };
+  var _a=FK.applyRemotePilotos,done=false;
+  FK.applyRemotePilotos=function(){
+    var r=_a.apply(FK,arguments);
+    if(!done){ done=true; try{ if(!localStorage.getItem('fk_roster_fkart_v2')){ FK.completarPilotosFkart(); localStorage.setItem('fk_roster_fkart_v2','1'); } }catch(e){} }
+    return r;
+  };
+})();
+</script>
+<script>
 /* =====================================================================================
    RADIO DO PILOTO v2 (pedido 22/09/2026)
    - v1 (speechSynthesis) nao funcionava: iPhone no silencioso corta a voz do navegador,
